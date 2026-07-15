@@ -75,8 +75,10 @@ fn save_then_load_roundtrips() {
         task: vec![],
     };
     let f = tempfile::NamedTempFile::new().unwrap();
-    perch::config::writer::save(f.path(), &cfg).unwrap();
-    let loaded = perch::config::load(f.path()).unwrap();
+    let path = f.path().to_path_buf();
+    drop(f);
+    perch::config::writer::save(&path, &cfg).unwrap();
+    let loaded = perch::config::load(&path).unwrap();
     assert_eq!(loaded.process[0].name, "app");
     assert_eq!(loaded.server.token, "tok");
 }
