@@ -116,6 +116,41 @@ async fn stream_logs_accepts_correct_query_token() {
 }
 
 #[tokio::test]
+async fn task_view_roundtrips_args_and_cwd() {
+    let (base, token, _tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "name": "t2", "cmd": "cmd", "args": ["/c", "echo", "hi"], "cwd": "C:\\work",
+        "schedule": "0 0 0 * * *", "enabled": false
+    });
+    let r = client.post(format!("{base}/api/tasks")).bearer_auth(&token)
+        .json(&body).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+
+    let list: serde_json::Value = client.get(format!("{base}/api/tasks"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    let view = &list["tasks"][0];
+    assert_eq!(view["args"], serde_json::json!(["/c", "echo", "hi"]));
+    assert_eq!(view["cwd"], "C:\\work");
+
+    // Simulate a toggle: PUT back the view's own fields with enabled flipped.
+    let put_body = serde_json::json!({
+        "name": view["name"], "cmd": view["cmd"], "args": view["args"], "cwd": view["cwd"],
+        "schedule": view["schedule"], "enabled": true
+    });
+    let r = client.put(format!("{base}/api/tasks/t2")).bearer_auth(&token)
+        .json(&put_body).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+
+    let list: serde_json::Value = client.get(format!("{base}/api/tasks"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    let view = &list["tasks"][0];
+    assert_eq!(view["args"], serde_json::json!(["/c", "echo", "hi"]));
+    assert_eq!(view["cwd"], "C:\\work");
+    assert_eq!(view["enabled"], true);
+}
+
+#[tokio::test]
 async fn create_task_rejects_bad_cron() {
     let (base, token, _tmp) = spawn_server().await;
     let client = reqwest::Client::new();

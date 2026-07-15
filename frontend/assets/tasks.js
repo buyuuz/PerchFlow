@@ -64,7 +64,7 @@ async function deleteTask(name) {
 async function toggleEnabled(name, enabled) {
   const t = cachedTasks.find(x => x.name === decodeURIComponent(name));
   if (!t) return;
-  const body = { name: t.name, cmd: t.cmd, args: t.args || [], schedule: t.schedule, enabled };
+  const body = { name: t.name, cmd: t.cmd, args: t.args || [], cwd: t.cwd, schedule: t.schedule, enabled };
   await api(`/api/tasks/${name}`, { method: 'PUT', body: JSON.stringify(body) });
   loadTasks();
 }
@@ -90,7 +90,7 @@ function editTask(name) {
   document.getElementById('task-name').value = t.name;
   document.getElementById('task-name').disabled = true;
   document.getElementById('task-cmd').value = t.cmd;
-  document.getElementById('task-args').value = '';
+  document.getElementById('task-args').value = (t.args || []).join(' ');
   document.getElementById('task-schedule').value = t.schedule;
   document.getElementById('task-enabled').checked = t.enabled;
   document.getElementById('task-err').classList.add('hidden');
@@ -119,7 +119,8 @@ async function submitTaskModal() {
     errEl.classList.remove('hidden');
     return;
   }
-  const body = { name, cmd, args, schedule, enabled };
+  const cwd = editingName ? cachedTasks.find(x => x.name === editingName)?.cwd : undefined;
+  const body = { name, cmd, args, cwd, schedule, enabled };
   const path = editingName ? `/api/tasks/${encodeURIComponent(editingName)}` : '/api/tasks';
   const method = editingName ? 'PUT' : 'POST';
   const resp = await api(path, { method, body: JSON.stringify(body) });

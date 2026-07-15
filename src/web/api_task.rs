@@ -21,6 +21,8 @@ pub struct TaskView {
     pub name: String,
     pub schedule: String,
     pub cmd: String,
+    pub args: Vec<String>,
+    pub cwd: Option<String>,
     pub enabled: bool,
     pub last_run: Option<String>,
     pub last_exit_code: Option<i32>,
@@ -36,6 +38,7 @@ async fn build_view(ctx: &WebContext, name: &str) -> Option<TaskView> {
     };
     Some(TaskView {
         name: t.name.clone(), schedule: t.schedule.clone(), cmd: t.cmd.clone(),
+        args: t.args.clone(), cwd: t.cwd.clone(),
         enabled: t.enabled, last_run, last_exit_code,
     })
 }
