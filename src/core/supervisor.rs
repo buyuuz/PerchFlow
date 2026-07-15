@@ -8,14 +8,21 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
+/// 一个正在被监督的进程实例。`cancel` 用于请求停止;`done` 在监督任务彻底
+/// 结束(已写入终态并从注册表移除)后触发,使 stop() 能等待旧实例完全退场。
+struct Instance {
+    cancel: CancellationToken,
+    done: CancellationToken,
+}
+
 pub struct Supervisor {
     state: SharedState,
-    stops: Mutex<HashMap<String, CancellationToken>>,
+    instances: Mutex<HashMap<String, Instance>>,
 }
 
 impl Supervisor {
     pub fn new(state: SharedState) -> Arc<Self> {
-        Arc::new(Self { state, stops: Mutex::new(HashMap::new()) })
+        Arc::new(Self { state, instances: Mutex::new(HashMap::new()) })
     }
 
     async fn find_def(&self, name: &str) -> Result<ProcessDef> {
@@ -24,6 +31,9 @@ impl Supervisor {
             .ok_or_else(|| PerchError::Process(format!("unknown process: {name}")))
     }
 
+    /// 启动进程。注册表中存在同名实例即视为已在运行,直接返回。由于监督任务
+    /// 是注册表唯一的移除者,且 stop() 会等待旧任务彻底退场后才返回,任一时刻
+    /// 每个 name 至多只有一个存活实例——从而杜绝双实例并发写同一 runtime。
     pub async fn start(self: &Arc<Self>, name: &str) -> Result<()> {
         let def = self.find_def(name).await?;
         let runtime = {
@@ -31,38 +41,42 @@ impl Supervisor {
             procs.get(name).cloned()
                 .ok_or_else(|| PerchError::Process(format!("no runtime: {name}")))?
         };
-        let token = CancellationToken::new();
+        let inst = Instance { cancel: CancellationToken::new(), done: CancellationToken::new() };
+        let (cancel, done) = (inst.cancel.clone(), inst.done.clone());
         {
-            let mut stops = self.stops.lock().await;
-            if stops.contains_key(name) {
+            let mut instances = self.instances.lock().await;
+            if instances.contains_key(name) {
                 return Ok(()); // 已在运行
             }
-            stops.insert(name.to_string(), token.clone());
+            instances.insert(name.to_string(), inst);
         }
         let this = self.clone();
         let name_owned = name.to_string();
         tokio::spawn(async move {
-            this.supervise_loop(def, runtime, token, name_owned).await;
+            this.supervise_loop(def, runtime, cancel, name_owned).await;
+            done.cancel(); // 终态已写入、注册表已移除,通知等待方旧实例已退场
         });
         Ok(())
     }
 
+    /// 请求停止并等待监督任务彻底结束。任务是终态的唯一写入者,故 stop() 返回
+    /// 时 runtime 状态已确定,且注册表中该 name 已空,后续 start() 不会与旧任务重叠。
     pub async fn stop(&self, name: &str) -> Result<()> {
-        let token = { self.stops.lock().await.remove(name) };
-        if let Some(t) = token {
-            t.cancel();
-        }
-        if let Some(rt) = self.state.procs.read().await.get(name).cloned() {
-            let mut r = rt.write().await;
-            r.status = ProcStatus::Stopped;
-            r.pid = None;
+        let done = {
+            let instances = self.instances.lock().await;
+            match instances.get(name) {
+                Some(inst) => { inst.cancel.cancel(); Some(inst.done.clone()) }
+                None => None,
+            }
+        };
+        if let Some(done) = done {
+            done.cancelled().await;
         }
         Ok(())
     }
 
     pub async fn restart(self: &Arc<Self>, name: &str) -> Result<()> {
         self.stop(name).await?;
-        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
         self.start(name).await
     }
 
@@ -77,7 +91,7 @@ impl Supervisor {
     }
 
     pub async fn shutdown(&self) {
-        let names: Vec<String> = { self.stops.lock().await.keys().cloned().collect() };
+        let names: Vec<String> = { self.instances.lock().await.keys().cloned().collect() };
         for n in names {
             let _ = self.stop(&n).await;
         }
@@ -89,7 +103,7 @@ impl Supervisor {
         self: Arc<Self>,
         def: ProcessDef,
         runtime: std::sync::Arc<tokio::sync::RwLock<crate::core::state::ProcRuntime>>,
-        token: CancellationToken,
+        cancel: CancellationToken,
         name: String,
     ) {
         let mut backoff = Backoff::new(def.restart.backoff_secs, def.restart.backoff_max_secs);
@@ -97,10 +111,10 @@ impl Supervisor {
         // 取消路径一律为 Stopped,自然退出为真实状态。无论走哪条 break,终态都必被写入,
         // 且这次写入在时序上晚于本次迭代内 spawn_process / classify_exit 的所有中间写入。
         let terminal = loop {
-            if token.is_cancelled() {
+            if cancel.is_cancelled() {
                 break ProcStatus::Stopped;
             }
-            match run_child(&def, &runtime, &token).await {
+            match run_child(&def, &runtime, &cancel).await {
                 ChildOutcome::SpawnError => break ProcStatus::Crashed,
                 ChildOutcome::Cancelled => break ProcStatus::Stopped,
                 ChildOutcome::Exited(status) => match classify_exit(&def, &runtime, status).await {
@@ -109,7 +123,7 @@ impl Supervisor {
                         let delay = backoff.next_delay();
                         tokio::select! {
                             _ = tokio::time::sleep(delay) => {}
-                            _ = token.cancelled() => break ProcStatus::Stopped,
+                            _ = cancel.cancelled() => break ProcStatus::Stopped,
                         }
                     }
                 },
@@ -120,7 +134,9 @@ impl Supervisor {
             r.status = terminal;
             r.pid = None;
         }
-        self.stops.lock().await.remove(&name);
+        // 监督任务是注册表唯一的移除者,且任一时刻每个 name 至多一个实例,
+        // 故按 name 移除是安全的,不会误删其它实例。
+        self.instances.lock().await.remove(&name);
     }
 }
 
@@ -249,7 +265,7 @@ mod tests {
             let rt = state.procs.read().await.get("p").cloned().unwrap();
             assert_eq!(rt.read().await.status, ProcStatus::Stopped);
             // stops 表中不应残留该进程的 token,否则下一轮 start() 会被误判为已在运行。
-            assert!(!sup.stops.lock().await.contains_key("p"));
+            assert!(!sup.instances.lock().await.contains_key("p"));
         }
     }
 
@@ -277,7 +293,35 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(300)).await;
         let rt = state.procs.read().await.get("p").cloned().unwrap();
         assert_eq!(rt.read().await.status, ProcStatus::Stopped);
-        assert!(!sup.stops.lock().await.contains_key("p"));
+        assert!(!sup.instances.lock().await.contains_key("p"));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn restart_never_leaves_stopped_or_orphan() {
+        // restart() = stop()+start()。因为 stop() 会等待旧监督任务彻底退场
+        // (done 信号)才返回,新实例绝不会与旧实例重叠:旧任务的终态写入不会
+        // 覆盖新实例的 Running,旧任务也不会误删新实例的注册表条目。
+        // 多次 restart 后进程必须仍处于 Running。
+        let def = ProcessDef {
+            name: "p".into(), cmd: "cmd".into(),
+            args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
+            cwd: None, env: HashMap::new(), autostart: false,
+            restart: RestartConfig { policy: RestartPolicy::Never, ..Default::default() },
+        };
+        let state = AppState::new(cfg_with(def), PathBuf::from("perch.toml"));
+        let sup = Supervisor::new(state.clone());
+        sup.start("p").await.unwrap();
+        for i in 0..5 {
+            sup.restart("p").await.unwrap();
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+            let rt = state.procs.read().await.get("p").cloned().unwrap();
+            let status = rt.read().await.status;
+            assert_eq!(status, ProcStatus::Running, "iteration {i}: status={status:?}");
+            assert!(sup.instances.lock().await.contains_key("p"), "iteration {i}: missing instance");
+        }
+        sup.stop("p").await.unwrap();
+        let rt = state.procs.read().await.get("p").cloned().unwrap();
+        assert_eq!(rt.read().await.status, ProcStatus::Stopped);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
