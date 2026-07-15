@@ -98,26 +98,17 @@ impl Supervisor {
                 // stop() 已在本次 spawn 前取消,避免再次拉起进程覆盖已写入的 Stopped 状态。
                 break;
             }
-            let mut child = match spawn_process(&def, runtime.clone()).await {
-                Ok(c) => c,
-                Err(_) => {
+            match run_child(&def, &runtime, &token).await {
+                ChildOutcome::SpawnError => {
                     runtime.write().await.status = ProcStatus::Crashed;
                     break;
                 }
-            };
-            let stopped = tokio::select! {
-                status = child.wait() => Some(status),
-                _ = token.cancelled() => {
-                    let _ = child.kill().await;
-                    None
-                }
-            };
-            match stopped {
-                None => {
-                    // 收到 stop 信号,退出循环(stop() 已置 Stopped)
+                ChildOutcome::Cancelled => {
+                    // 本循环是取消路径上唯一权威写入者,顺序晚于 spawn_process 的写入。
+                    mark_stopped(&runtime).await;
                     break;
                 }
-                Some(status) => {
+                ChildOutcome::Exited(status) => {
                     if handle_exit(&def, &runtime, status).await {
                         break;
                     }
@@ -131,6 +122,43 @@ impl Supervisor {
         }
         self.stops.lock().await.remove(&name);
     }
+}
+
+enum ChildOutcome {
+    SpawnError,
+    Cancelled,
+    Exited(std::io::Result<std::process::ExitStatus>),
+}
+
+/// 拉起子进程并等待其退出或收到取消信号。取消检查在 spawn_process().await
+/// 返回之后进行,确保写入顺序晚于 spawn_process 内部的 Running 写入。
+async fn run_child(
+    def: &ProcessDef,
+    runtime: &std::sync::Arc<tokio::sync::RwLock<crate::core::state::ProcRuntime>>,
+    token: &CancellationToken,
+) -> ChildOutcome {
+    let mut child = match spawn_process(def, runtime.clone()).await {
+        Ok(c) => c,
+        Err(_) => return ChildOutcome::SpawnError,
+    };
+    if token.is_cancelled() {
+        let _ = child.kill().await;
+        return ChildOutcome::Cancelled;
+    }
+    tokio::select! {
+        status = child.wait() => ChildOutcome::Exited(status),
+        _ = token.cancelled() => {
+            let _ = child.kill().await;
+            ChildOutcome::Cancelled
+        }
+    }
+}
+
+/// 将 runtime 标记为 Stopped 并清空 pid,用于取消路径上的权威终态写入。
+async fn mark_stopped(runtime: &std::sync::Arc<tokio::sync::RwLock<crate::core::state::ProcRuntime>>) {
+    let mut r = runtime.write().await;
+    r.status = ProcStatus::Stopped;
+    r.pid = None;
 }
 
 /// 处理一次子进程退出:更新状态与重启计数,返回 true 表示应结束监督循环(不再重启)。
@@ -224,6 +252,30 @@ mod tests {
             assert_eq!(rt.read().await.status, ProcStatus::Stopped);
             // stops 表中不应残留该进程的 token,否则下一轮 start() 会被误判为已在运行。
             assert!(!sup.stops.lock().await.contains_key("p"));
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn stop_immediately_after_start_stress_multi_thread() {
+        // 多线程 runtime 下真实存在 spawn_process().await 与 stop() 并发执行的窗口
+        // (单线程 runtime 下几乎不可能触发)。循环多次以增加命中该窗口的概率。
+        let def = ProcessDef {
+            name: "p".into(), cmd: "cmd".into(),
+            args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
+            cwd: None, env: HashMap::new(), autostart: false,
+            restart: RestartConfig { policy: RestartPolicy::Never, ..Default::default() },
+        };
+        let state = AppState::new(cfg_with(def), PathBuf::from("perch.toml"));
+        let sup = Supervisor::new(state.clone());
+
+        for i in 0..20 {
+            sup.start("p").await.unwrap();
+            sup.stop("p").await.unwrap();
+            tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+
+            let rt = state.procs.read().await.get("p").cloned().unwrap();
+            let status = rt.read().await.status;
+            assert_eq!(status, ProcStatus::Stopped, "iteration {i}: status={status:?}");
         }
     }
 }
