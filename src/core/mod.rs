@@ -5,3 +5,4 @@ pub mod state;
 pub mod process;
 pub mod supervisor;
 pub mod scheduler;
+pub mod metrics;
