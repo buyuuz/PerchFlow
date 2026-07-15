@@ -10,7 +10,9 @@ pub fn show() -> anyhow::Result<()> {
         print!("选择: ");
         io::stdout().flush().ok();
         let mut line = String::new();
-        io::stdin().read_line(&mut line)?;
+        if io::stdin().read_line(&mut line)? == 0 {
+            break; // stdin 关闭(EOF / 非交互环境),退出避免空读死循环
+        }
         match line.trim() {
             "1" => privileged("install")?,
             "2" => privileged("uninstall")?,
