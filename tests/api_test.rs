@@ -74,6 +74,21 @@ async fn create_task_and_run_now() {
 }
 
 #[tokio::test]
+async fn recent_logs_empty_for_new_process() {
+    let (base, token, _tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "name": "app", "cmd": "ping", "args": [],
+        "restart": { "policy": "never", "backoff_secs": 2, "backoff_max_secs": 60, "max_retries": 0 }
+    });
+    client.post(format!("{base}/api/processes")).bearer_auth(&token).json(&body).send().await.unwrap();
+    let v: serde_json::Value = client.get(format!("{base}/api/processes/app/logs?lines=10"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(v["name"], "app");
+    assert!(v["lines"].as_array().unwrap().is_empty());
+}
+
+#[tokio::test]
 async fn create_task_rejects_bad_cron() {
     let (base, token, _tmp) = spawn_server().await;
     let client = reqwest::Client::new();
