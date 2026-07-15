@@ -1,0 +1,82 @@
+const params = new URLSearchParams(window.location.search);
+const procName = params.get('name') || '';
+let liveOn = true;
+let eventSource = null;
+
+const STATUS_LABEL = { running: '运行中', stopped: '已停止', crashed: '已崩溃', restarting: '重启中' };
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function fmtUptime(secs) {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  return `${h}h ${m}m ${s}s`;
+}
+
+async function loadProcess() {
+  const resp = await api(`/api/processes/${encodeURIComponent(procName)}`);
+  if (!resp.ok) return;
+  const p = await resp.json();
+  document.getElementById('proc-name').textContent = p.name;
+  document.getElementById('proc-status').textContent = STATUS_LABEL[p.status] || p.status;
+  document.getElementById('proc-pid').textContent = p.pid != null ? p.pid : '---';
+  document.getElementById('proc-cpu').textContent = p.cpu_percent.toFixed(1) + '%';
+  document.getElementById('proc-mem').textContent = Math.round(p.mem_bytes / 1024 / 1024) + ' MB';
+  document.getElementById('proc-uptime').textContent = fmtUptime(p.uptime_secs);
+  document.getElementById('proc-cmd').textContent = p.cmd;
+}
+
+function renderLine(line) {
+  return `<div class="flex gap-4 hover:bg-white/[0.02] px-1 -mx-1 rounded-sm transition-colors"><span class="text-on-surface-variant break-all">${escapeHtml(line)}</span></div>`;
+}
+
+async function loadRecentLogs() {
+  const lines = document.getElementById('lines-select').value;
+  const data = await apiJson(`/api/processes/${encodeURIComponent(procName)}/logs?lines=${lines}`);
+  const el = document.getElementById('log-content');
+  el.innerHTML = data.lines.map(renderLine).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function startStream() {
+  if (eventSource) return;
+  const token = getToken();
+  eventSource = new EventSource(`/api/logs/stream/${encodeURIComponent(procName)}?token=${encodeURIComponent(token)}`);
+  eventSource.onmessage = (ev) => {
+    const data = JSON.parse(ev.data);
+    const el = document.getElementById('log-content');
+    el.innerHTML = data.lines.map(renderLine).join('');
+    el.scrollTop = el.scrollHeight;
+  };
+}
+
+function stopStream() {
+  if (eventSource) { eventSource.close(); eventSource = null; }
+}
+
+function toggleLive() {
+  liveOn = !liveOn;
+  const toggle = document.getElementById('live-toggle');
+  const track = toggle.querySelector('.toggle-track');
+  const thumb = toggle.querySelector('.toggle-thumb');
+  track.classList.toggle('bg-primary/20', liveOn);
+  thumb.classList.toggle('translate-x-4', liveOn);
+  if (liveOn) startStream(); else stopStream();
+}
+
+async function act(action) {
+  await api(`/api/processes/${encodeURIComponent(procName)}/${action}`, { method: 'POST' });
+  loadProcess();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelector('#live-toggle .toggle-track').classList.add('bg-primary/20');
+  document.querySelector('#live-toggle .toggle-thumb').classList.add('translate-x-4');
+  loadProcess();
+  loadRecentLogs();
+  startStream();
+  setInterval(loadProcess, 3000);
+});

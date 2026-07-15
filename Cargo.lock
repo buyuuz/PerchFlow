@@ -982,6 +982,7 @@ dependencies = [
  "chrono",
  "cron",
  "futures",
+ "mime_guess",
  "reqwest",
  "rust-embed",
  "serde",

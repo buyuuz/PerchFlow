@@ -19,11 +19,16 @@ pub struct WebContext {
 }
 
 pub fn build_router(ctx: WebContext) -> Router {
+    // route_layer only applies to routes merged in before it's called, so the
+    // SSE stream route (merged after) stays outside the header-auth group.
+    // EventSource can't send an Authorization header, so it validates its
+    // own `?token=` query param instead (see api_logs::stream_logs).
     let api = Router::new()
         .merge(api_process::routes())
         .merge(api_task::routes())
         .merge(api_logs::routes())
-        .route_layer(middleware::from_fn_with_state(ctx.clone(), auth::require_token));
+        .route_layer(middleware::from_fn_with_state(ctx.clone(), auth::require_token))
+        .merge(api_logs::stream_routes());
 
     Router::new()
         .nest("/api", api)

@@ -89,6 +89,33 @@ async fn recent_logs_empty_for_new_process() {
 }
 
 #[tokio::test]
+async fn stream_logs_rejects_without_query_token() {
+    // Missing required `token` query param is rejected by axum's Query
+    // extractor with 400 before the handler's own 401 check ever runs.
+    let (base, _, _tmp) = spawn_server().await;
+    let resp = reqwest::get(format!("{base}/api/logs/stream/app")).await.unwrap();
+    assert_eq!(resp.status(), 400);
+}
+
+#[tokio::test]
+async fn stream_logs_rejects_wrong_query_token() {
+    let (base, _, _tmp) = spawn_server().await;
+    let resp = reqwest::get(format!("{base}/api/logs/stream/app?token=wrong")).await.unwrap();
+    assert_eq!(resp.status(), 401);
+}
+
+#[tokio::test]
+async fn stream_logs_accepts_correct_query_token() {
+    let (base, token, _tmp) = spawn_server().await;
+    let resp = reqwest::get(format!("{base}/api/logs/stream/app?token={token}")).await.unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(
+        resp.headers().get("content-type").unwrap(),
+        "text/event-stream"
+    );
+}
+
+#[tokio::test]
 async fn create_task_rejects_bad_cron() {
     let (base, token, _tmp) = spawn_server().await;
     let client = reqwest::Client::new();

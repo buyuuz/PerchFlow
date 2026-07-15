@@ -4,13 +4,8 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Process Details - Perch</title>
-<!-- Fonts -->
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
-<!-- Material Symbols -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="/assets/fonts.css" rel="stylesheet"/>
+<link href="/assets/tailwind.css" rel="stylesheet"/>
 <style>
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
@@ -31,94 +26,6 @@
             background: rgba(255, 255, 255, 0.2);
         }
     </style>
-<!-- Tailwind Config -->
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "inverse-surface": "#dde3e5",
-                        "error-container": "#93000a",
-                        "on-primary-fixed-variant": "#004e59",
-                        "on-error": "#690005",
-                        "surface-container-highest": "#2f3637",
-                        "secondary-container": "#304d5a",
-                        "on-secondary-fixed-variant": "#2e4b57",
-                        "secondary": "#adcbda",
-                        "secondary-fixed": "#c9e7f7",
-                        "on-background": "#dde3e5",
-                        "on-tertiary-fixed": "#2e1500",
-                        "surface-container": "#1a2122",
-                        "tertiary-fixed-dim": "#ffb77b",
-                        "on-secondary-fixed": "#001f2a",
-                        "on-secondary-container": "#9fbdcc",
-                        "surface-container-high": "#252b2c",
-                        "primary-container": "#00bcd4",
-                        "on-secondary": "#163440",
-                        "tertiary-fixed": "#ffdcc2",
-                        "surface-bright": "#343a3c",
-                        "background": "#0e1416",
-                        "tertiary": "#ffb87b",
-                        "primary-fixed-dim": "#44d8f1",
-                        "primary": "#44d8f1",
-                        "on-primary": "#00363e",
-                        "secondary-fixed-dim": "#adcbda",
-                        "on-tertiary-container": "#633400",
-                        "surface-container-lowest": "#090f11",
-                        "inverse-on-surface": "#2b3133",
-                        "tertiary-container": "#f19640",
-                        "inverse-primary": "#006876",
-                        "on-surface-variant": "#bbc9cc",
-                        "error": "#ffb4ab",
-                        "on-primary-container": "#004650",
-                        "on-error-container": "#ffdad6",
-                        "surface-tint": "#44d8f1",
-                        "outline": "#869396",
-                        "on-tertiary-fixed-variant": "#6d3a00",
-                        "outline-variant": "#3c494c",
-                        "surface": "#0e1416",
-                        "surface-dim": "#0e1416",
-                        "surface-variant": "#2f3637",
-                        "primary-fixed": "#a1efff",
-                        "on-primary-fixed": "#001f25",
-                        "on-surface": "#dde3e5",
-                        "on-tertiary": "#4c2700",
-                        "surface-container-low": "#161d1e"
-                    },
-                    "borderRadius": {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
-                    "spacing": {
-                        "container-padding": "24px",
-                        "gutter": "16px",
-                        "card-gap": "12px",
-                        "unit": "4px"
-                    },
-                    "fontFamily": {
-                        "body-md": ["Inter"],
-                        "headline-md": ["Inter"],
-                        "mono-data": ["JetBrains Mono"],
-                        "body-sm": ["Inter"],
-                        "headline-lg": ["Inter"],
-                        "mono-label": ["JetBrains Mono"]
-                    },
-                    "fontSize": {
-                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
-                        "headline-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
-                        "mono-data": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
-                        "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
-                        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
-                        "mono-label": ["13px", { "lineHeight": "16px", "fontWeight": "500" }]
-                    }
-                }
-            }
-        }
-    </script>
 </head>
 <body class="bg-background text-on-background min-h-screen flex flex-col font-body-md antialiased selection:bg-primary-container/30 selection:text-primary">
 <!-- Abstract Gradient Background for OS Depth -->
@@ -131,28 +38,28 @@
 <!-- Header Section -->
 <header class="flex flex-col md:flex-row md:items-center justify-between gap-gutter pb-gutter border-b border-white/5">
 <div class="flex items-center gap-4">
-<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition-colors text-on-surface-variant hover:text-primary group">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition-colors text-on-surface-variant hover:text-primary group" onclick="window.location.href='/processes'">
 <span class="material-symbols-outlined text-[20px] group-hover:-translate-x-1 transition-transform">arrow_back</span>
 </button>
 <div class="flex items-center gap-3">
-<h1 class="font-headline-lg text-headline-lg text-on-surface">api-gateway.exe</h1>
+<h1 class="font-headline-lg text-headline-lg text-on-surface" id="proc-name">-</h1>
 <!-- Technical Badge -->
 <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-primary-container/10 border border-primary/20">
 <div class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-<span class="font-mono-label text-mono-label text-primary">运行中</span>
+<span class="font-mono-label text-mono-label text-primary" id="proc-status">-</span>
 </div>
 </div>
 </div>
 <div class="flex items-center gap-card-gap">
-<button class="flex items-center gap-2 px-4 py-2 rounded-DEFAULT border border-outline-variant text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors font-body-sm">
+<button class="flex items-center gap-2 px-4 py-2 rounded-DEFAULT border border-outline-variant text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors font-body-sm" onclick="act('stop')">
 <span class="material-symbols-outlined text-[18px]">stop</span>
                     停止
                 </button>
-<button class="flex items-center gap-2 px-4 py-2 rounded-DEFAULT border border-primary/30 text-primary hover:bg-primary/10 transition-colors font-body-sm">
+<button class="flex items-center gap-2 px-4 py-2 rounded-DEFAULT border border-primary/30 text-primary hover:bg-primary/10 transition-colors font-body-sm" onclick="act('restart')">
 <span class="material-symbols-outlined text-[18px]">restart_alt</span>
                     重启
                 </button>
-<button class="flex items-center gap-2 px-4 py-2 rounded-DEFAULT bg-primary text-on-primary hover:bg-primary-fixed transition-colors font-body-sm shadow-[0_0_15px_rgba(68,216,241,0.2)]">
+<button class="flex items-center gap-2 px-4 py-2 rounded-DEFAULT bg-primary text-on-primary hover:bg-primary-fixed transition-colors font-body-sm shadow-[0_0_15px_rgba(68,216,241,0.2)]" onclick="act('start')">
 <span class="material-symbols-outlined text-[18px]">play_arrow</span>
                     启动
                 </button>
@@ -164,30 +71,24 @@
 <!-- Data Items -->
 <div class="flex flex-col gap-1">
 <span class="font-body-sm text-body-sm text-on-surface-variant">PID</span>
-<span class="font-mono-data text-mono-data text-on-surface">14892</span>
+<span class="font-mono-data text-mono-data text-on-surface" id="proc-pid">-</span>
 </div>
 <div class="flex flex-col gap-1">
 <span class="font-body-sm text-body-sm text-on-surface-variant">CPU 使用率</span>
-<span class="font-mono-data text-mono-data text-primary">2.4%</span>
+<span class="font-mono-data text-mono-data text-primary" id="proc-cpu">-</span>
 </div>
 <div class="flex flex-col gap-1">
 <span class="font-body-sm text-body-sm text-on-surface-variant">内存占用</span>
-<span class="font-mono-data text-mono-data text-on-surface">142.5 MB</span>
+<span class="font-mono-data text-mono-data text-on-surface" id="proc-mem">-</span>
 </div>
 <div class="flex flex-col gap-1">
 <span class="font-body-sm text-body-sm text-on-surface-variant">运行时间</span>
-<span class="font-mono-data text-mono-data text-on-surface">14h 22m 10s</span>
-</div>
-<div class="flex flex-col gap-1 col-span-2 md:col-span-4 mt-2">
-<span class="font-body-sm text-body-sm text-on-surface-variant">工作目录</span>
-<div class="bg-black/20 px-3 py-1.5 rounded-DEFAULT border border-white/5 overflow-x-auto terminal-scroll">
-<span class="font-mono-data text-mono-data text-on-surface whitespace-nowrap">C:\Deployments\Production\api-gateway\v2.1.0</span>
-</div>
+<span class="font-mono-data text-mono-data text-on-surface" id="proc-uptime">-</span>
 </div>
 <div class="flex flex-col gap-1 col-span-2 md:col-span-4">
 <span class="font-body-sm text-body-sm text-on-surface-variant">启动命令</span>
 <div class="bg-black/20 px-3 py-1.5 rounded-DEFAULT border border-white/5 overflow-x-auto terminal-scroll">
-<span class="font-mono-data text-mono-data text-on-surface whitespace-nowrap">node server.js --env production --port 8080 --cluster max</span>
+<span class="font-mono-data text-mono-data text-on-surface whitespace-nowrap" id="proc-cmd">-</span>
 </div>
 </div>
 </div>
@@ -202,16 +103,16 @@
                 </h2>
 <div class="flex items-center gap-gutter">
 <!-- Lines Selector -->
-<select class="bg-surface-container border border-outline-variant text-on-surface-variant font-body-sm text-body-sm rounded-DEFAULT px-3 py-1 focus:ring-1 focus:ring-primary focus:border-primary outline-none">
-<option>100 行</option>
-<option selected="">500 行</option>
-<option>1000 行</option>
+<select class="bg-surface-container border border-outline-variant text-on-surface-variant font-body-sm text-body-sm rounded-DEFAULT px-3 py-1 focus:ring-1 focus:ring-primary focus:border-primary outline-none" id="lines-select" onchange="loadRecentLogs()">
+<option value="100">100 行</option>
+<option selected="" value="500">500 行</option>
+<option value="1000">1000 行</option>
 </select>
 <!-- Glass Toggle -->
-<div class="flex items-center gap-2 cursor-pointer group" onclick="this.querySelector('.toggle-thumb').classList.toggle('translate-x-4'); this.querySelector('.toggle-track').classList.toggle('bg-primary/20'); this.querySelector('.toggle-thumb').classList.toggle('bg-primary'); this.querySelector('.toggle-thumb').classList.toggle('bg-outline');">
+<div class="flex items-center gap-2 cursor-pointer group" id="live-toggle" onclick="toggleLive()">
 <span class="font-body-sm text-body-sm text-on-surface-variant group-hover:text-on-surface transition-colors">实时</span>
 <div class="toggle-track w-8 h-4 bg-primary/20 rounded-full p-[2px] transition-colors border border-white/10 backdrop-blur-md relative flex items-center">
-<div class="toggle-thumb w-3 h-3 bg-primary rounded-full transform translate-x-4 transition-transform shadow-sm"></div>
+<div class="toggle-thumb w-3 h-3 bg-primary rounded-full transform transition-transform shadow-sm"></div>
 </div>
 </div>
 </div>
@@ -225,48 +126,10 @@
 <div class="w-2 h-2 rounded-full bg-primary/50"></div>
 </div>
 <!-- Log Content -->
-<div class="p-gutter overflow-y-auto terminal-scroll flex-grow font-mono-data text-mono-data space-y-1">
-<div class="flex gap-4 hover:bg-white/[0.02] px-1 -mx-1 rounded-sm transition-colors">
-<span class="text-surface-variant w-[140px] flex-shrink-0">2023-10-27 14:22:10</span>
-<span class="text-primary w-12 flex-shrink-0">[INFO]</span>
-<span class="text-on-surface-variant break-all">Starting api-gateway cluster in production mode...</span>
-</div>
-<div class="flex gap-4 hover:bg-white/[0.02] px-1 -mx-1 rounded-sm transition-colors">
-<span class="text-surface-variant w-[140px] flex-shrink-0">2023-10-27 14:22:11</span>
-<span class="text-primary w-12 flex-shrink-0">[INFO]</span>
-<span class="text-on-surface-variant break-all">Worker 1 (PID 14892) listening on port 8080</span>
-</div>
-<div class="flex gap-4 hover:bg-white/[0.02] px-1 -mx-1 rounded-sm transition-colors">
-<span class="text-surface-variant w-[140px] flex-shrink-0">2023-10-27 14:22:11</span>
-<span class="text-primary w-12 flex-shrink-0">[INFO]</span>
-<span class="text-on-surface-variant break-all">Worker 2 (PID 14894) listening on port 8080</span>
-</div>
-<div class="flex gap-4 hover:bg-white/[0.02] px-1 -mx-1 rounded-sm transition-colors">
-<span class="text-surface-variant w-[140px] flex-shrink-0">2023-10-27 14:25:03</span>
-<span class="text-tertiary-container w-12 flex-shrink-0">[WARN]</span>
-<span class="text-tertiary-fixed-dim break-all">High latency detected on endpoint /api/v2/metrics (450ms)</span>
-</div>
-<div class="flex gap-4 hover:bg-white/[0.02] px-1 -mx-1 rounded-sm transition-colors">
-<span class="text-surface-variant w-[140px] flex-shrink-0">2023-10-27 14:30:12</span>
-<span class="text-error w-12 flex-shrink-0">[ERR]</span>
-<span class="text-error-container break-all">Connection timeout to Redis cache server at 10.0.1.45:6379</span>
-</div>
-<div class="flex gap-4 hover:bg-white/[0.02] px-1 -mx-1 rounded-sm transition-colors">
-<span class="text-surface-variant w-[140px] flex-shrink-0">2023-10-27 14:30:15</span>
-<span class="text-primary w-12 flex-shrink-0">[INFO]</span>
-<span class="text-on-surface-variant break-all">Reconnected to Redis cache successfully.</span>
-</div>
-<div class="flex gap-4 hover:bg-white/[0.02] px-1 -mx-1 rounded-sm transition-colors">
-<span class="text-surface-variant w-[140px] flex-shrink-0">2023-10-27 14:45:00</span>
-<span class="text-primary w-12 flex-shrink-0">[INFO]</span>
-<span class="text-on-surface-variant break-all">Processed 15,000 requests in the last hour. Mem usage stable at 142.5 MB.</span>
-</div>
-<!-- Blinking Cursor -->
-<div class="flex gap-4 px-1 -mx-1 mt-2">
-<span class="w-2 h-[14px] bg-primary animate-[pulse_1s_step-end_infinite] mt-[2px]"></span>
-</div>
-</div>
+<div class="p-gutter overflow-y-auto terminal-scroll flex-grow font-mono-data text-mono-data space-y-1" id="log-content"></div>
 </div>
 </section>
 </main>
+<script src="/assets/app.js"></script>
+<script src="/assets/process-detail.js"></script>
 </body></html>

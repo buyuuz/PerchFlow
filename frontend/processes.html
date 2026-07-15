@@ -4,96 +4,8 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Perch Orchestrator - 进程</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "inverse-surface": "#dde3e5",
-                        "error-container": "#93000a",
-                        "on-primary-fixed-variant": "#004e59",
-                        "on-error": "#690005",
-                        "surface-container-highest": "#2f3637",
-                        "secondary-container": "#304d5a",
-                        "on-secondary-fixed-variant": "#2e4b57",
-                        "secondary": "#adcbda",
-                        "secondary-fixed": "#c9e7f7",
-                        "on-background": "#dde3e5",
-                        "on-tertiary-fixed": "#2e1500",
-                        "surface-container": "#1a2122",
-                        "tertiary-fixed-dim": "#ffb77b",
-                        "on-secondary-fixed": "#001f2a",
-                        "on-secondary-container": "#9fbdcc",
-                        "surface-container-high": "#252b2c",
-                        "primary-container": "#00bcd4",
-                        "on-secondary": "#163440",
-                        "tertiary-fixed": "#ffdcc2",
-                        "surface-bright": "#343a3c",
-                        "background": "#0e1416",
-                        "tertiary": "#ffb87b",
-                        "primary-fixed-dim": "#44d8f1",
-                        "primary": "#44d8f1",
-                        "on-primary": "#00363e",
-                        "secondary-fixed-dim": "#adcbda",
-                        "on-tertiary-container": "#633400",
-                        "surface-container-lowest": "#090f11",
-                        "inverse-on-surface": "#2b3133",
-                        "tertiary-container": "#f19640",
-                        "inverse-primary": "#006876",
-                        "on-surface-variant": "#bbc9cc",
-                        "error": "#ffb4ab",
-                        "on-primary-container": "#004650",
-                        "on-error-container": "#ffdad6",
-                        "surface-tint": "#44d8f1",
-                        "outline": "#869396",
-                        "on-tertiary-fixed-variant": "#6d3a00",
-                        "outline-variant": "#3c494c",
-                        "surface": "#0e1416",
-                        "surface-dim": "#0e1416",
-                        "surface-variant": "#2f3637",
-                        "primary-fixed": "#a1efff",
-                        "on-primary-fixed": "#001f25",
-                        "on-surface": "#dde3e5",
-                        "on-tertiary": "#4c2700",
-                        "surface-container-low": "#161d1e"
-                    },
-                    "borderRadius": {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
-                    "spacing": {
-                        "container-padding": "24px",
-                        "gutter": "16px",
-                        "card-gap": "12px",
-                        "unit": "4px"
-                    },
-                    "fontFamily": {
-                        "body-md": ["Inter"],
-                        "headline-md": ["Inter"],
-                        "mono-data": ["JetBrains Mono"],
-                        "body-sm": ["Inter"],
-                        "headline-lg": ["Inter"],
-                        "mono-label": ["JetBrains Mono"]
-                    },
-                    "fontSize": {
-                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
-                        "headline-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
-                        "mono-data": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
-                        "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
-                        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
-                        "mono-label": ["13px", { "lineHeight": "16px", "fontWeight": "500" }]
-                    }
-                },
-            },
-        }
-    </script>
+<link href="/assets/fonts.css" rel="stylesheet"/>
+<link href="/assets/tailwind.css" rel="stylesheet"/>
 <style>
         .glass-card {
             background: rgba(255, 255, 255, 0.06);
@@ -138,11 +50,11 @@
             </div>
 <div class="hidden md:flex h-full gap-6">
 <!-- Active Nav Item (Dashboard/Processes) -->
-<a class="h-full flex items-center text-primary border-b-2 border-primary pb-1 font-bold" href="#">
+<a class="h-full flex items-center text-primary border-b-2 border-primary pb-1 font-bold" href="/processes">
                     进程
                 </a>
 <!-- Inactive Nav Item (Tasks) -->
-<a class="h-full flex items-center text-on-surface-variant font-medium hover:bg-white/5 transition-colors px-2 rounded-t-sm mt-1 mb-1" href="#">
+<a class="h-full flex items-center text-on-surface-variant font-medium hover:bg-white/5 transition-colors px-2 rounded-t-sm mt-1 mb-1" href="/tasks">
                     定时任务
                 </a>
 </div>
@@ -155,7 +67,7 @@
 <span class="font-mono-data text-mono-data text-on-surface-variant">Connected</span>
 </div>
 <!-- Primary Action -->
-<button class="bg-primary hover:bg-primary-fixed-dim text-on-primary px-4 py-1.5 rounded font-body-md font-medium transition-all duration-150 active:scale-[0.98] flex items-center gap-1 shadow-[0_0_15px_rgba(68,216,241,0.2)]">
+<button class="bg-primary hover:bg-primary-fixed-dim text-on-primary px-4 py-1.5 rounded font-body-md font-medium transition-all duration-150 active:scale-[0.98] flex items-center gap-1 shadow-[0_0_15px_rgba(68,216,241,0.2)]" onclick="openAddModal()">
 <span class="material-symbols-outlined text-[18px]">add</span>
                 添加进程
             </button>
@@ -182,251 +94,35 @@
 </div>
 </div>
 <!-- Dashboard Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-card-gap">
-<!-- Process Card 1 (Running) -->
-<div class="glass-card rounded-lg p-5 flex flex-col relative overflow-hidden group">
-<!-- Header -->
-<div class="flex justify-between items-start mb-4">
-<div>
-<h2 class="font-headline-md text-headline-md text-on-surface">nginx-web-server</h2>
-<div class="flex items-center gap-2 mt-1">
-<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono-label font-medium bg-green-500/10 text-green-400 border border-green-500/20">
-                                RUNNING
-                            </span>
-<span class="font-mono-data text-mono-data text-on-surface-variant">PID: 14092</span>
-</div>
-</div>
-<div class="w-8 h-8 rounded-full bg-surface-container-high border border-white/5 flex items-center justify-center">
-<span class="material-symbols-outlined text-[18px] text-primary" style="font-variation-settings: 'wght' 200;">language</span>
-</div>
-</div>
-<!-- Metrics -->
-<div class="grid grid-cols-4 gap-2 mb-4 bg-surface-container-lowest/50 rounded p-3 border border-white/5">
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">CPU</span>
-<span class="font-mono-data text-mono-data text-on-surface">2.4%</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">MEM</span>
-<span class="font-mono-data text-mono-data text-on-surface">45 MB</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">UPTIME</span>
-<span class="font-mono-data text-mono-data text-on-surface">4d 12h</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">RESTARTS</span>
-<span class="font-mono-data text-mono-data text-on-surface">0</span>
-</div>
-</div>
-<!-- Command Line -->
-<div class="mb-4">
-<div class="font-mono-data text-mono-data text-on-surface-variant bg-[#000000] bg-opacity-40 p-2 rounded border border-white/5 truncate" title="nginx -g 'daemon off;'">
-<span class="text-primary/70 mr-2">$</span>nginx -g 'daemon off;'
-                    </div>
-</div>
-<!-- Actions (Push to bottom) -->
-<div class="mt-auto pt-2 flex justify-end gap-2 border-t border-white/5">
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-green-400 hover:bg-white/5 transition-colors" title="Start">
-<span class="material-symbols-outlined text-[18px]">play_arrow</span>
-</button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-amber-400 hover:bg-white/5 transition-colors" title="Restart">
-<span class="material-symbols-outlined text-[18px]">refresh</span>
-</button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-red-400 hover:bg-white/5 transition-colors" title="Stop">
-<span class="material-symbols-outlined text-[18px]">stop</span>
-</button>
-<div class="w-[1px] h-4 bg-white/10 my-auto mx-1"></div>
-<button class="w-8 h-8 rounded flex items-center justify-center text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-colors" title="View Logs">
-<span class="material-symbols-outlined text-[18px]">terminal</span>
-</button>
-</div>
-<!-- Subtle indicator strip -->
-<div class="absolute left-0 top-0 bottom-0 w-1 bg-green-500/50"></div>
-</div>
-<!-- Process Card 2 (Stopped) -->
-<div class="glass-card rounded-lg p-5 flex flex-col relative overflow-hidden group opacity-80 hover:opacity-100 transition-opacity">
-<!-- Header -->
-<div class="flex justify-between items-start mb-4">
-<div>
-<h2 class="font-headline-md text-headline-md text-on-surface text-on-surface-variant">redis-cache</h2>
-<div class="flex items-center gap-2 mt-1">
-<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono-label font-medium bg-surface-container-highest text-on-surface-variant border border-white/10">
-                                STOPPED
-                            </span>
-<span class="font-mono-data text-mono-data text-on-surface-variant/50">PID: ---</span>
-</div>
-</div>
-<div class="w-8 h-8 rounded-full bg-surface-container-high border border-white/5 flex items-center justify-center opacity-50">
-<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'wght' 200;">storage</span>
-</div>
-</div>
-<!-- Metrics -->
-<div class="grid grid-cols-4 gap-2 mb-4 bg-surface-container-lowest/30 rounded p-3 border border-white/5">
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant/50 uppercase tracking-wider mb-1">CPU</span>
-<span class="font-mono-data text-mono-data text-on-surface-variant/50">0.0%</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant/50 uppercase tracking-wider mb-1">MEM</span>
-<span class="font-mono-data text-mono-data text-on-surface-variant/50">0 MB</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant/50 uppercase tracking-wider mb-1">UPTIME</span>
-<span class="font-mono-data text-mono-data text-on-surface-variant/50">0s</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant/50 uppercase tracking-wider mb-1">RESTARTS</span>
-<span class="font-mono-data text-mono-data text-on-surface-variant/50">2</span>
-</div>
-</div>
-<!-- Command Line -->
-<div class="mb-4">
-<div class="font-mono-data text-mono-data text-on-surface-variant/50 bg-[#000000] bg-opacity-40 p-2 rounded border border-white/5 truncate">
-<span class="text-on-surface-variant/30 mr-2">$</span>redis-server /etc/redis/redis.conf
-                    </div>
-</div>
-<!-- Actions -->
-<div class="mt-auto pt-2 flex justify-end gap-2 border-t border-white/5">
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-green-400 hover:bg-white/5 transition-colors" title="Start">
-<span class="material-symbols-outlined text-[18px]">play_arrow</span>
-</button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant/30 cursor-not-allowed" title="Restart">
-<span class="material-symbols-outlined text-[18px]">refresh</span>
-</button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant/30 cursor-not-allowed" title="Stop">
-<span class="material-symbols-outlined text-[18px]">stop</span>
-</button>
-<div class="w-[1px] h-4 bg-white/10 my-auto mx-1"></div>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:bg-white/5 transition-colors" title="View Logs">
-<span class="material-symbols-outlined text-[18px]">terminal</span>
-</button>
-</div>
-<!-- Subtle indicator strip -->
-<div class="absolute left-0 top-0 bottom-0 w-1 bg-surface-container-highest"></div>
-</div>
-<!-- Process Card 3 (Crashed) -->
-<div class="glass-card rounded-lg p-5 flex flex-col relative overflow-hidden group border-error-container/30">
-<!-- Header -->
-<div class="flex justify-between items-start mb-4">
-<div>
-<h2 class="font-headline-md text-headline-md text-error">data-sync-worker</h2>
-<div class="flex items-center gap-2 mt-1">
-<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono-label font-medium bg-error/10 text-error border border-error/20">
-                                CRASHED
-                            </span>
-<span class="font-mono-data text-mono-data text-on-surface-variant">Exit Code: 1</span>
-</div>
-</div>
-<div class="w-8 h-8 rounded-full bg-error-container/20 border border-error/20 flex items-center justify-center">
-<span class="material-symbols-outlined text-[18px] text-error" style="font-variation-settings: 'wght' 200;">warning</span>
-</div>
-</div>
-<!-- Metrics -->
-<div class="grid grid-cols-4 gap-2 mb-4 bg-error-container/5 rounded p-3 border border-error/10">
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">CPU</span>
-<span class="font-mono-data text-mono-data text-error/70">---</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">MEM</span>
-<span class="font-mono-data text-mono-data text-error/70">---</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">UPTIME</span>
-<span class="font-mono-data text-mono-data text-error/70">---</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">RESTARTS</span>
-<span class="font-mono-data text-mono-data text-error">12</span>
-</div>
-</div>
-<!-- Command Line -->
-<div class="mb-4">
-<div class="font-mono-data text-mono-data text-on-surface-variant bg-[#000000] bg-opacity-40 p-2 rounded border border-error/20 truncate">
-<span class="text-error/70 mr-2">$</span>node sync_script.js --force
-                    </div>
-</div>
-<!-- Actions -->
-<div class="mt-auto pt-2 flex justify-end gap-2 border-t border-error/10">
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-green-400 hover:bg-white/5 transition-colors" title="Start">
-<span class="material-symbols-outlined text-[18px]">play_arrow</span>
-</button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-amber-400 hover:bg-white/5 transition-colors" title="Restart">
-<span class="material-symbols-outlined text-[18px]">refresh</span>
-</button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-red-400 hover:bg-white/5 transition-colors" title="Stop">
-<span class="material-symbols-outlined text-[18px]">stop</span>
-</button>
-<div class="w-[1px] h-4 bg-white/10 my-auto mx-1"></div>
-<button class="w-8 h-8 rounded flex items-center justify-center text-error bg-error/10 hover:bg-error/20 border border-error/20 transition-colors animate-pulse" title="View Logs (Errors Found)">
-<span class="material-symbols-outlined text-[18px]">terminal</span>
-</button>
-</div>
-<!-- Subtle indicator strip -->
-<div class="absolute left-0 top-0 bottom-0 w-1 bg-error/80"></div>
-</div>
-<!-- Process Card 4 (Restarting) -->
-<div class="glass-card rounded-lg p-5 flex flex-col relative overflow-hidden group border-tertiary/20">
-<!-- Header -->
-<div class="flex justify-between items-start mb-4">
-<div>
-<h2 class="font-headline-md text-headline-md text-on-surface">api-gateway</h2>
-<div class="flex items-center gap-2 mt-1">
-<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono-label font-medium bg-tertiary/10 text-tertiary border border-tertiary/20">
-                                RESTARTING
-                            </span>
-<span class="font-mono-data text-mono-data text-on-surface-variant">PID: 15899</span>
-</div>
-</div>
-<div class="w-8 h-8 rounded-full bg-surface-container-high border border-white/5 flex items-center justify-center">
-<span class="material-symbols-outlined text-[18px] text-tertiary animate-spin" style="font-variation-settings: 'wght' 200;">sync</span>
-</div>
-</div>
-<!-- Metrics -->
-<div class="grid grid-cols-4 gap-2 mb-4 bg-surface-container-lowest/50 rounded p-3 border border-white/5">
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">CPU</span>
-<span class="font-mono-data text-mono-data text-on-surface">85.2%</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">MEM</span>
-<span class="font-mono-data text-mono-data text-on-surface">120 MB</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">UPTIME</span>
-<span class="font-mono-data text-mono-data text-on-surface">0m 12s</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider mb-1">RESTARTS</span>
-<span class="font-mono-data text-mono-data text-on-surface">3</span>
-</div>
-</div>
-<!-- Command Line -->
-<div class="mb-4">
-<div class="font-mono-data text-mono-data text-on-surface-variant bg-[#000000] bg-opacity-40 p-2 rounded border border-white/5 truncate">
-<span class="text-tertiary/70 mr-2">$</span>go run main.go --port 8080
-                    </div>
-</div>
-<!-- Actions -->
-<div class="mt-auto pt-2 flex justify-end gap-2 border-t border-white/5">
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant/30 cursor-not-allowed" title="Start">
-<span class="material-symbols-outlined text-[18px]">play_arrow</span>
-</button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant/30 cursor-not-allowed" title="Restart">
-<span class="material-symbols-outlined text-[18px]">refresh</span>
-</button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-red-400 hover:bg-white/5 transition-colors" title="Force Stop">
-<span class="material-symbols-outlined text-[18px]">stop</span>
-</button>
-<div class="w-[1px] h-4 bg-white/10 my-auto mx-1"></div>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:bg-white/5 transition-colors" title="View Logs">
-<span class="material-symbols-outlined text-[18px]">terminal</span>
-</button>
-</div>
-<!-- Subtle indicator strip -->
-<div class="absolute left-0 top-0 bottom-0 w-1 bg-tertiary/70"></div>
-</div>
-</div>
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-card-gap" id="proc-grid"></div>
 </main>
+<!-- Add Process Modal -->
+<div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden items-center justify-center p-4" id="add-modal">
+<div class="glass-card w-full max-w-md rounded-xl p-6 flex flex-col gap-4">
+<h2 class="font-headline-md text-headline-md text-on-surface">添加进程</h2>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">名称</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="add-name" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">命令</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="add-cmd" placeholder="/usr/bin/node" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">参数 (空格分隔)</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="add-args" placeholder="server.js --port 8080" type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<input id="add-autostart" type="checkbox"/>
+<label class="font-body-sm text-body-sm text-on-surface-variant" for="add-autostart">开机自启</label>
+</div>
+<p class="font-body-sm text-body-sm text-error hidden" id="add-err"></p>
+<div class="flex justify-end gap-3">
+<button class="px-4 py-2 rounded font-body-md text-body-md border border-primary text-primary hover:bg-primary/10" onclick="closeAddModal()">取消</button>
+<button class="px-6 py-2 rounded font-body-md text-body-md bg-primary text-on-primary hover:bg-primary-fixed" onclick="submitAddModal()">保存</button>
+</div>
+</div>
+</div>
+<script src="/assets/app.js"></script>
+<script src="/assets/processes.js"></script>
 </body></html>

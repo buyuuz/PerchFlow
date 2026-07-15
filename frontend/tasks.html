@@ -4,100 +4,12 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Perch - 定时任务</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "inverse-surface": "#dde3e5",
-                        "error-container": "#93000a",
-                        "on-primary-fixed-variant": "#004e59",
-                        "on-error": "#690005",
-                        "surface-container-highest": "#2f3637",
-                        "secondary-container": "#304d5a",
-                        "on-secondary-fixed-variant": "#2e4b57",
-                        "secondary": "#adcbda",
-                        "secondary-fixed": "#c9e7f7",
-                        "on-background": "#dde3e5",
-                        "on-tertiary-fixed": "#2e1500",
-                        "surface-container": "#1a2122",
-                        "tertiary-fixed-dim": "#ffb77b",
-                        "on-secondary-fixed": "#001f2a",
-                        "on-secondary-container": "#9fbdcc",
-                        "surface-container-high": "#252b2c",
-                        "primary-container": "#00bcd4",
-                        "on-secondary": "#163440",
-                        "tertiary-fixed": "#ffdcc2",
-                        "surface-bright": "#343a3c",
-                        "background": "#0e1416",
-                        "tertiary": "#ffb87b",
-                        "primary-fixed-dim": "#44d8f1",
-                        "primary": "#44d8f1",
-                        "on-primary": "#00363e",
-                        "secondary-fixed-dim": "#adcbda",
-                        "on-tertiary-container": "#633400",
-                        "surface-container-lowest": "#090f11",
-                        "inverse-on-surface": "#2b3133",
-                        "tertiary-container": "#f19640",
-                        "inverse-primary": "#006876",
-                        "on-surface-variant": "#bbc9cc",
-                        "error": "#ffb4ab",
-                        "on-primary-container": "#004650",
-                        "on-error-container": "#ffdad6",
-                        "surface-tint": "#44d8f1",
-                        "outline": "#869396",
-                        "on-tertiary-fixed-variant": "#6d3a00",
-                        "outline-variant": "#3c494c",
-                        "surface": "#0e1416",
-                        "surface-dim": "#0e1416",
-                        "surface-variant": "#2f3637",
-                        "primary-fixed": "#a1efff",
-                        "on-primary-fixed": "#001f25",
-                        "on-surface": "#dde3e5",
-                        "on-tertiary": "#4c2700",
-                        "surface-container-low": "#161d1e"
-                    },
-                    "borderRadius": {
-                        "DEFAULT": "0.25rem",
-                        "lg": "0.5rem",
-                        "xl": "0.75rem",
-                        "full": "9999px"
-                    },
-                    "spacing": {
-                        "container-padding": "24px",
-                        "gutter": "16px",
-                        "card-gap": "12px",
-                        "unit": "4px"
-                    },
-                    "fontFamily": {
-                        "body-md": ["Inter"],
-                        "headline-md": ["Inter"],
-                        "mono-data": ["JetBrains Mono"],
-                        "body-sm": ["Inter"],
-                        "headline-lg": ["Inter"],
-                        "mono-label": ["JetBrains Mono"]
-                    },
-                    "fontSize": {
-                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
-                        "headline-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
-                        "mono-data": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
-                        "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
-                        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
-                        "mono-label": ["13px", { "lineHeight": "16px", "fontWeight": "500" }]
-                    }
-                }
-            }
-        }
-    </script>
+<link href="/assets/fonts.css" rel="stylesheet"/>
+<link href="/assets/tailwind.css" rel="stylesheet"/>
 <style>
         body {
-            background-color: theme('colors.background');
-            color: theme('colors.on-surface');
+            background-color: #0e1416;
+            color: #dde3e5;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
@@ -122,7 +34,7 @@
         }
         
         .glass-toggle.active {
-            background: theme('colors.primary');
+            background: #44d8f1;
         }
 
         .glass-toggle-thumb {
@@ -165,7 +77,7 @@
 <span class="material-symbols-outlined text-[18px]">terminal</span>
                 Logs
             </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded font-mono-label text-mono-label text-primary bg-primary-container/10 border-r-2 border-primary" href="#">
+<a class="flex items-center gap-3 px-3 py-2 rounded font-mono-label text-mono-label text-primary bg-primary-container/10 border-r-2 border-primary" href="/tasks">
 <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">schedule</span>
                 定时任务
             </a>
@@ -200,14 +112,14 @@
                 Perch
             </div>
 <div class="hidden md:flex gap-6 h-full items-end pb-[10px]">
-<a class="font-body-md text-body-md text-on-surface-variant font-medium hover:text-on-surface transition-colors" href="#">Processes</a>
-<a class="font-body-md text-body-md text-primary border-b-2 border-primary pb-1 font-bold" href="#">定时任务</a>
+<a class="font-body-md text-body-md text-on-surface-variant font-medium hover:text-on-surface transition-colors" href="/processes">Processes</a>
+<a class="font-body-md text-body-md text-primary border-b-2 border-primary pb-1 font-bold" href="/tasks">定时任务</a>
 </div>
 <div class="flex items-center gap-4">
 <button class="text-on-surface-variant hover:bg-white/5 p-2 rounded transition-colors active:scale-[0.98] duration-150">
 <span class="material-symbols-outlined text-[20px]">sensors</span>
 </button>
-<button class="bg-transparent border border-primary text-primary font-body-sm text-body-sm font-medium px-4 py-1.5 rounded hover:bg-primary/10 transition-colors active:scale-[0.98] duration-150">
+<button class="bg-transparent border border-primary text-primary font-body-sm text-body-sm font-medium px-4 py-1.5 rounded hover:bg-primary/10 transition-colors active:scale-[0.98] duration-150" onclick="openAddModal()">
                     添加任务
                 </button>
 </div>
@@ -222,8 +134,8 @@
 <input class="bg-surface-container-high border border-white/10 rounded pl-9 pr-4 py-1.5 font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary/50 w-64" placeholder="Filter tasks..." type="text"/>
 </div>
 </div>
-<div class="font-mono-data text-mono-data text-on-surface-variant">
-                Total: 4 Active: 3
+<div class="font-mono-data text-mono-data text-on-surface-variant" id="task-count">
+                Total: 0 Active: 0
             </div>
 </div>
 <!-- Task List -->
@@ -237,90 +149,40 @@
 <div>Last Run</div>
 <div class="w-24 text-right">Actions</div>
 </div>
-<!-- Row 1 -->
-<div class="glass-card rounded-lg flex items-center p-3 transition-colors duration-200 cursor-pointer group">
-<div class="w-10 flex justify-center">
-<div class="w-8 h-4 rounded-full glass-toggle active relative cursor-pointer" onclick="this.classList.toggle('active')">
-<div class="w-4 h-4 rounded-full glass-toggle-thumb absolute left-0 top-0"></div>
-</div>
-</div>
-<div class="flex-1.5 grid grid-cols-[1.5fr_1fr_2fr_1fr] gap-4 items-center w-full ml-4">
-<div class="font-body-md text-body-md font-semibold text-on-surface truncate">Database Backup</div>
-<div class="font-mono-data text-mono-data text-primary truncate bg-primary/10 px-2 py-0.5 rounded w-max">0 0 * * *</div>
-<div class="font-mono-data text-mono-data text-on-surface-variant truncate opacity-80">/opt/scripts/backup_db.sh --full</div>
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[16px] text-green-400">check_circle</span>
-<span class="font-mono-data text-mono-data text-on-surface-variant">12h ago</span>
-</div>
-</div>
-<div class="w-24 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-<button class="p-1.5 text-on-surface-variant hover:text-primary rounded hover:bg-white/5 transition-colors" title="Run Now">
-<span class="material-symbols-outlined text-[18px]">play_arrow</span>
-</button>
-<button class="p-1.5 text-on-surface-variant hover:text-on-surface rounded hover:bg-white/5 transition-colors" title="Edit">
-<span class="material-symbols-outlined text-[18px]">edit</span>
-</button>
-<button class="p-1.5 text-on-surface-variant hover:text-error rounded hover:bg-error/10 transition-colors" title="Delete">
-<span class="material-symbols-outlined text-[18px]">delete</span>
-</button>
-</div>
-</div>
-<!-- Row 2 -->
-<div class="glass-card rounded-lg flex items-center p-3 transition-colors duration-200 cursor-pointer group border-l-2 border-l-error/50">
-<div class="w-10 flex justify-center">
-<div class="w-8 h-4 rounded-full glass-toggle active relative cursor-pointer" onclick="this.classList.toggle('active')">
-<div class="w-4 h-4 rounded-full glass-toggle-thumb absolute left-0 top-0"></div>
-</div>
-</div>
-<div class="flex-1.5 grid grid-cols-[1.5fr_1fr_2fr_1fr] gap-4 items-center w-full ml-4">
-<div class="font-body-md text-body-md font-semibold text-on-surface truncate">Sync User Data</div>
-<div class="font-mono-data text-mono-data text-primary truncate bg-primary/10 px-2 py-0.5 rounded w-max">*/15 * * * *</div>
-<div class="font-mono-data text-mono-data text-on-surface-variant truncate opacity-80">python3 /app/sync.py --env=prod</div>
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[16px] text-error">error</span>
-<span class="font-mono-data text-mono-data text-on-surface-variant">5m ago</span>
-</div>
-</div>
-<div class="w-24 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-<button class="p-1.5 text-on-surface-variant hover:text-primary rounded hover:bg-white/5 transition-colors" title="Run Now">
-<span class="material-symbols-outlined text-[18px]">play_arrow</span>
-</button>
-<button class="p-1.5 text-on-surface-variant hover:text-on-surface rounded hover:bg-white/5 transition-colors" title="Edit">
-<span class="material-symbols-outlined text-[18px]">edit</span>
-</button>
-<button class="p-1.5 text-on-surface-variant hover:text-error rounded hover:bg-error/10 transition-colors" title="Delete">
-<span class="material-symbols-outlined text-[18px]">delete</span>
-</button>
-</div>
-</div>
-<!-- Row 3 -->
-<div class="glass-card rounded-lg flex items-center p-3 transition-colors duration-200 cursor-pointer group opacity-60">
-<div class="w-10 flex justify-center">
-<div class="w-8 h-4 rounded-full glass-toggle relative cursor-pointer" onclick="this.classList.toggle('active')">
-<div class="w-4 h-4 rounded-full glass-toggle-thumb absolute left-0 top-0"></div>
-</div>
-</div>
-<div class="flex-1.5 grid grid-cols-[1.5fr_1fr_2fr_1fr] gap-4 items-center w-full ml-4">
-<div class="font-body-md text-body-md font-semibold text-on-surface truncate">Clear Temp Files</div>
-<div class="font-mono-data text-mono-data text-on-surface-variant truncate bg-white/5 px-2 py-0.5 rounded w-max">@weekly</div>
-<div class="font-mono-data text-mono-data text-on-surface-variant truncate opacity-80">rm -rf /tmp/*</div>
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[16px] text-on-surface-variant">remove</span>
-<span class="font-mono-data text-mono-data text-on-surface-variant">-</span>
-</div>
-</div>
-<div class="w-24 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-<button class="p-1.5 text-on-surface-variant hover:text-primary rounded hover:bg-white/5 transition-colors" title="Run Now">
-<span class="material-symbols-outlined text-[18px]">play_arrow</span>
-</button>
-<button class="p-1.5 text-on-surface-variant hover:text-on-surface rounded hover:bg-white/5 transition-colors" title="Edit">
-<span class="material-symbols-outlined text-[18px]">edit</span>
-</button>
-<button class="p-1.5 text-on-surface-variant hover:text-error rounded hover:bg-error/10 transition-colors" title="Delete">
-<span class="material-symbols-outlined text-[18px]">delete</span>
-</button>
-</div>
-</div>
+<div id="task-rows"></div>
 </div>
 </main>
+<!-- Add/Edit Task Modal -->
+<div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden items-center justify-center p-4" id="task-modal">
+<div class="glass-card w-full max-w-md rounded-xl p-6 flex flex-col gap-4">
+<h2 class="font-headline-md text-headline-md text-on-surface" id="task-modal-title">添加任务</h2>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">名称</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-name" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">命令</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-cmd" placeholder="/opt/scripts/backup.sh" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">参数 (空格分隔)</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-args" placeholder="--full" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">Cron 表达式</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-schedule" placeholder="0 0 0 * * *" type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<input id="task-enabled" type="checkbox"/>
+<label class="font-body-sm text-body-sm text-on-surface-variant" for="task-enabled">启用</label>
+</div>
+<p class="font-body-sm text-body-sm text-error hidden" id="task-err"></p>
+<div class="flex justify-end gap-3">
+<button class="px-4 py-2 rounded font-body-md text-body-md border border-primary text-primary hover:bg-primary/10" onclick="closeTaskModal()">取消</button>
+<button class="px-6 py-2 rounded font-body-md text-body-md bg-primary text-on-primary hover:bg-primary-fixed" onclick="submitTaskModal()">保存</button>
+</div>
+</div>
+</div>
+<script src="/assets/app.js"></script>
+<script src="/assets/tasks.js"></script>
 </body></html>
