@@ -5,6 +5,9 @@ use crate::core::state::AppState;
 use crate::core::supervisor::Supervisor;
 use crate::web::{self, WebContext};
 
+pub mod elevate;
+pub mod menu;
+
 pub fn run() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(|s| s.as_str()) {
@@ -28,10 +31,10 @@ pub fn run() -> anyhow::Result<()> {
             crate::service::runner::run_as_service().map_err(|e| anyhow::anyhow!(e))?;
         }
         Some(other) => {
-            println!("子命令 '{other}' 将在阶段二实现");
+            println!("未知子命令 '{other}'");
         }
         None => {
-            println!("交互菜单将在阶段二实现;当前可用: perch run");
+            menu::show()?;
         }
     }
     Ok(())
