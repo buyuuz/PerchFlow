@@ -10,10 +10,25 @@ pub fn run() -> anyhow::Result<()> {
     match args.first().map(|s| s.as_str()) {
         Some("run") => {
             let rt = tokio::runtime::Runtime::new()?;
-            rt.block_on(run_foreground())?;
+            rt.block_on(run_foreground_until(async {
+                let _ = tokio::signal::ctrl_c().await;
+                println!("收到 Ctrl-C,正在关停...");
+            }))?;
+        }
+        #[cfg(windows)]
+        Some("install") => crate::service::install()?,
+        #[cfg(windows)]
+        Some("uninstall") => crate::service::uninstall()?,
+        #[cfg(windows)]
+        Some("start") => crate::service::start()?,
+        #[cfg(windows)]
+        Some("stop") => crate::service::stop()?,
+        #[cfg(windows)]
+        Some("service") => {
+            crate::service::runner::run_as_service().map_err(|e| anyhow::anyhow!(e))?;
         }
         Some(other) => {
-            println!("子命令 '{other}' 将在阶段二实现(install/uninstall/start/stop)");
+            println!("子命令 '{other}' 将在阶段二实现");
         }
         None => {
             println!("交互菜单将在阶段二实现;当前可用: perch run");
@@ -22,7 +37,9 @@ pub fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn run_foreground() -> anyhow::Result<()> {
+pub async fn run_foreground_until<F: std::future::Future<Output = ()>>(
+    shutdown: F,
+) -> anyhow::Result<()> {
     let path = config::default_path();
     let cfg = config::load(&path)?;
     let bind = cfg.server.bind.clone();
@@ -39,7 +56,7 @@ async fn run_foreground() -> anyhow::Result<()> {
     println!("Perch 运行中: http://{bind}");
     tokio::select! {
         r = web::serve(ctx, &bind) => { r?; }
-        _ = tokio::signal::ctrl_c() => { println!("收到 Ctrl-C,正在关停..."); }
+        _ = shutdown => {}
     }
     supervisor.shutdown().await;
     scheduler.shutdown().await;
