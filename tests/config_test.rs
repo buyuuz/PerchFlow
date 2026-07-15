@@ -61,3 +61,22 @@ schedule = "not a cron"
 "#);
     assert!(config::load(f.path()).is_err());
 }
+
+#[test]
+fn save_then_load_roundtrips() {
+    use perch::config::model::*;
+    use std::collections::HashMap;
+    let cfg = Config {
+        server: ServerConfig { bind: "127.0.0.1:9000".into(), token: "tok".into() },
+        process: vec![ProcessDef {
+            name: "app".into(), cmd: "ping".into(), args: vec!["localhost".into()],
+            cwd: None, env: HashMap::new(), autostart: true, restart: RestartConfig::default(),
+        }],
+        task: vec![],
+    };
+    let f = tempfile::NamedTempFile::new().unwrap();
+    perch::config::writer::save(f.path(), &cfg).unwrap();
+    let loaded = perch::config::load(f.path()).unwrap();
+    assert_eq!(loaded.process[0].name, "app");
+    assert_eq!(loaded.server.token, "tok");
+}
