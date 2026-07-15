@@ -1,0 +1,15 @@
+[server]
+bind = "127.0.0.1:9000"
+token = "change-me"
+
+[[process]]
+name = "demo"
+cmd = "cmd"
+args = ["/c", "ping -n 100 127.0.0.1"]
+autostart = true
+
+[process.restart]
+policy = "on-failure"
+backoff_secs = 2
+backoff_max_secs = 60
+max_retries = 0
