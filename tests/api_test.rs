@@ -55,3 +55,33 @@ async fn create_and_list_process() {
         .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
     assert_eq!(list["processes"][0]["name"], "app");
 }
+
+#[tokio::test]
+async fn create_task_and_run_now() {
+    let (base, token, _tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "name": "t", "cmd": "cmd", "args": ["/c", "exit 0"],
+        "schedule": "0 0 0 * * *", "enabled": true
+    });
+    let r = client.post(format!("{base}/api/tasks")).bearer_auth(&token)
+        .json(&body).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    let run = client.post(format!("{base}/api/tasks/t/run")).bearer_auth(&token)
+        .send().await.unwrap();
+    let v: serde_json::Value = run.json().await.unwrap();
+    assert_eq!(v["ok"], true);
+}
+
+#[tokio::test]
+async fn create_task_rejects_bad_cron() {
+    let (base, token, _tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "name": "bad", "cmd": "x", "schedule": "nope", "enabled": true
+    });
+    let r = client.post(format!("{base}/api/tasks")).bearer_auth(&token)
+        .json(&body).send().await.unwrap();
+    let v: serde_json::Value = r.json().await.unwrap();
+    assert_eq!(v["ok"], false);
+}
