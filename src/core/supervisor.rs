@@ -5,11 +5,12 @@ use crate::core::state::{ProcStatus, SharedState};
 use crate::error::{PerchError, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 pub struct Supervisor {
     state: SharedState,
-    stops: Mutex<HashMap<String, Arc<Notify>>>,
+    stops: Mutex<HashMap<String, CancellationToken>>,
 }
 
 impl Supervisor {
@@ -30,26 +31,26 @@ impl Supervisor {
             procs.get(name).cloned()
                 .ok_or_else(|| PerchError::Process(format!("no runtime: {name}")))?
         };
+        let token = CancellationToken::new();
         {
             let mut stops = self.stops.lock().await;
             if stops.contains_key(name) {
                 return Ok(()); // 已在运行
             }
-            stops.insert(name.to_string(), Arc::new(Notify::new()));
+            stops.insert(name.to_string(), token.clone());
         }
-        let notify = self.stops.lock().await.get(name).unwrap().clone();
         let this = self.clone();
         let name_owned = name.to_string();
         tokio::spawn(async move {
-            this.supervise_loop(def, runtime, notify, name_owned).await;
+            this.supervise_loop(def, runtime, token, name_owned).await;
         });
         Ok(())
     }
 
     pub async fn stop(&self, name: &str) -> Result<()> {
-        let notify = { self.stops.lock().await.remove(name) };
-        if let Some(n) = notify {
-            n.notify_waiters();
+        let token = { self.stops.lock().await.remove(name) };
+        if let Some(t) = token {
+            t.cancel();
         }
         if let Some(rt) = self.state.procs.read().await.get(name).cloned() {
             let mut r = rt.write().await;
@@ -88,11 +89,15 @@ impl Supervisor {
         self: Arc<Self>,
         def: ProcessDef,
         runtime: std::sync::Arc<tokio::sync::RwLock<crate::core::state::ProcRuntime>>,
-        notify: Arc<Notify>,
+        token: CancellationToken,
         name: String,
     ) {
         let mut backoff = Backoff::new(def.restart.backoff_secs, def.restart.backoff_max_secs);
         loop {
+            if token.is_cancelled() {
+                // stop() 已在本次 spawn 前取消,避免再次拉起进程覆盖已写入的 Stopped 状态。
+                break;
+            }
             let mut child = match spawn_process(&def, runtime.clone()).await {
                 Ok(c) => c,
                 Err(_) => {
@@ -102,7 +107,7 @@ impl Supervisor {
             };
             let stopped = tokio::select! {
                 status = child.wait() => Some(status),
-                _ = notify.notified() => {
+                _ = token.cancelled() => {
                     let _ = child.kill().await;
                     None
                 }
@@ -119,7 +124,7 @@ impl Supervisor {
                     let delay = backoff.next_delay();
                     tokio::select! {
                         _ = tokio::time::sleep(delay) => {}
-                        _ = notify.notified() => break,
+                        _ = token.cancelled() => break,
                     }
                 }
             }
@@ -194,5 +199,31 @@ mod tests {
         sup.stop("p").await.unwrap();
         let rt = state.procs.read().await.get("p").cloned().unwrap();
         assert_eq!(rt.read().await.status, ProcStatus::Stopped);
+    }
+
+    #[tokio::test]
+    async fn stop_immediately_after_start_is_race_free() {
+        // 覆盖 start() 中 spawn_process().await 完成前 stop() 就到达的窗口:
+        // 用 CancellationToken 取代 Notify 后,该窗口内的 cancel 不会丢失。
+        let def = ProcessDef {
+            name: "p".into(), cmd: "cmd".into(),
+            args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
+            cwd: None, env: HashMap::new(), autostart: false,
+            restart: RestartConfig { policy: RestartPolicy::Never, ..Default::default() },
+        };
+        let state = AppState::new(cfg_with(def), PathBuf::from("perch.toml"));
+        let sup = Supervisor::new(state.clone());
+
+        for _ in 0..5 {
+            sup.start("p").await.unwrap();
+            // 几乎立刻 stop,尽量落在 spawn_process().await 完成前的窗口内。
+            sup.stop("p").await.unwrap();
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+
+            let rt = state.procs.read().await.get("p").cloned().unwrap();
+            assert_eq!(rt.read().await.status, ProcStatus::Stopped);
+            // stops 表中不应残留该进程的 token,否则下一轮 start() 会被误判为已在运行。
+            assert!(!sup.stops.lock().await.contains_key("p"));
+        }
     }
 }
