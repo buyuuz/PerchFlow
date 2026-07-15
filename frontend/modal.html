@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Perch - Add/Edit Modal</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#dde3e5",
+                        "error-container": "#93000a",
+                        "on-primary-fixed-variant": "#004e59",
+                        "on-error": "#690005",
+                        "surface-container-highest": "#2f3637",
+                        "secondary-container": "#304d5a",
+                        "on-secondary-fixed-variant": "#2e4b57",
+                        "secondary": "#adcbda",
+                        "secondary-fixed": "#c9e7f7",
+                        "on-background": "#dde3e5",
+                        "on-tertiary-fixed": "#2e1500",
+                        "surface-container": "#1a2122",
+                        "tertiary-fixed-dim": "#ffb77b",
+                        "on-secondary-fixed": "#001f2a",
+                        "on-secondary-container": "#9fbdcc",
+                        "surface-container-high": "#252b2c",
+                        "primary-container": "#00bcd4",
+                        "on-secondary": "#163440",
+                        "tertiary-fixed": "#ffdcc2",
+                        "surface-bright": "#343a3c",
+                        "background": "#0e1416",
+                        "tertiary": "#ffb87b",
+                        "primary-fixed-dim": "#44d8f1",
+                        "primary": "#44d8f1",
+                        "on-primary": "#00363e",
+                        "secondary-fixed-dim": "#adcbda",
+                        "on-tertiary-container": "#633400",
+                        "surface-container-lowest": "#090f11",
+                        "inverse-on-surface": "#2b3133",
+                        "tertiary-container": "#f19640",
+                        "inverse-primary": "#006876",
+                        "on-surface-variant": "#bbc9cc",
+                        "error": "#ffb4ab",
+                        "on-primary-container": "#004650",
+                        "on-error-container": "#ffdad6",
+                        "surface-tint": "#44d8f1",
+                        "outline": "#869396",
+                        "on-tertiary-fixed-variant": "#6d3a00",
+                        "outline-variant": "#3c494c",
+                        "surface": "#0e1416",
+                        "surface-dim": "#0e1416",
+                        "surface-variant": "#2f3637",
+                        "primary-fixed": "#a1efff",
+                        "on-primary-fixed": "#001f25",
+                        "on-surface": "#dde3e5",
+                        "on-tertiary": "#4c2700",
+                        "surface-container-low": "#161d1e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-padding": "24px",
+                        "gutter": "16px",
+                        "card-gap": "12px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "mono-data": ["JetBrains Mono"],
+                        "body-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "mono-label": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "mono-data": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+                        "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.02em", "fontWeight": "600" }],
+                        "mono-label": ["13px", { "lineHeight": "16px", "fontWeight": "500" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        /* Custom scrollbar for better appearance on dark theme */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            border-left: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .input-glass {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease;
+        }
+        
+        .input-glass:focus {
+            outline: none;
+            border-color: #44d8f1;
+            box-shadow: 0 0 0 1px #44d8f1;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .select-glass {
+            background-color: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .select-glass option {
+            background-color: #1a2122;
+            color: #dde3e5;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen font-body-md antialiased overflow-hidden flex items-center justify-center">
+<!-- Ambient Background Simulation -->
+<div class="absolute inset-0 z-0 pointer-events-none opacity-30 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/20 via-background to-background"></div>
+<div class="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-background to-transparent z-0 pointer-events-none"></div>
+<!-- Background Mock Content (Blurred) -->
+<div class="absolute inset-0 z-0 p-container-padding opacity-20 filter blur-sm flex flex-col gap-gutter">
+<div class="h-14 bg-surface-container rounded-lg"></div>
+<div class="flex gap-gutter h-full">
+<div class="w-64 bg-surface-container rounded-lg h-full"></div>
+<div class="flex-1 bg-surface-container rounded-lg h-full"></div>
+</div>
+</div>
+<!-- Modal Backdrop Overlay -->
+<div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+<!-- Modal Container (Process Form Example) -->
+<div class="glass-panel w-full max-w-2xl rounded-xl flex flex-col max-h-[921px] z-50">
+<!-- Modal Header -->
+<div class="flex items-center justify-between p-6 border-b border-white/5">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-[28px]" style="font-variation-settings: 'FILL' 1;">terminal</span>
+<h2 class="font-headline-lg text-headline-lg text-on-surface">添加进程</h2>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Modal Body (Scrollable) -->
+<div class="p-6 overflow-y-auto flex flex-col gap-6 flex-1">
+<!-- Section: Basic Info -->
+<div class="flex flex-col gap-4">
+<h3 class="font-mono-label text-mono-label text-primary uppercase tracking-wider">Basic Configuration</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">进程名称</label>
+<input class="input-glass rounded text-on-surface px-3 py-2 font-mono-data text-mono-data w-full" placeholder="e.g. backend-api" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">工作目录 (Working Dir)</label>
+<input class="input-glass rounded text-on-surface px-3 py-2 font-mono-data text-mono-data w-full" placeholder="/opt/services/api" type="text"/>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">执行路径 (Executable Path)</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-[18px]">folder_open</span>
+<input class="input-glass rounded text-on-surface pl-10 pr-3 py-2 font-mono-data text-mono-data w-full" placeholder="/usr/bin/node" type="text"/>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant flex items-center justify-between">
+<span>启动参数 (Arguments)</span>
+<button class="text-primary hover:text-primary-fixed flex items-center gap-1 text-xs">
+<span class="material-symbols-outlined text-[14px]">add</span> Add Arg
+                            </button>
+</label>
+<div class="flex flex-col gap-2">
+<div class="flex gap-2 items-center">
+<input class="input-glass rounded text-on-surface px-3 py-2 font-mono-data text-mono-data flex-1" type="text" value="server.js"/>
+<button class="text-on-surface-variant hover:text-error transition-colors p-1"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+</div>
+<div class="flex gap-2 items-center">
+<input class="input-glass rounded text-on-surface px-3 py-2 font-mono-data text-mono-data flex-1" type="text" value="--port=8080"/>
+<button class="text-on-surface-variant hover:text-error transition-colors p-1"><span class="material-symbols-outlined text-[18px]">remove</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Divider -->
+<div class="h-px w-full bg-white/5"></div>
+<!-- Section: Environment -->
+<div class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<h3 class="font-mono-label text-mono-label text-primary uppercase tracking-wider">Environment Variables</h3>
+<button class="text-primary hover:text-primary-fixed flex items-center gap-1 font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[16px]">add</span> Add Env Var
+                        </button>
+</div>
+<div class="flex flex-col gap-2">
+<div class="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+<input class="input-glass rounded text-on-surface px-3 py-2 font-mono-data text-mono-data" placeholder="Key" type="text" value="NODE_ENV"/>
+<input class="input-glass rounded text-on-surface px-3 py-2 font-mono-data text-mono-data" placeholder="Value" type="text" value="production"/>
+<button class="text-on-surface-variant hover:text-error transition-colors p-1"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+</div>
+<div class="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+<input class="input-glass rounded text-on-surface px-3 py-2 font-mono-data text-mono-data" placeholder="Key" type="text"/>
+<input class="input-glass rounded text-on-surface px-3 py-2 font-mono-data text-mono-data" placeholder="Value" type="text"/>
+<button class="text-on-surface-variant hover:text-error transition-colors p-1"><span class="material-symbols-outlined text-[18px]">delete</span></button>
+</div>
+</div>
+</div>
+<!-- Divider -->
+<div class="h-px w-full bg-white/5"></div>
+<!-- Section: Lifecycle & Restart -->
+<div class="flex flex-col gap-4">
+<h3 class="font-mono-label text-mono-label text-primary uppercase tracking-wider">Lifecycle Rules</h3>
+<div class="flex items-center justify-between bg-black/20 p-4 rounded-lg border border-white/5">
+<div class="flex flex-col">
+<span class="font-body-md text-body-md text-on-surface font-medium">开机自启 (Auto-start)</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant">系统启动时自动运行此进程</span>
+</div>
+<!-- Glass Toggle -->
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-on-surface-variant after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:bg-primary peer-checked:bg-primary/20 border border-white/10"></div>
+</label>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">重启策略 (Restart)</label>
+<select class="select-glass rounded text-on-surface px-3 py-2 font-body-md text-body-md w-full focus:ring-1 focus:ring-primary focus:border-primary outline-none">
+<option value="always">Always</option>
+<option value="on-failure">On-Failure</option>
+<option value="never">Never</option>
+</select>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">最大重试 (Max Retries)</label>
+<input class="input-glass rounded text-on-surface px-3 py-2 font-mono-data text-mono-data w-full" min="0" type="number" value="3"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">退避策略 (Backoff ms)</label>
+<input class="input-glass rounded text-on-surface px-3 py-2 font-mono-data text-mono-data w-full" min="0" type="number" value="5000"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Modal Footer -->
+<div class="p-6 border-t border-white/5 flex justify-end gap-3 bg-black/10 rounded-b-xl">
+<button class="px-4 py-2 rounded font-body-md text-body-md border border-primary text-primary hover:bg-primary/10 transition-colors">
+                    取消 (Cancel)
+                </button>
+<button class="px-6 py-2 rounded font-body-md text-body-md bg-primary text-on-primary hover:bg-primary-fixed transition-colors font-medium">
+                    保存配置 (Save)
+                </button>
+</div>
+</div>
+</div>
+</body></html>

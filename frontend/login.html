@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Perch Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-surface": "#dde3e5",
+                      "error-container": "#93000a",
+                      "on-primary-fixed-variant": "#004e59",
+                      "on-error": "#690005",
+                      "surface-container-highest": "#2f3637",
+                      "secondary-container": "#304d5a",
+                      "on-secondary-fixed-variant": "#2e4b57",
+                      "secondary": "#adcbda",
+                      "secondary-fixed": "#c9e7f7",
+                      "on-background": "#dde3e5",
+                      "on-tertiary-fixed": "#2e1500",
+                      "surface-container": "#1a2122",
+                      "tertiary-fixed-dim": "#ffb77b",
+                      "on-secondary-fixed": "#001f2a",
+                      "on-secondary-container": "#9fbdcc",
+                      "surface-container-high": "#252b2c",
+                      "primary-container": "#00bcd4",
+                      "on-secondary": "#163440",
+                      "tertiary-fixed": "#ffdcc2",
+                      "surface-bright": "#343a3c",
+                      "background": "#0e1416",
+                      "tertiary": "#ffb87b",
+                      "primary-fixed-dim": "#44d8f1",
+                      "primary": "#44d8f1",
+                      "on-primary": "#00363e",
+                      "secondary-fixed-dim": "#adcbda",
+                      "on-tertiary-container": "#633400",
+                      "surface-container-lowest": "#090f11",
+                      "inverse-on-surface": "#2b3133",
+                      "tertiary-container": "#f19640",
+                      "inverse-primary": "#006876",
+                      "on-surface-variant": "#bbc9cc",
+                      "error": "#ffb4ab",
+                      "on-primary-container": "#004650",
+                      "on-error-container": "#ffdad6",
+                      "surface-tint": "#44d8f1",
+                      "outline": "#869396",
+                      "on-tertiary-fixed-variant": "#6d3a00",
+                      "outline-variant": "#3c494c",
+                      "surface": "#0e1416",
+                      "surface-dim": "#0e1416",
+                      "surface-variant": "#2f3637",
+                      "primary-fixed": "#a1efff",
+                      "on-primary-fixed": "#001f25",
+                      "on-surface": "#dde3e5",
+                      "on-tertiary": "#4c2700",
+                      "surface-container-low": "#161d1e"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "container-padding": "24px",
+                      "gutter": "16px",
+                      "card-gap": "12px",
+                      "unit": "4px"
+              },
+              "fontFamily": {
+                      "body-md": [
+                              "Inter"
+                      ],
+                      "headline-md": [
+                              "Inter"
+                      ],
+                      "mono-data": [
+                              "JetBrains Mono"
+                      ],
+                      "body-sm": [
+                              "Inter"
+                      ],
+                      "headline-lg": [
+                              "Inter"
+                      ],
+                      "mono-label": [
+                              "JetBrains Mono"
+                      ]
+              },
+              "fontSize": {
+                      "body-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-md": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "mono-data": [
+                              "12px",
+                              {
+                                      "lineHeight": "18px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "body-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "mono-label": [
+                              "13px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            border-left: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .glass-input {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #dde3e5;
+        }
+        .glass-input:focus {
+            border-color: #44d8f1;
+            outline: none;
+            box-shadow: 0 0 0 1px rgba(68, 216, 241, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface h-screen flex items-center justify-center relative overflow-hidden">
+<!-- Background Gradient Setup -->
+<div class="absolute inset-0 z-0 opacity-40">
+<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-secondary-container blur-[100px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-surface-container-highest blur-[120px]"></div>
+</div>
+<!-- Login Container -->
+<main class="relative z-10 w-full max-w-sm px-6">
+<div class="glass-card rounded-xl p-8 flex flex-col items-center shadow-lg transition-all duration-300 hover:bg-[rgba(255,255,255,0.08)]">
+<!-- Brand -->
+<div class="flex flex-col items-center mb-8">
+<div class="w-12 h-12 rounded-full border border-primary/30 flex items-center justify-center mb-4 bg-primary/10">
+<span class="material-symbols-outlined text-primary text-[24px]" style="font-variation-settings: 'wght' 300;">flutter_dash</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">Perch</h1>
+</div>
+<!-- Form -->
+<form class="w-full" onsubmit="event.preventDefault(); window.location.href='#';">
+<div class="mb-6">
+<label class="block font-body-sm text-body-sm text-on-surface-variant mb-2 text-center" for="token">请输入 perch.toml 中配置的访问令牌</label>
+<div class="relative">
+<input class="glass-input w-full rounded-lg px-4 py-3 font-mono-data text-mono-data transition-all" id="token" name="token" placeholder="Enter Token..." required="" type="password"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none" onclick="togglePassword()" type="button">
+<span class="material-symbols-outlined text-[20px]" id="visibility-icon">visibility_off</span>
+</button>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary font-mono-label text-mono-label py-3 rounded-lg hover:bg-primary-fixed transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(68,216,241,0.3)]" type="submit">
+                    进入
+                    <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</form>
+</div>
+<!-- Footer / Version -->
+<div class="mt-8 text-center">
+<span class="font-mono-data text-mono-data text-on-surface-variant/50">v2.4.0-stable</span>
+</div>
+</main>
+<script>
+        function togglePassword() {
+            const tokenInput = document.getElementById('token');
+            const visibilityIcon = document.getElementById('visibility-icon');
+            
+            if (tokenInput.type === 'password') {
+                tokenInput.type = 'text';
+                visibilityIcon.textContent = 'visibility';
+            } else {
+                tokenInput.type = 'password';
+                visibilityIcon.textContent = 'visibility_off';
+            }
+        }
+    </script>
+</body></html>
