@@ -37,6 +37,8 @@ pub async fn spawn_process(
         rt.status = ProcStatus::Running;
         rt.pid = pid;
         rt.started_at = Some(Instant::now());
+        rt.cpu_percent = 0.0;
+        rt.mem_bytes = 0;
     }
 
     if let Some(out) = stdout {
