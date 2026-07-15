@@ -8,7 +8,7 @@ use crate::core::scheduler::Scheduler;
 use crate::core::state::SharedState;
 use crate::core::supervisor::Supervisor;
 use crate::error::{PerchError, Result};
-use axum::{middleware, routing::get, Router};
+use axum::{middleware, Router};
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -23,8 +23,6 @@ pub fn build_router(ctx: WebContext) -> Router {
         .merge(api_process::routes())
         .merge(api_task::routes())
         .merge(api_logs::routes())
-        // TEMP: removed in Task 12 (replaced by real routes, e.g. GET /api/processes)
-        .route("/ping", get(|| async { "pong" }))
         .route_layer(middleware::from_fn_with_state(ctx.clone(), auth::require_token));
 
     Router::new()
