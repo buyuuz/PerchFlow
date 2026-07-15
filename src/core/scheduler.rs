@@ -1,0 +1,119 @@
+use crate::config::model::TaskDef;
+use crate::core::process::build_command;
+use crate::core::state::SharedState;
+use crate::error::{PerchError, Result};
+use chrono::Utc;
+use cron::Schedule;
+use std::collections::HashMap;
+use std::process::Stdio;
+use std::str::FromStr;
+use std::sync::Arc;
+use tokio::sync::{Mutex, Notify};
+
+pub struct Scheduler {
+    state: SharedState,
+    stops: Mutex<HashMap<String, Arc<Notify>>>,
+}
+
+impl Scheduler {
+    pub fn new(state: SharedState) -> Arc<Self> {
+        Arc::new(Self { state, stops: Mutex::new(HashMap::new()) })
+    }
+
+    async fn find_task(&self, name: &str) -> Result<TaskDef> {
+        let cfg = self.state.config.read().await;
+        cfg.task.iter().find(|t| t.name == name).cloned()
+            .ok_or_else(|| PerchError::Process(format!("unknown task: {name}")))
+    }
+
+    pub async fn start(self: &Arc<Self>) {
+        let tasks: Vec<TaskDef> = {
+            let cfg = self.state.config.read().await;
+            cfg.task.iter().filter(|t| t.enabled).cloned().collect()
+        };
+        for t in tasks {
+            let notify = Arc::new(Notify::new());
+            self.stops.lock().await.insert(t.name.clone(), notify.clone());
+            let this = self.clone();
+            tokio::spawn(async move { this.schedule_loop(t, notify).await; });
+        }
+    }
+
+    async fn schedule_loop(self: Arc<Self>, task: TaskDef, notify: Arc<Notify>) {
+        let schedule = match Schedule::from_str(&task.schedule) {
+            Ok(s) => s,
+            Err(_) => return,
+        };
+        loop {
+            let next = match schedule.upcoming(Utc).next() {
+                Some(n) => n,
+                None => return,
+            };
+            let dur = (next - Utc::now()).to_std().unwrap_or(std::time::Duration::from_secs(1));
+            tokio::select! {
+                _ = tokio::time::sleep(dur) => { let _ = self.run_once(&task.name).await; }
+                _ = notify.notified() => break,
+            }
+        }
+    }
+
+    pub async fn run_once(&self, name: &str) -> Result<()> {
+        let task = self.find_task(name).await?;
+        let mut cmd = build_command_for_task(&task);
+        let mut child = cmd.spawn()
+            .map_err(|e| PerchError::Process(format!("spawn task {name}: {e}")))?;
+        let status = child.wait().await
+            .map_err(|e| PerchError::Process(format!("wait task {name}: {e}")))?;
+        if let Some(rt) = self.state.tasks.read().await.get(name).cloned() {
+            let mut r = rt.write().await;
+            r.last_run = Some(Utc::now());
+            r.last_exit_code = status.code();
+        }
+        Ok(())
+    }
+
+    pub async fn shutdown(&self) {
+        let all: Vec<Arc<Notify>> = { self.stops.lock().await.values().cloned().collect() };
+        for n in all { n.notify_waiters(); }
+        self.stops.lock().await.clear();
+    }
+}
+
+fn build_command_for_task(task: &TaskDef) -> tokio::process::Command {
+    let def = crate::config::model::ProcessDef {
+        name: task.name.clone(), cmd: task.cmd.clone(), args: task.args.clone(),
+        cwd: task.cwd.clone(), env: Default::default(), autostart: false,
+        restart: Default::default(),
+    };
+    let mut cmd = build_command(&def);
+    cmd.stdout(Stdio::null()).stderr(Stdio::null());
+    cmd
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::model::*;
+    use crate::core::state::AppState;
+    use std::path::PathBuf;
+
+    #[tokio::test]
+    async fn run_once_records_exit_code() {
+        let task = TaskDef {
+            name: "t".into(), cmd: "cmd".into(),
+            args: vec!["/c".into(), "exit 0".into()],
+            cwd: None, schedule: "0 0 0 * * *".into(), enabled: true,
+        };
+        let cfg = Config {
+            server: ServerConfig { bind: "127.0.0.1:0".into(), token: "t".into() },
+            process: vec![], task: vec![task],
+        };
+        let state = AppState::new(cfg, PathBuf::from("perch.toml"));
+        let sched = Scheduler::new(state.clone());
+        sched.run_once("t").await.unwrap();
+        let rt = state.tasks.read().await.get("t").cloned().unwrap();
+        let r = rt.read().await;
+        assert_eq!(r.last_exit_code, Some(0));
+        assert!(r.last_run.is_some());
+    }
+}
