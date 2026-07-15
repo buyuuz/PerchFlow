@@ -93,32 +93,32 @@ impl Supervisor {
         name: String,
     ) {
         let mut backoff = Backoff::new(def.restart.backoff_secs, def.restart.backoff_max_secs);
-        loop {
+        // 用带值的 break 把所有退出路径汇聚到循环末尾的单一权威终态写入点:
+        // 取消路径一律为 Stopped,自然退出为真实状态。无论走哪条 break,终态都必被写入,
+        // 且这次写入在时序上晚于本次迭代内 spawn_process / classify_exit 的所有中间写入。
+        let terminal = loop {
             if token.is_cancelled() {
-                // stop() 已在本次 spawn 前取消,避免再次拉起进程覆盖已写入的 Stopped 状态。
-                break;
+                break ProcStatus::Stopped;
             }
             match run_child(&def, &runtime, &token).await {
-                ChildOutcome::SpawnError => {
-                    runtime.write().await.status = ProcStatus::Crashed;
-                    break;
-                }
-                ChildOutcome::Cancelled => {
-                    // 本循环是取消路径上唯一权威写入者,顺序晚于 spawn_process 的写入。
-                    mark_stopped(&runtime).await;
-                    break;
-                }
-                ChildOutcome::Exited(status) => {
-                    if handle_exit(&def, &runtime, status).await {
-                        break;
+                ChildOutcome::SpawnError => break ProcStatus::Crashed,
+                ChildOutcome::Cancelled => break ProcStatus::Stopped,
+                ChildOutcome::Exited(status) => match classify_exit(&def, &runtime, status).await {
+                    ExitAction::Done(s) => break s,
+                    ExitAction::Restart => {
+                        let delay = backoff.next_delay();
+                        tokio::select! {
+                            _ = tokio::time::sleep(delay) => {}
+                            _ = token.cancelled() => break ProcStatus::Stopped,
+                        }
                     }
-                    let delay = backoff.next_delay();
-                    tokio::select! {
-                        _ = tokio::time::sleep(delay) => {}
-                        _ = token.cancelled() => break,
-                    }
-                }
+                },
             }
+        };
+        {
+            let mut r = runtime.write().await;
+            r.status = terminal;
+            r.pid = None;
         }
         self.stops.lock().await.remove(&name);
     }
@@ -154,33 +154,31 @@ async fn run_child(
     }
 }
 
-/// 将 runtime 标记为 Stopped 并清空 pid,用于取消路径上的权威终态写入。
-async fn mark_stopped(runtime: &std::sync::Arc<tokio::sync::RwLock<crate::core::state::ProcRuntime>>) {
-    let mut r = runtime.write().await;
-    r.status = ProcStatus::Stopped;
-    r.pid = None;
+/// 一次子进程退出后的决策:要么终结(带最终状态),要么退避后重启。
+enum ExitAction {
+    Done(ProcStatus),
+    Restart,
 }
 
-/// 处理一次子进程退出:更新状态与重启计数,返回 true 表示应结束监督循环(不再重启)。
-async fn handle_exit(
+/// 判定一次子进程退出后该终结还是重启。终结时返回最终状态交由循环末尾统一写入;
+/// 重启时在此更新中间态(Restarting + 计数),超过重试上限则终结为 Crashed。
+async fn classify_exit(
     def: &ProcessDef,
     runtime: &std::sync::Arc<tokio::sync::RwLock<crate::core::state::ProcRuntime>>,
     status: std::io::Result<std::process::ExitStatus>,
-) -> bool {
+) -> ExitAction {
     let success = status.map(|s| s.success()).unwrap_or(false);
     if !should_restart(def.restart.policy, success) {
-        runtime.write().await.status = if success { ProcStatus::Stopped } else { ProcStatus::Crashed };
-        return true;
+        return ExitAction::Done(if success { ProcStatus::Stopped } else { ProcStatus::Crashed });
     }
     let mut r = runtime.write().await;
     r.status = ProcStatus::Restarting;
     r.restart_count += 1;
     r.pid = None;
     if def.restart.max_retries != 0 && r.restart_count > def.restart.max_retries {
-        r.status = ProcStatus::Crashed;
-        return true;
+        return ExitAction::Done(ProcStatus::Crashed);
     }
-    false
+    ExitAction::Restart
 }
 
 fn should_restart(policy: RestartPolicy, success: bool) -> bool {
@@ -253,6 +251,33 @@ mod tests {
             // stops 表中不应残留该进程的 token,否则下一轮 start() 会被误判为已在运行。
             assert!(!sup.stops.lock().await.contains_key("p"));
         }
+    }
+
+    #[tokio::test]
+    async fn stop_during_restart_backoff_marks_stopped() {
+        // RestartPolicy::Always 且进程快速退出 → 进入重启退避循环。
+        // 此时 stop() 必须让最终状态落到 Stopped,而非卡在 classify_exit 写入的 Restarting。
+        // 用较长退避确保 stop() 落在 backoff 的 sleep 窗口内。
+        let def = ProcessDef {
+            name: "p".into(), cmd: "cmd".into(),
+            args: vec!["/c".into(), "exit 1".into()],
+            cwd: None, env: HashMap::new(), autostart: false,
+            restart: RestartConfig {
+                policy: RestartPolicy::Always,
+                backoff_secs: 5, backoff_max_secs: 5, max_retries: 0,
+            },
+        };
+        let state = AppState::new(cfg_with(def), PathBuf::from("perch.toml"));
+        let sup = Supervisor::new(state.clone());
+        sup.start("p").await.unwrap();
+        // 让首个子进程退出并进入退避 sleep(5s)。
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        sup.stop("p").await.unwrap();
+        // 给监督循环从 backoff 的 select! 中被取消唤醒并写入终态的时间。
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        let rt = state.procs.read().await.get("p").cloned().unwrap();
+        assert_eq!(rt.read().await.status, ProcStatus::Stopped);
+        assert!(!sup.stops.lock().await.contains_key("p"));
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
