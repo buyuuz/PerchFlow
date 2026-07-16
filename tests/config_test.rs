@@ -67,7 +67,7 @@ fn save_then_load_roundtrips() {
     use perch::config::model::*;
     use std::collections::HashMap;
     let cfg = Config {
-        server: ServerConfig { bind: "127.0.0.1:9000".into(), token: "tok".into() },
+        server: ServerConfig { bind: "127.0.0.1:9000".into(), token: "tok".into(), lang: "en".into() },
         process: vec![ProcessDef {
             name: "app".into(), cmd: "ping".into(), args: vec!["localhost".into()],
             cwd: None, env: HashMap::new(), autostart: true, restart: RestartConfig::default(),

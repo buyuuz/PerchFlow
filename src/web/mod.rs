@@ -1,3 +1,4 @@
+pub mod api_lang;
 pub mod api_logs;
 pub mod api_process;
 pub mod api_task;
@@ -27,8 +28,10 @@ pub fn build_router(ctx: WebContext) -> Router {
         .merge(api_process::routes())
         .merge(api_task::routes())
         .merge(api_logs::routes())
+        .merge(api_lang::routes())
         .route_layer(middleware::from_fn_with_state(ctx.clone(), auth::require_token))
-        .merge(api_logs::stream_routes());
+        .merge(api_logs::stream_routes())
+        .merge(api_lang::public_routes());
 
     Router::new()
         .nest("/api", api)

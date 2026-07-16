@@ -5,11 +5,15 @@ use std::collections::HashMap;
 pub struct ServerConfig {
     pub bind: String,
     pub token: String,
+    #[serde(default = "default_lang")]
+    pub lang: String,
 }
+
+fn default_lang() -> String { "en".into() }
 
 impl Default for ServerConfig {
     fn default() -> Self {
-        Self { bind: "127.0.0.1:9000".into(), token: "change-me".into() }
+        Self { bind: "127.0.0.1:9000".into(), token: "change-me".into(), lang: "en".into() }
     }
 }
 

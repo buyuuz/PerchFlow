@@ -284,9 +284,13 @@
   function detectLang() {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored && translations[stored]) return stored;
-    const browser = (navigator.language || 'en').toLowerCase().split('-')[0];
-    return translations[browser] ? browser : 'en';
+    return 'en';
   }
+
+  // Track whether this browser had an explicit choice at startup, so the
+  // async server fetch below only overrides the default when the user has
+  // never picked a language on this browser.
+  const hadStoredLang = !!localStorage.getItem(STORAGE_KEY);
 
   let currentLang = detectLang();
 
@@ -309,6 +313,14 @@
     currentLang = lang;
     localStorage.setItem(STORAGE_KEY, lang);
     applyTranslations();
+    const token = localStorage.getItem('perch_token');
+    if (token) {
+      fetch('/api/lang', {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lang })
+      }).catch(() => {});
+    }
   }
 
   function applyTranslations() {
@@ -349,5 +361,16 @@
     document.addEventListener('DOMContentLoaded', applyTranslations);
   } else {
     applyTranslations();
+  }
+
+  // Reconcile with the server-persisted language (GET /api/lang is
+  // unauthenticated so this works pre-login too). Only adopt it when this
+  // browser has never made an explicit choice, so a local override always wins.
+  if (!hadStoredLang) {
+    fetch('/api/lang').then(r => r.json()).then(data => {
+      if (data && data.lang && translations[data.lang] && data.lang !== currentLang) {
+        setLang(data.lang);
+      }
+    }).catch(() => {});
   }
 })();

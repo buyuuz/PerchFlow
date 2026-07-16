@@ -252,7 +252,7 @@ mod tests {
 
     fn cfg_with(def: ProcessDef) -> Config {
         Config {
-            server: ServerConfig { bind: "127.0.0.1:0".into(), token: "t".into() },
+            server: ServerConfig { bind: "127.0.0.1:0".into(), token: "t".into(), lang: "en".into() },
             process: vec![def],
             task: vec![],
         }

@@ -126,7 +126,7 @@ mod tests {
 
     fn state_with(tasks: Vec<TaskDef>) -> SharedState {
         let cfg = Config {
-            server: ServerConfig { bind: "127.0.0.1:0".into(), token: "t".into() },
+            server: ServerConfig { bind: "127.0.0.1:0".into(), token: "t".into(), lang: "en".into() },
             process: vec![],
             task: tasks,
         };

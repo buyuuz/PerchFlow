@@ -7,7 +7,7 @@ use perch::web::{build_router, WebContext};
 async fn spawn_server() -> (String, String, tempfile::NamedTempFile) {
     let tmp = tempfile::NamedTempFile::new().unwrap();
     let cfg = Config {
-        server: ServerConfig { bind: "127.0.0.1:0".into(), token: "secret".into() },
+        server: ServerConfig { bind: "127.0.0.1:0".into(), token: "secret".into(), lang: "en".into() },
         process: vec![], task: vec![],
     };
     let state = AppState::new(cfg, tmp.path().to_path_buf());
