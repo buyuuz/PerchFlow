@@ -108,7 +108,7 @@ async function submitAddModal() {
   const autostart = document.getElementById('add-autostart').checked;
   const errEl = document.getElementById('add-err');
   if (!name || !cmd) {
-    errEl.textContent = '名称和命令不能为空';
+    errEl.textContent = t('error.name_cmd_required');
     errEl.classList.remove('hidden');
     return;
   }
@@ -119,7 +119,7 @@ async function submitAddModal() {
   const resp = await api('/api/processes', { method: 'POST', body: JSON.stringify(body) });
   const result = await resp.json();
   if (!result.ok) {
-    errEl.textContent = result.error || '保存失败';
+    errEl.textContent = result.error || t('error.save_failed');
     errEl.classList.remove('hidden');
     return;
   }

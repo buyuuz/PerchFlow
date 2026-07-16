@@ -1,5 +1,5 @@
 <div align="center">
-<sub>🇬🇧 English &nbsp;|&nbsp; 🇨🇳 <a href="./README.zh-CN.md">中文</a></sub>
+<sub>🇬🇧 <a href="./README.md">English</a> &nbsp;|&nbsp; 🇨🇳 <a href="./README.zh-CN.md">中文</a> &nbsp;|&nbsp; 🇪🇸 <a href="./README.es.md">Español</a> &nbsp;|&nbsp; 🇯🇵 <a href="./README.ja.md">日本語</a> &nbsp;|&nbsp; 🇧🇷 <a href="./README.pt.md">Português</a></sub>
 </div>
 
 <br/>

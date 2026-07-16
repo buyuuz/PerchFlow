@@ -1,9 +1,15 @@
 <!DOCTYPE html>
 
-<html class="dark" lang="zh-CN"><head>
+<html class="dark" lang=""><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Perch Login</title>
+<title>Perch - Process & Service Manager</title>
+<meta name="description" content="Perch - Lightweight Windows process & service manager with built-in web UI. Written in Rust."/>
+<meta property="og:title" content="Perch - Process & Service Manager"/>
+<meta property="og:description" content="Lightweight single-binary process manager for Windows, written in Rust."/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://github.com/tanzibiao/perch"/>
+<meta property="og:image" content="/assets/logo.png"/>
 <link href="/assets/fonts.css" rel="stylesheet"/>
 <link href="/assets/tailwind.css" rel="stylesheet"/>
 <link href="/assets/logo.ico" rel="icon" type="image/x-icon"/>
@@ -45,7 +51,7 @@
 <!-- Form -->
 <form class="w-full" onsubmit="doLogin(event)">
 <div class="mb-6">
-<label class="block font-body-sm text-body-sm text-on-surface-variant mb-2 text-center" for="token">请输入 perch.toml 中配置的访问令牌</label>
+<label class="block font-body-sm text-body-sm text-on-surface-variant mb-2 text-center" data-i18n="login.token_label" for="token">请输入 perch.toml 中配置的访问令牌</label>
 <div class="relative">
 <input class="glass-input w-full rounded-lg px-4 py-3 font-mono-data text-mono-data transition-all" id="token" name="token" placeholder="Enter Token..." required="" type="password"/>
 <button class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface transition-colors focus:outline-none" onclick="togglePassword()" type="button">
@@ -55,16 +61,24 @@
 <p class="mt-2 text-center font-body-sm text-body-sm text-error hidden" id="err"></p>
 </div>
 <button class="w-full bg-primary text-on-primary font-mono-label text-mono-label py-3 rounded-lg hover:bg-primary-fixed transition-colors flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(68,216,241,0.3)]" type="submit">
-                    进入
+                    <span data-i18n="button.enter">进入</span>
                     <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
 </button>
 </form>
 </div>
 <!-- Footer / Version -->
-<div class="mt-8 text-center">
+<div class="mt-8 text-center flex flex-col items-center gap-3">
 <span class="font-mono-data text-mono-data text-on-surface-variant/50">v2.4.0-stable</span>
+<select class="bg-surface-container-high border border-white/10 rounded px-2 py-1 text-on-surface-variant font-body-sm text-body-sm cursor-pointer" onchange="setLang(this.value)" data-lang-select>
+<option value="zh">🇨🇳 中文</option>
+<option value="en">🇬🇧 English</option>
+<option value="es">🇪🇸 Español</option>
+<option value="ja">🇯🇵 日本語</option>
+<option value="pt">🇧🇷 Português</option>
+</select>
 </div>
 </main>
+<script src="/assets/i18n.js"></script>
 <script src="/assets/app.js"></script>
 <script>
         function togglePassword() {
@@ -82,15 +96,15 @@
 
         async function doLogin(e) {
             e.preventDefault();
-            const t = document.getElementById('token').value;
+            const tokenVal = document.getElementById('token').value;
             const errEl = document.getElementById('err');
             errEl.classList.add('hidden');
-            setToken(t);
-            const resp = await fetch('/api/processes', { headers: { 'Authorization': 'Bearer ' + t } });
+            setToken(tokenVal);
+            const resp = await fetch('/api/processes', { headers: { 'Authorization': 'Bearer ' + tokenVal } });
             if (resp.ok) {
                 window.location.href = '/processes';
             } else {
-                errEl.textContent = '令牌无效';
+                errEl.textContent = t('error.token_invalid');
                 errEl.classList.remove('hidden');
             }
         }

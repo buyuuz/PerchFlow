@@ -82,7 +82,7 @@ async function toggleEnabled(name, enabled) {
 
 function openTaskModal() {
   editingName = null;
-  document.getElementById('task-modal-title').textContent = '添加任务';
+  document.getElementById('task-modal-title').textContent = t('modal.add_task');
   document.getElementById('task-name').value = '';
   document.getElementById('task-name').disabled = false;
   document.getElementById('task-cmd').value = '';
@@ -97,7 +97,7 @@ function editTask(name) {
   const t = cachedTasks.find(x => x.name === decodeURIComponent(name));
   if (!t) return;
   editingName = t.name;
-  document.getElementById('task-modal-title').textContent = '编辑任务';
+  document.getElementById('task-modal-title').textContent = t('modal.edit_task');
   document.getElementById('task-name').value = t.name;
   document.getElementById('task-name').disabled = true;
   document.getElementById('task-cmd').value = t.cmd;
@@ -126,7 +126,7 @@ async function submitTaskModal() {
   const enabled = document.getElementById('task-enabled').checked;
   const errEl = document.getElementById('task-err');
   if (!name || !cmd || !schedule) {
-    errEl.textContent = '名称、命令和 cron 表达式不能为空';
+    errEl.textContent = t('error.name_cmd_cron_required');
     errEl.classList.remove('hidden');
     return;
   }
@@ -137,7 +137,7 @@ async function submitTaskModal() {
   const resp = await api(path, { method, body: JSON.stringify(body) });
   const result = await resp.json();
   if (!result.ok) {
-    errEl.textContent = result.error || '保存失败';
+    errEl.textContent = result.error || t('error.save_failed');
     errEl.classList.remove('hidden');
     return;
   }

@@ -3,7 +3,10 @@ const procName = params.get('name') || '';
 let liveOn = true;
 let eventSource = null;
 
-const STATUS_LABEL = { running: '运行中', stopped: '已停止', crashed: '已崩溃', restarting: '重启中' };
+function statusLabel(status) {
+  const label = t('status.' + status);
+  return label !== 'status.' + status ? label : status;
+}
 
 function escapeHtml(s) {
   return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -21,7 +24,7 @@ async function loadProcess() {
   if (!resp.ok) return;
   const p = await resp.json();
   document.getElementById('proc-name').textContent = p.name;
-  document.getElementById('proc-status').textContent = STATUS_LABEL[p.status] || p.status;
+  document.getElementById('proc-status').textContent = statusLabel(p.status);
   document.getElementById('proc-pid').textContent = p.pid != null ? p.pid : '---';
   document.getElementById('proc-cpu').textContent = p.cpu_percent.toFixed(1) + '%';
   document.getElementById('proc-mem').textContent = Math.round(p.mem_bytes / 1024 / 1024) + ' MB';
@@ -54,7 +57,7 @@ function startStream() {
       const el = document.getElementById('log-content');
       const notice = document.createElement('div');
       notice.className = 'text-on-surface-variant italic px-1 py-1';
-      notice.textContent = `— 日志流已结束 (${data.status}) —`;
+      notice.textContent = t('log.stream_ended', {status: data.status});
       el.appendChild(notice);
       el.scrollTop = el.scrollHeight;
       return;

@@ -1,9 +1,15 @@
 <!DOCTYPE html>
 
-<html class="dark" lang="zh-CN"><head>
+<html class="dark" lang=""><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Perch Orchestrator - 进程</title>
+<title>Perch - Processes</title>
+<meta name="description" content="Perch - Lightweight Windows process & service manager with built-in web UI. Written in Rust."/>
+<meta property="og:title" content="Perch - Process & Service Manager"/>
+<meta property="og:description" content="Lightweight single-binary process manager for Windows, written in Rust."/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://github.com/tanzibiao/perch"/>
+<meta property="og:image" content="/assets/logo.png"/>
 <link href="/assets/fonts.css" rel="stylesheet"/>
 <link href="/assets/tailwind.css" rel="stylesheet"/>
 <link href="/assets/logo.ico" rel="icon" type="image/x-icon"/>
@@ -51,11 +57,11 @@
             </div>
 <div class="hidden md:flex h-full gap-6">
 <!-- Active Nav Item (Dashboard/Processes) -->
-<a class="h-full flex items-center text-primary border-b-2 border-primary pb-1 font-bold" href="/processes">
+<a class="h-full flex items-center text-primary border-b-2 border-primary pb-1 font-bold" data-i18n="nav.processes" href="/processes">
                     进程
                 </a>
 <!-- Inactive Nav Item (Tasks) -->
-<a class="h-full flex items-center text-on-surface-variant font-medium hover:bg-white/5 transition-colors px-2 rounded-t-sm mt-1 mb-1" href="/tasks">
+<a class="h-full flex items-center text-on-surface-variant font-medium hover:bg-white/5 transition-colors px-2 rounded-t-sm mt-1 mb-1" data-i18n="nav.tasks" href="/tasks">
                     定时任务
                 </a>
 </div>
@@ -70,12 +76,16 @@
 <!-- Primary Action -->
 <button class="bg-primary hover:bg-primary-fixed-dim text-on-primary px-4 py-1.5 rounded font-body-md font-medium transition-all duration-150 active:scale-[0.98] flex items-center gap-1 shadow-[0_0_15px_rgba(68,216,241,0.2)]" onclick="openAddModal()">
 <span class="material-symbols-outlined text-[18px]">add</span>
-                添加进程
+                <span data-i18n="button.add_process">添加进程</span>
             </button>
-<!-- Trailing Icons -->
-<button class="hidden md:flex text-on-surface-variant hover:text-primary hover:bg-white/5 p-1.5 rounded transition-colors">
-<span class="material-symbols-outlined">sensors</span>
-</button>
+<!-- Language Selector -->
+<select class="hidden md:block bg-surface-container-high border border-white/10 rounded px-2 py-1 text-on-surface-variant font-body-sm text-body-sm cursor-pointer" onchange="setLang(this.value)" data-lang-select>
+<option value="zh">🇨🇳 中文</option>
+<option value="en">🇬🇧 English</option>
+<option value="es">🇪🇸 Español</option>
+<option value="ja">🇯🇵 日本語</option>
+<option value="pt">🇧🇷 Português</option>
+</select>
 </div>
 </nav>
 <!-- Main Content Canvas -->
@@ -83,14 +93,14 @@
 <!-- Header Section -->
 <div class="flex justify-between items-end mb-6">
 <div>
-<h1 class="font-headline-lg text-headline-lg text-on-surface mb-1">进程管理</h1>
-<p class="font-body-md text-body-md text-on-surface-variant">监控和管理系统进程</p>
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-1" data-i18n="page.processes_title">进程管理</h1>
+<p class="font-body-md text-body-md text-on-surface-variant" data-i18n="page.processes_subtitle">监控和管理系统进程</p>
 </div>
 <!-- Filter/Search (Conceptual) -->
 <div class="flex gap-2">
 <div class="relative">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
-<input class="bg-surface-container-high border border-white/10 rounded pl-9 pr-3 py-1.5 text-sm font-body-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant/50 w-32 md:w-64 transition-all" placeholder="搜索进程..." type="text"/>
+<input class="bg-surface-container-high border border-white/10 rounded pl-9 pr-3 py-1.5 text-sm font-body-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant/50 w-32 md:w-64 transition-all" data-i18n-placeholder="search.processes" placeholder="搜索进程..." type="text"/>
 </div>
 </div>
 </div>
@@ -100,27 +110,27 @@
 <!-- Add Process Modal -->
 <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden items-center justify-center p-4" id="add-modal">
 <div class="glass-card w-full max-w-md rounded-xl p-6 flex flex-col gap-4">
-<h2 class="font-headline-md text-headline-md text-on-surface">添加进程</h2>
+<h2 class="font-headline-md text-headline-md text-on-surface" data-i18n="modal.add_process">添加进程</h2>
 <div class="flex flex-col gap-2">
-<label class="font-body-sm text-body-sm text-on-surface-variant">名称</label>
+<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.name">名称</label>
 <input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="add-name" type="text"/>
 </div>
 <div class="flex flex-col gap-2">
-<label class="font-body-sm text-body-sm text-on-surface-variant">命令</label>
+<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.command">命令</label>
 <input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="add-cmd" placeholder="/usr/bin/node" type="text"/>
 </div>
 <div class="flex flex-col gap-2">
-<label class="font-body-sm text-body-sm text-on-surface-variant">参数 (空格分隔)</label>
+<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.args">参数 (空格分隔)</label>
 <input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="add-args" placeholder="server.js --port 8080" type="text"/>
 </div>
 <div class="flex items-center gap-2">
 <input id="add-autostart" type="checkbox"/>
-<label class="font-body-sm text-body-sm text-on-surface-variant" for="add-autostart">开机自启</label>
+<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.autostart" for="add-autostart">开机自启</label>
 </div>
 <p class="font-body-sm text-body-sm text-error hidden" id="add-err"></p>
 <div class="flex justify-end gap-3">
-<button class="px-4 py-2 rounded font-body-md text-body-md border border-primary text-primary hover:bg-primary/10" onclick="closeAddModal()">取消</button>
-<button class="px-6 py-2 rounded font-body-md text-body-md bg-primary text-on-primary hover:bg-primary-fixed" onclick="submitAddModal()">保存</button>
+<button class="px-4 py-2 rounded font-body-md text-body-md border border-primary text-primary hover:bg-primary/10" data-i18n="button.cancel" onclick="closeAddModal()">取消</button>
+<button class="px-6 py-2 rounded font-body-md text-body-md bg-primary text-on-primary hover:bg-primary-fixed" data-i18n="button.save" onclick="submitAddModal()">保存</button>
 </div>
 </div>
 </div>
@@ -128,13 +138,14 @@
 <nav class="fixed bottom-0 left-0 w-full z-50 flex items-center bg-surface/60 backdrop-blur-xl border-t border-white/10 h-14 md:hidden">
 <a class="flex-1 flex flex-col items-center justify-center text-primary gap-0.5 py-1" href="/processes">
 <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">monitoring</span>
-<span class="text-[10px]">进程</span>
+<span class="text-[10px]" data-i18n="nav.processes_short">进程</span>
 </a>
 <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/tasks">
 <span class="material-symbols-outlined text-[20px]">assignment_turned_in</span>
-<span class="text-[10px]">任务</span>
+<span class="text-[10px]" data-i18n="nav.tasks_short">任务</span>
 </a>
 </nav>
+<script src="/assets/i18n.js"></script>
 <script src="/assets/app.js"></script>
 <script src="/assets/processes.js"></script>
 </body></html>

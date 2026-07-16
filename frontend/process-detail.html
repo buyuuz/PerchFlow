@@ -1,9 +1,15 @@
 <!DOCTYPE html>
 
-<html class="dark" lang="zh-CN"><head>
+<html class="dark" lang=""><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Process Details - Perch</title>
+<title>Perch - Process Detail</title>
+<meta name="description" content="Perch - Lightweight Windows process & service manager with built-in web UI. Written in Rust."/>
+<meta property="og:title" content="Perch - Process & Service Manager"/>
+<meta property="og:description" content="Lightweight single-binary process manager for Windows, written in Rust."/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://github.com/tanzibiao/perch"/>
+<meta property="og:image" content="/assets/logo.png"/>
 <link href="/assets/fonts.css" rel="stylesheet"/>
 <link href="/assets/tailwind.css" rel="stylesheet"/>
 <link href="/assets/logo.ico" rel="icon" type="image/x-icon"/>
@@ -54,15 +60,15 @@
 <div class="flex flex-wrap items-center gap-2">
 <button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-DEFAULT border border-outline-variant text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors font-body-sm" onclick="act('stop')">
 <span class="material-symbols-outlined text-[18px]">stop</span>
-                    停止
+                    <span data-i18n="button.stop">停止</span>
                 </button>
 <button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-DEFAULT border border-primary/30 text-primary hover:bg-primary/10 transition-colors font-body-sm" onclick="act('restart')">
 <span class="material-symbols-outlined text-[18px]">restart_alt</span>
-                    重启
+                    <span data-i18n="button.restart">重启</span>
                 </button>
 <button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-DEFAULT bg-primary text-on-primary hover:bg-primary-fixed transition-colors font-body-sm shadow-[0_0_15px_rgba(68,216,241,0.2)]" onclick="act('start')">
 <span class="material-symbols-outlined text-[18px]">play_arrow</span>
-                    启动
+                    <span data-i18n="button.start">启动</span>
                 </button>
 </div>
 </header>
@@ -71,23 +77,23 @@
 <div class="grid grid-cols-2 md:grid-cols-4 gap-y-gutter gap-x-card-gap">
 <!-- Data Items -->
 <div class="flex flex-col gap-1">
-<span class="font-body-sm text-body-sm text-on-surface-variant">PID</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.pid">PID</span>
 <span class="font-mono-data text-mono-data text-on-surface" id="proc-pid">-</span>
 </div>
 <div class="flex flex-col gap-1">
-<span class="font-body-sm text-body-sm text-on-surface-variant">CPU 使用率</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.cpu_usage">CPU 使用率</span>
 <span class="font-mono-data text-mono-data text-primary" id="proc-cpu">-</span>
 </div>
 <div class="flex flex-col gap-1">
-<span class="font-body-sm text-body-sm text-on-surface-variant">内存占用</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.memory">内存占用</span>
 <span class="font-mono-data text-mono-data text-on-surface" id="proc-mem">-</span>
 </div>
 <div class="flex flex-col gap-1">
-<span class="font-body-sm text-body-sm text-on-surface-variant">运行时间</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.uptime">运行时间</span>
 <span class="font-mono-data text-mono-data text-on-surface" id="proc-uptime">-</span>
 </div>
 <div class="flex flex-col gap-1 col-span-2 md:col-span-4">
-<span class="font-body-sm text-body-sm text-on-surface-variant">启动命令</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.command_start">启动命令</span>
 <div class="bg-black/20 px-3 py-1.5 rounded-DEFAULT border border-white/5 overflow-x-auto terminal-scroll">
 <span class="font-mono-data text-mono-data text-on-surface whitespace-nowrap" id="proc-cmd">-</span>
 </div>
@@ -100,18 +106,18 @@
 <div class="flex items-center justify-between mb-card-gap">
 <h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
 <span class="material-symbols-outlined text-primary text-[20px]">terminal</span>
-                    日志输出
+                    <span data-i18n="log.output">日志输出</span>
                 </h2>
 <div class="flex items-center gap-gutter">
 <!-- Lines Selector -->
 <select class="bg-surface-container border border-outline-variant text-on-surface-variant font-body-sm text-body-sm rounded-DEFAULT px-3 py-1 focus:ring-1 focus:ring-primary focus:border-primary outline-none" id="lines-select" onchange="loadRecentLogs()">
-<option value="100">100 行</option>
-<option selected="" value="500">500 行</option>
-<option value="1000">1000 行</option>
+<option data-i18n="log.lines_100" value="100">100 行</option>
+<option data-i18n="log.lines_500" selected="" value="500">500 行</option>
+<option data-i18n="log.lines_1000" value="1000">1000 行</option>
 </select>
 <!-- Glass Toggle -->
 <div class="flex items-center gap-2 cursor-pointer group" id="live-toggle" onclick="toggleLive()">
-<span class="font-body-sm text-body-sm text-on-surface-variant group-hover:text-on-surface transition-colors">实时</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant group-hover:text-on-surface transition-colors" data-i18n="log.live">实时</span>
 <div class="toggle-track w-8 h-4 bg-primary/20 rounded-full p-[2px] transition-colors border border-white/10 backdrop-blur-md relative flex items-center">
 <div class="toggle-thumb w-3 h-3 bg-primary rounded-full transform transition-transform shadow-sm"></div>
 </div>
@@ -131,6 +137,7 @@
 </div>
 </section>
 </main>
+<script src="/assets/i18n.js"></script>
 <script src="/assets/app.js"></script>
 <script src="/assets/process-detail.js"></script>
 </body></html>
