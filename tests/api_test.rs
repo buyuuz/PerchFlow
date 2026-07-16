@@ -162,3 +162,56 @@ async fn create_task_rejects_bad_cron() {
     let v: serde_json::Value = r.json().await.unwrap();
     assert_eq!(v["ok"], false);
 }
+
+#[tokio::test]
+async fn create_process_with_autostart_starts() {
+    let (base, token, _tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "name": "auto", "cmd": "cmd",
+        "args": ["/c", "ping -n 30 127.0.0.1"],
+        "autostart": true,
+        "restart": { "policy": "never", "backoff_secs": 2, "backoff_max_secs": 60, "max_retries": 0 }
+    });
+    let r = client.post(format!("{base}/api/processes")).bearer_auth(&token)
+        .json(&body).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let list: serde_json::Value = client.get(format!("{base}/api/processes"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(list["processes"][0]["status"], "running");
+    // cleanup
+    let _ = client.post(format!("{base}/api/processes/auto/stop")).bearer_auth(&token).send().await;
+}
+
+#[tokio::test]
+async fn update_running_process_restarts_with_new_def() {
+    let (base, token, _tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "name": "p", "cmd": "cmd",
+        "args": ["/c", "ping -n 60 127.0.0.1"],
+        "autostart": false,
+        "restart": { "policy": "never", "backoff_secs": 2, "backoff_max_secs": 60, "max_retries": 0 }
+    });
+    client.post(format!("{base}/api/processes")).bearer_auth(&token).json(&body).send().await.unwrap();
+    client.post(format!("{base}/api/processes/p/start")).bearer_auth(&token).send().await.unwrap();
+    tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+
+    let updated = serde_json::json!({
+        "name": "p", "cmd": "cmd",
+        "args": ["/c", "ping -n 60 127.0.0.1"],
+        "cwd": "C:\\Windows",
+        "autostart": false,
+        "restart": { "policy": "never", "backoff_secs": 2, "backoff_max_secs": 60, "max_retries": 0 }
+    });
+    let r = client.put(format!("{base}/api/processes/p")).bearer_auth(&token)
+        .json(&updated).send().await.unwrap();
+    assert_eq!(r.status(), 200);
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let detail: serde_json::Value = client.get(format!("{base}/api/processes/p"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(detail["status"], "running");
+    assert_eq!(detail["cwd"], "C:\\Windows");
+    let _ = client.post(format!("{base}/api/processes/p/stop")).bearer_auth(&token).send().await;
+}

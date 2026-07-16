@@ -80,6 +80,11 @@ impl Supervisor {
         self.start(name).await
     }
 
+    /// Whether a supervise loop is currently registered for `name`.
+    pub async fn is_managed(&self, name: &str) -> bool {
+        self.instances.lock().await.contains_key(name)
+    }
+
     pub async fn start_autostart(self: &Arc<Self>) {
         let names: Vec<String> = {
             let cfg = self.state.config.read().await;

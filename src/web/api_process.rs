@@ -29,6 +29,9 @@ pub struct ProcView {
     pub cpu_percent: f32,
     pub mem_bytes: u64,
     pub cmd: String,
+    pub args: Vec<String>,
+    pub cwd: Option<String>,
+    pub autostart: bool,
 }
 
 async fn build_view(state: &SharedState, name: &str) -> Option<ProcView> {
@@ -36,6 +39,9 @@ async fn build_view(state: &SharedState, name: &str) -> Option<ProcView> {
     let def = cfg.process.iter().find(|p| p.name == name)?;
     let cmd = if def.args.is_empty() { def.cmd.clone() }
         else { format!("{} {}", def.cmd, def.args.join(" ")) };
+    let args = def.args.clone();
+    let cwd = def.cwd.clone();
+    let autostart = def.autostart;
     drop(cfg);
     let rt_arc = state.procs.read().await.get(name).cloned()?;
     let rt = rt_arc.read().await;
@@ -44,6 +50,7 @@ async fn build_view(state: &SharedState, name: &str) -> Option<ProcView> {
         name: name.to_string(), status: rt.status, pid: rt.pid,
         uptime_secs: uptime, restart_count: rt.restart_count,
         cpu_percent: rt.cpu_percent, mem_bytes: rt.mem_bytes, cmd,
+        args, cwd, autostart,
     })
 }
 
@@ -95,10 +102,19 @@ async fn create(State(ctx): State<WebContext>, Json(def): Json<ProcessDef>) -> J
         def.name.clone(),
         std::sync::Arc::new(tokio::sync::RwLock::new(ProcRuntime::new())),
     );
-    op_result(persist(&ctx).await)
+    let r = persist(&ctx).await;
+    if def.autostart {
+        if let Err(e) = ctx.supervisor.start(&def.name).await {
+            return Json(json!({ "ok": false, "error": e.to_string() }));
+        }
+    }
+    op_result(r)
 }
 
-async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(def): Json<ProcessDef>) -> Json<serde_json::Value> {
+async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(mut def): Json<ProcessDef>) -> Json<serde_json::Value> {
+    // Path name is authoritative; prevents runtime-map desync on rename.
+    def.name = name.clone();
+    let was_managed = ctx.supervisor.is_managed(&name).await;
     {
         let mut cfg = ctx.state.config.write().await;
         match cfg.process.iter_mut().find(|p| p.name == name) {
@@ -106,7 +122,13 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(de
             None => return Json(json!({ "ok": false, "error": "not found" })),
         }
     }
-    op_result(persist(&ctx).await)
+    let r = persist(&ctx).await;
+    if was_managed {
+        if let Err(e) = ctx.supervisor.restart(&name).await {
+            return Json(json!({ "ok": false, "error": e.to_string() }));
+        }
+    }
+    op_result(r)
 }
 
 async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
