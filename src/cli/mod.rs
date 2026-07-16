@@ -1,4 +1,5 @@
 use crate::config;
+use crate::config::writer;
 use crate::core::metrics::spawn_metrics_collector;
 use crate::core::scheduler::Scheduler;
 use crate::core::state::AppState;
@@ -44,6 +45,13 @@ pub async fn run_foreground_until<F: std::future::Future<Output = ()>>(
     shutdown: F,
 ) -> anyhow::Result<()> {
     let path = config::default_path();
+    // 首次运行:exe 同目录无 perch.toml 时,自动生成含 demo 进程的默认配置,
+    // 这样双击 exe → 选 5 → fork `perch run` 时不会因缺配置崩溃退出。
+    if !path.exists() {
+        let cfg = config::model::default_demo_config();
+        writer::save(&path, &cfg)?;
+        println!("已生成默认配置: {}", path.display());
+    }
     let cfg = config::load(&path)?;
     let bind = cfg.server.bind.clone();
     let state = AppState::new(cfg, path);
