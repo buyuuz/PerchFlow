@@ -63,7 +63,7 @@
 <!-- Right: Actions & Status -->
 <div class="flex items-center gap-4">
 <!-- Connection Status -->
-<div class="flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-full border border-white/5">
+<div class="hidden md:flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-full border border-white/5">
 <div class="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)] animate-pulse"></div>
 <span class="font-mono-data text-mono-data text-on-surface-variant">Connected</span>
 </div>
@@ -73,13 +73,13 @@
                 添加进程
             </button>
 <!-- Trailing Icons -->
-<button class="text-on-surface-variant hover:text-primary hover:bg-white/5 p-1.5 rounded transition-colors">
+<button class="hidden md:flex text-on-surface-variant hover:text-primary hover:bg-white/5 p-1.5 rounded transition-colors">
 <span class="material-symbols-outlined">sensors</span>
 </button>
 </div>
 </nav>
 <!-- Main Content Canvas -->
-<main class="pt-[80px] px-container-padding pb-10 max-w-[1600px] mx-auto">
+<main class="pt-[80px] px-container-padding pb-20 md:pb-10 max-w-[1600px] mx-auto">
 <!-- Header Section -->
 <div class="flex justify-between items-end mb-6">
 <div>
@@ -90,7 +90,7 @@
 <div class="flex gap-2">
 <div class="relative">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
-<input class="bg-surface-container-high border border-white/10 rounded pl-9 pr-3 py-1.5 text-sm font-body-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant/50 w-64 transition-all" placeholder="搜索进程..." type="text"/>
+<input class="bg-surface-container-high border border-white/10 rounded pl-9 pr-3 py-1.5 text-sm font-body-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant/50 w-32 md:w-64 transition-all" placeholder="搜索进程..." type="text"/>
 </div>
 </div>
 </div>
@@ -124,6 +124,17 @@
 </div>
 </div>
 </div>
+<!-- Mobile Bottom Nav -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex items-center bg-surface/60 backdrop-blur-xl border-t border-white/10 h-14 md:hidden">
+<a class="flex-1 flex flex-col items-center justify-center text-primary gap-0.5 py-1" href="/processes">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">monitoring</span>
+<span class="text-[10px]">进程</span>
+</a>
+<a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/tasks">
+<span class="material-symbols-outlined text-[20px]">assignment_turned_in</span>
+<span class="text-[10px]">任务</span>
+</a>
+</nav>
 <script src="/assets/app.js"></script>
 <script src="/assets/processes.js"></script>
 </body></html>

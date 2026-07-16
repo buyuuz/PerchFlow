@@ -11,13 +11,12 @@ function renderRow(t) {
     : (t.last_exit_code === 0 ? 'check_circle' : 'error');
   const statusColor = t.last_exit_code == null ? 'text-on-surface-variant'
     : (t.last_exit_code === 0 ? 'text-green-400' : 'text-error');
+  const toggleHtml = `<div class="w-8 h-4 rounded-full glass-toggle ${toggleActive} relative cursor-pointer" onclick="toggleEnabled('${encodeURIComponent(t.name)}', ${!t.enabled})"><div class="w-4 h-4 rounded-full glass-toggle-thumb absolute left-0 top-0"></div></div>`;
+  const actionsHtml = `<button class="p-1.5 text-on-surface-variant hover:text-primary rounded hover:bg-white/5 transition-colors" onclick="runNow('${encodeURIComponent(t.name)}')" title="Run Now"><span class="material-symbols-outlined text-[18px]">play_arrow</span></button><button class="p-1.5 text-on-surface-variant hover:text-on-surface rounded hover:bg-white/5 transition-colors" onclick="editTask('${encodeURIComponent(t.name)}')" title="Edit"><span class="material-symbols-outlined text-[18px]">edit</span></button><button class="p-1.5 text-on-surface-variant hover:text-error rounded hover:bg-error/10 transition-colors" onclick="deleteTask('${encodeURIComponent(t.name)}')" title="Delete"><span class="material-symbols-outlined text-[18px]">delete</span></button>`;
   return `
-<div class="glass-card rounded-lg flex items-center p-3 transition-colors duration-200 group mb-2">
-<div class="w-10 flex justify-center">
-<div class="w-8 h-4 rounded-full glass-toggle ${toggleActive} relative cursor-pointer" onclick="toggleEnabled('${encodeURIComponent(t.name)}', ${!t.enabled})">
-<div class="w-4 h-4 rounded-full glass-toggle-thumb absolute left-0 top-0"></div>
-</div>
-</div>
+<!-- Desktop row -->
+<div class="glass-card rounded-lg hidden md:flex items-center p-3 transition-colors duration-200 group mb-2">
+<div class="w-10 flex justify-center">${toggleHtml}</div>
 <div class="flex-1.5 grid grid-cols-[1.5fr_1fr_2fr_1fr] gap-4 items-center w-full ml-4">
 <div class="font-body-md text-body-md font-semibold text-on-surface truncate">${escapeHtml(t.name)}</div>
 <div class="font-mono-data text-mono-data text-primary truncate bg-primary/10 px-2 py-0.5 rounded w-max">${escapeHtml(t.schedule)}</div>
@@ -27,17 +26,29 @@ function renderRow(t) {
 <span class="font-mono-data text-mono-data text-on-surface-variant">${lastRun}</span>
 </div>
 </div>
-<div class="w-24 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-<button class="p-1.5 text-on-surface-variant hover:text-primary rounded hover:bg-white/5 transition-colors" onclick="runNow('${encodeURIComponent(t.name)}')" title="Run Now">
-<span class="material-symbols-outlined text-[18px]">play_arrow</span>
-</button>
-<button class="p-1.5 text-on-surface-variant hover:text-on-surface rounded hover:bg-white/5 transition-colors" onclick="editTask('${encodeURIComponent(t.name)}')" title="Edit">
-<span class="material-symbols-outlined text-[18px]">edit</span>
-</button>
-<button class="p-1.5 text-on-surface-variant hover:text-error rounded hover:bg-error/10 transition-colors" onclick="deleteTask('${encodeURIComponent(t.name)}')" title="Delete">
-<span class="material-symbols-outlined text-[18px]">delete</span>
-</button>
+<div class="w-24 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">${actionsHtml}</div>
 </div>
+<!-- Mobile card -->
+<div class="glass-card rounded-lg md:hidden p-3 mb-2 flex flex-col gap-2">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-3 min-w-0 flex-1">
+<div class="shrink-0">${toggleHtml}</div>
+<div class="font-body-md text-body-md font-semibold text-on-surface truncate">${escapeHtml(t.name)}</div>
+<span class="material-symbols-outlined text-[16px] ${statusColor} shrink-0">${statusIcon}</span>
+</div>
+<div class="flex gap-1 shrink-0">${actionsHtml}</div>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant uppercase tracking-wider">Schedule</span>
+<span class="font-mono-data text-mono-data text-primary bg-primary/10 px-2 py-0.5 rounded w-max">${escapeHtml(t.schedule)}</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[10px] text-on-surface-variant uppercase tracking-wider">Last Run</span>
+<span class="font-mono-data text-mono-data text-on-surface-variant">${lastRun}</span>
+</div>
+</div>
+<div class="font-mono-data text-mono-data text-on-surface-variant truncate opacity-80" title="${escapeHtml(t.cmd)}">${escapeHtml(t.cmd)}</div>
 </div>`;
 }
 
@@ -69,7 +80,7 @@ async function toggleEnabled(name, enabled) {
   loadTasks();
 }
 
-function openAddModal() {
+function openTaskModal() {
   editingName = null;
   document.getElementById('task-modal-title').textContent = '添加任务';
   document.getElementById('task-name').value = '';
