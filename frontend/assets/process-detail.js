@@ -86,7 +86,14 @@ function toggleLive() {
 
 async function act(action) {
   await api(`/api/processes/${encodeURIComponent(procName)}/${action}`, { method: 'POST' });
-  loadProcess();
+  await loadProcess();
+  // start/restart 会从 Stopped 终态切回 Running,之前 SSE 已被 ended 事件关闭,
+  // 这里必须重建连接,否则日志区不刷新(需 F5 才能看到新日志)。
+  // stop 会让服务端推 ended 后关流,前端 onmessage 会自动 stopStream,无需这里处理。
+  if ((action === 'start' || action === 'restart') && liveOn) {
+    stopStream();
+    startStream();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
