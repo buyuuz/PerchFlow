@@ -1,6 +1,6 @@
 use crate::config::model::{ProcessDef, RestartPolicy};
 use crate::core::backoff::Backoff;
-use crate::core::process::spawn_process;
+use crate::core::process::{spawn_process, SpawnedChild};
 use crate::core::state::{ProcStatus, SharedState};
 use crate::error::{PerchError, Result};
 use std::collections::HashMap;
@@ -158,21 +158,53 @@ async fn run_child(
     runtime: &std::sync::Arc<tokio::sync::RwLock<crate::core::state::ProcRuntime>>,
     token: &CancellationToken,
 ) -> ChildOutcome {
-    let mut child = match spawn_process(def, runtime.clone()).await {
+    let mut spawned = match spawn_process(def, runtime.clone()).await {
         Ok(c) => c,
         Err(_) => return ChildOutcome::SpawnError,
     };
     if token.is_cancelled() {
-        let _ = child.kill().await;
+        let _ = kill_tree(&mut spawned).await;
         return ChildOutcome::Cancelled;
     }
     tokio::select! {
-        status = child.wait() => ChildOutcome::Exited(status),
+        status = spawned.child.wait() => ChildOutcome::Exited(status),
         _ = token.cancelled() => {
-            let _ = child.kill().await;
+            let _ = kill_tree(&mut spawned).await;
             ChildOutcome::Cancelled
         }
     }
+}
+
+/// 终止整个进程树。Job Object 存在时优先用 `TerminateJobObject` 一次性杀掉
+/// job 内所有进程——包括 uvicorn --reload / multiprocessing 派生出的已 detach
+/// 的孙进程(这些进程不再挂在父进程树上,`taskkill /T` 无法触达)。
+/// 随后仍执行 `taskkill /T /F /PID` + `child.kill()` 作为兜底(job 缺失或
+/// 分配失败时的原有路径,对已终止的进程无害)。
+#[cfg(windows)]
+async fn kill_tree(spawned: &mut SpawnedChild) -> std::io::Result<()> {
+    if let Some(job) = &spawned.job {
+        job.terminate();
+    }
+    let child = &mut spawned.child;
+    if let Some(pid) = child.id() {
+        let out = tokio::process::Command::new("taskkill")
+            .args(["/T", "/F", "/PID", &pid.to_string()])
+            .creation_flags(0x08000000) // CREATE_NO_WINDOW
+            .output()
+            .await?;
+        if !out.status.success() {
+            // taskkill 失败(例如 PID 已退出),退回到直接 kill
+            let _ = child.kill().await;
+        }
+    }
+    // 确保资源回收
+    let _ = child.wait().await;
+    Ok(())
+}
+
+#[cfg(not(windows))]
+async fn kill_tree(spawned: &mut SpawnedChild) -> std::io::Result<()> {
+    spawned.child.kill().await
 }
 
 /// 一次子进程退出后的决策:要么终结(带最终状态),要么退避后重启。

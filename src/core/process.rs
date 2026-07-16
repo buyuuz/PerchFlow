@@ -25,12 +25,35 @@ pub fn build_command(def: &ProcessDef) -> Command {
     cmd
 }
 
+/// 子进程 + (Windows 上)其所属的 Job Object。job 为 None 表示创建/分配失败,
+/// 退回到 kill_tree 里 taskkill 的 fallback 路径。
+pub struct SpawnedChild {
+    pub child: Child,
+    #[cfg(windows)]
+    pub job: Option<crate::core::jobobj::JobObject>,
+}
+
 pub async fn spawn_process(
     def: &ProcessDef,
     runtime: Arc<RwLock<ProcRuntime>>,
-) -> Result<Child> {
+) -> Result<SpawnedChild> {
     let mut cmd = build_command(def);
     let mut child = cmd.spawn().map_err(|e| PerchError::Process(format!("spawn {}: {e}", def.name)))?;
+
+    // spawn 后立即创建 job 并把子进程纳入其中。此刻子进程刚起步(uvicorn/python
+    // 完成 import 并 fork 出孙进程需要时间),纳入 job 早于孙进程出生,
+    // 孙进程会自动继承同一 job——这个窗口内产生的孤儿风险可忽略。
+    #[cfg(windows)]
+    let job = {
+        match (crate::core::jobobj::JobObject::create(), child.raw_handle()) {
+            (Ok(j), Some(h)) => match j.assign(h) {
+                Ok(()) => Some(j),
+                Err(e) => { tracing::warn!("assign job object failed for {}: {e}", def.name); None }
+            },
+            (Err(e), _) => { tracing::warn!("create job object failed for {}: {e}", def.name); None }
+            (_, None) => None,
+        }
+    };
 
     let stdout = child.stdout.take();
     let stderr = child.stderr.take();
@@ -51,7 +74,10 @@ pub async fn spawn_process(
     if let Some(err) = stderr {
         spawn_reader(err, runtime.clone());
     }
-    Ok(child)
+    #[cfg(windows)]
+    return Ok(SpawnedChild { child, job });
+    #[cfg(not(windows))]
+    return Ok(SpawnedChild { child });
 }
 
 fn spawn_reader<R>(reader: R, runtime: Arc<RwLock<ProcRuntime>>)
@@ -142,8 +168,8 @@ mod tests {
             restart_count: 0, cpu_percent: 0.0, mem_bytes: 0,
             logs: crate::core::ringbuf::RingBuffer::new(100),
         }));
-        let mut child = spawn_process(&echo_def(), rt.clone()).await.unwrap();
-        let _ = child.wait().await;
+        let mut spawned = spawn_process(&echo_def(), rt.clone()).await.unwrap();
+        let _ = spawned.child.wait().await;
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         let logs = rt.read().await.logs.recent(10);
         assert!(logs.iter().any(|l| l.contains("hello")), "logs={logs:?}");
