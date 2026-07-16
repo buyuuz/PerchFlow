@@ -47,9 +47,26 @@ function startStream() {
   eventSource = new EventSource(`/api/logs/stream/${encodeURIComponent(procName)}?token=${encodeURIComponent(token)}`);
   eventSource.onmessage = (ev) => {
     const data = JSON.parse(ev.data);
+    if (data.ended) {
+      // 进程进入终态,SSE 流已由服务端结束。主动关闭 EventSource 避免重连,
+      // 并在日志区底部追加一行说明。
+      stopStream();
+      const el = document.getElementById('log-content');
+      const notice = document.createElement('div');
+      notice.className = 'text-on-surface-variant italic px-1 py-1';
+      notice.textContent = `— 日志流已结束 (${data.status}) —`;
+      el.appendChild(notice);
+      el.scrollTop = el.scrollHeight;
+      return;
+    }
     const el = document.getElementById('log-content');
     el.innerHTML = data.lines.map(renderLine).join('');
     el.scrollTop = el.scrollHeight;
+  };
+  eventSource.onerror = () => {
+    // 服务端关闭流后 EventSource 会触发 onerror 并自动尝试重连。
+    // 这里主动 close 阻止重连(已通过 ended 事件得知流应结束)。
+    stopStream();
   };
 }
 
