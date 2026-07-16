@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: cargo test --release
+
+      - run: cargo build --release
+
+      - name: Package release zip
+        shell: pwsh
+        run: |
+          $dir = "perch-${{ github.ref_name }}"
+          New-Item -ItemType Directory -Path $dir | Out-Null
+          Copy-Item target/release/perch.exe $dir/
+          Copy-Item perch.toml $dir/perch.toml
+          Copy-Item README.md $dir/
+          Compress-Archive -Path "$dir/*" -DestinationPath "$dir.zip"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: perch-${{ github.ref_name }}.zip

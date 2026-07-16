@@ -90,6 +90,10 @@ http://127.0.0.1:9000
 
 El token por defecto es `change-me` — cámbialo en `perch.toml` antes de cualquier uso real.
 
+### Primer uso: SmartScreen de Windows
+
+El binario publicado no está firmado digitalmente, así que en el primer inicio Windows SmartScreen puede mostrar **"Windows protegió su PC"**. Esto es normal en herramientas de código abierto sin firmar. Haz clic en **Más información → Ejecutar de todas formas** para continuar. (Descargar el `.zip` evita la advertencia de descarga del navegador; el aviso de SmartScreen en el primer inicio es un paso distinto e inevitable sin un certificado de firma de código de pago.)
+
 ## Seguridad
 
 El endpoint de gestión puede iniciar y detener procesos arbitrarios — tiene **privilegios muy altos**. Perch se vincula a `127.0.0.1` por defecto y requiere un token de acceso. No expongas el puerto de gestión a redes no fiables.
