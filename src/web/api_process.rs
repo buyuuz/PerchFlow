@@ -28,7 +28,8 @@ pub struct ProcView {
     pub restart_count: u32,
     pub cpu_percent: f32,
     pub mem_bytes: u64,
-    pub cmd: String,
+    pub cmd: String,      // 展示用:cmd 与 args 拼接后的完整命令行
+    pub cmd_raw: String,  // 编辑用:未拼接 args 的原始 cmd
     pub args: Vec<String>,
     pub cwd: Option<String>,
     pub autostart: bool,
@@ -39,6 +40,7 @@ async fn build_view(state: &SharedState, name: &str) -> Option<ProcView> {
     let def = cfg.process.iter().find(|p| p.name == name)?;
     let cmd = if def.args.is_empty() { def.cmd.clone() }
         else { format!("{} {}", def.cmd, def.args.join(" ")) };
+    let cmd_raw = def.cmd.clone();
     let args = def.args.clone();
     let cwd = def.cwd.clone();
     let autostart = def.autostart;
@@ -49,7 +51,7 @@ async fn build_view(state: &SharedState, name: &str) -> Option<ProcView> {
     Some(ProcView {
         name: name.to_string(), status: rt.status, pid: rt.pid,
         uptime_secs: uptime, restart_count: rt.restart_count,
-        cpu_percent: rt.cpu_percent, mem_bytes: rt.mem_bytes, cmd,
+        cpu_percent: rt.cpu_percent, mem_bytes: rt.mem_bytes, cmd, cmd_raw,
         args, cwd, autostart,
     })
 }

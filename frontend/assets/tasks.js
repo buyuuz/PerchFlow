@@ -94,16 +94,18 @@ function openTaskModal() {
 }
 
 function editTask(name) {
-  const t = cachedTasks.find(x => x.name === decodeURIComponent(name));
-  if (!t) return;
-  editingName = t.name;
+  // 注意:局部变量不能命名为 `t`,否则会遮蔽全局翻译函数 t(),
+  // 导致 t('modal.edit_task') 把任务对象当函数调用而抛异常(编辑失效的原因)。
+  const task = cachedTasks.find(x => x.name === decodeURIComponent(name));
+  if (!task) return;
+  editingName = task.name;
   document.getElementById('task-modal-title').textContent = t('modal.edit_task');
-  document.getElementById('task-name').value = t.name;
+  document.getElementById('task-name').value = task.name;
   document.getElementById('task-name').disabled = true;
-  document.getElementById('task-cmd').value = t.cmd;
-  document.getElementById('task-args').value = (t.args || []).join(' ');
-  document.getElementById('task-schedule').value = t.schedule;
-  document.getElementById('task-enabled').checked = t.enabled;
+  document.getElementById('task-cmd').value = task.cmd;
+  document.getElementById('task-args').value = (task.args || []).join(' ');
+  document.getElementById('task-schedule').value = task.schedule;
+  document.getElementById('task-enabled').checked = task.enabled;
   document.getElementById('task-err').classList.add('hidden');
   showTaskModal();
 }

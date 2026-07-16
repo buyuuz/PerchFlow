@@ -66,6 +66,9 @@ function renderCard(p) {
 <button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-red-400 hover:bg-white/5 transition-colors" onclick="act('${encodeURIComponent(p.name)}','stop')" title="Stop">
 <span class="material-symbols-outlined text-[18px]">stop</span>
 </button>
+<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors" onclick="editProcess('${encodeURIComponent(p.name)}')" title="Edit">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
 <div class="w-[1px] h-4 bg-white/10 my-auto mx-1"></div>
 <button class="w-8 h-8 rounded flex items-center justify-center text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-colors" onclick="window.location.href='/process-detail?name=${encodeURIComponent(p.name)}'" title="View Logs">
 <span class="material-symbols-outlined text-[18px]">terminal</span>
@@ -75,8 +78,12 @@ function renderCard(p) {
 </div>`;
 }
 
+let cachedProcesses = [];
+let editingName = null;
+
 async function loadProcesses() {
   const { processes } = await apiJson('/api/processes');
+  cachedProcesses = processes;
   const grid = document.getElementById('proc-grid');
   grid.innerHTML = processes.map(renderCard).join('');
 }
@@ -87,11 +94,37 @@ async function act(name, action) {
 }
 
 function openAddModal() {
+  editingName = null;
+  const title = document.getElementById('add-modal-title');
+  title.setAttribute('data-i18n', 'modal.add_process');
+  title.textContent = t('modal.add_process');
   document.getElementById('add-name').value = '';
+  document.getElementById('add-name').disabled = false;
   document.getElementById('add-cmd').value = '';
   document.getElementById('add-args').value = '';
   document.getElementById('add-autostart').checked = false;
   document.getElementById('add-err').classList.add('hidden');
+  showAddModal();
+}
+
+function editProcess(name) {
+  const p = cachedProcesses.find(x => x.name === decodeURIComponent(name));
+  if (!p) return;
+  editingName = p.name;
+  const title = document.getElementById('add-modal-title');
+  // 移除 data-i18n,避免 applyTranslations 把标题重写回“添加进程”
+  title.removeAttribute('data-i18n');
+  title.textContent = t('modal.edit_process');
+  document.getElementById('add-name').value = p.name;
+  document.getElementById('add-name').disabled = true;
+  document.getElementById('add-cmd').value = p.cmd_raw;
+  document.getElementById('add-args').value = (p.args || []).join(' ');
+  document.getElementById('add-autostart').checked = p.autostart;
+  document.getElementById('add-err').classList.add('hidden');
+  showAddModal();
+}
+
+function showAddModal() {
   document.getElementById('add-modal').classList.remove('hidden');
   document.getElementById('add-modal').classList.add('flex');
 }
@@ -112,11 +145,15 @@ async function submitAddModal() {
     errEl.classList.remove('hidden');
     return;
   }
+  // 编辑时保留原有 cwd(弹窗未提供该字段);restart 沿用默认策略(弹窗亦未暴露)。
+  const cwd = editingName ? cachedProcesses.find(x => x.name === editingName)?.cwd : undefined;
   const body = {
-    name, cmd, args, autostart,
+    name, cmd, args, cwd, autostart,
     restart: { policy: 'on-failure', backoff_secs: 2, backoff_max_secs: 60, max_retries: 0 },
   };
-  const resp = await api('/api/processes', { method: 'POST', body: JSON.stringify(body) });
+  const path = editingName ? `/api/processes/${encodeURIComponent(editingName)}` : '/api/processes';
+  const method = editingName ? 'PUT' : 'POST';
+  const resp = await api(path, { method, body: JSON.stringify(body) });
   const result = await resp.json();
   if (!result.ok) {
     errEl.textContent = result.error || t('error.save_failed');
