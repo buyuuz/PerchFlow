@@ -8,6 +8,8 @@ use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 pub mod runner;
 
 const SERVICE_NAME: &str = "Perch";
+const SERVICE_DESCRIPTION: &str =
+    "Perch 轻量级进程与服务管理器:统一看管后台进程,支持崩溃自动重启、定时任务与内置 Web 管理界面(默认 http://127.0.0.1:9000)。";
 
 fn manager(access: ServiceManagerAccess) -> Result<ServiceManager> {
     ServiceManager::local_computer(None::<&str>, access)
@@ -29,8 +31,14 @@ pub fn install() -> Result<()> {
         account_name: None,
         account_password: None,
     };
-    mgr.create_service(&info, ServiceAccess::empty())
+    // 需要 CHANGE_CONFIG 权限才能设置服务描述(SetServiceDescription)。
+    let service = mgr
+        .create_service(&info, ServiceAccess::CHANGE_CONFIG)
         .map_err(|e| PerchError::Service(format!("create: {e}")))?;
+    // 服务描述:显示在“服务”管理器的“描述”栏,便于识别此服务的用途。
+    service
+        .set_description(SERVICE_DESCRIPTION)
+        .map_err(|e| PerchError::Service(format!("set description: {e}")))?;
     Ok(())
 }
 

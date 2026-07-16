@@ -59,7 +59,7 @@ Perch fills the gap: **register once, manage everything.** A single native servi
 
 - **Single binary** — no runtime, no dependencies. The web UI is embedded directly in the executable.
 - **Native Windows service** — registers once, starts on boot, survives logout, runs in Session 0.
-- **Low footprint** — compiled Rust, single supervisor process. Targets 5–15 MB resident.
+- **Low footprint** — compiled Rust, a single supervisor process. Idles at around 4–5 MB resident, versus PM2's 40–80 MB.
 - **Built-in web UI** — view status, start/stop/restart processes, tail logs from your browser. Manage remotely, not just from the console.
 - **Auto-restart** — crashed processes are brought back up automatically, with configurable backoff.
 - **Scheduled tasks** — cron-style scheduling for periodic jobs.

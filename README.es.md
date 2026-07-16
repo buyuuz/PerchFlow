@@ -59,7 +59,7 @@ Perch llena ese vacío: **registrar una vez, gestionar todo.** Un único servici
 
 - **Binario único** — sin runtime, sin dependencias. La web UI está incrustada directamente en el ejecutable.
 - **Servicio nativo de Windows** — se registra una vez, arranca con el sistema, sobrevive al cierre de sesión, se ejecuta en Session 0.
-- **Bajo consumo** — compilado en Rust, un único proceso supervisor. Objetivo de 5–15 MB de memoria residente.
+- **Bajo consumo** — compilado en Rust, un único proceso supervisor. En reposo usa unos 4–5 MB de memoria residente, frente a los 40–80 MB de PM2.
 - **Web UI integrada** — ver el estado, iniciar/detener/reiniciar procesos y seguir los logs desde el navegador. Gestiona de forma remota, no solo desde la consola.
 - **Reinicio automático** — los procesos que fallan se reinician solos, con retroceso configurable.
 - **Tareas programadas** — planificación estilo cron para trabajos periódicos.
