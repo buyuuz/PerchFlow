@@ -1,1 +1,4 @@
 /target
+.omo/
+.playwright-mcp/
+perch-*-with-logo.png
