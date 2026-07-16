@@ -50,10 +50,15 @@ pub async fn run_foreground_until<F: std::future::Future<Output = ()>>(
     if !path.exists() {
         let cfg = config::model::default_demo_config();
         writer::save(&path, &cfg)?;
+        tracing::info!("已生成默认配置: {}", path.display());
         println!("已生成默认配置: {}", path.display());
     }
     let cfg = config::load(&path)?;
+    tracing::info!("配置加载完成: {}", path.display());
     let bind = cfg.server.bind.clone();
+    let autostart_count = cfg.process.iter().filter(|p| p.autostart).count();
+    let task_count = cfg.task.len();
+    tracing::info!("进程定义 {} 个(autostart {}),定时任务 {} 个", cfg.process.len(), autostart_count, task_count);
     let state = AppState::new(cfg, path);
 
     let supervisor = Supervisor::new(state.clone());
@@ -61,15 +66,23 @@ pub async fn run_foreground_until<F: std::future::Future<Output = ()>>(
     spawn_metrics_collector(state.clone());
     supervisor.start_autostart().await;
     scheduler.start().await;
+    tracing::info!("supervisor 与 scheduler 已启动,等待 Ctrl-C 或 SCM 信号");
 
     let ctx = WebContext { state, supervisor: supervisor.clone(), scheduler: scheduler.clone() };
 
+    tracing::info!("Perch 运行中: http://{bind}");
     println!("Perch 运行中: http://{bind}");
     tokio::select! {
-        r = web::serve(ctx, &bind) => { r?; }
-        _ = shutdown => {}
+        r = web::serve(ctx, &bind) => {
+            tracing::info!("web::serve 返回: {:?}", r.is_ok());
+            r?;
+        }
+        _ = shutdown => {
+            tracing::info!("收到关停信号,开始清理");
+        }
     }
     supervisor.shutdown().await;
     scheduler.shutdown().await;
+    tracing::info!("supervisor 与 scheduler 已关停,进程退出");
     Ok(())
 }
