@@ -26,14 +26,28 @@ impl Scheduler {
             .ok_or_else(|| PerchError::Process(format!("unknown task: {name}")))
     }
 
+    /// Boot or re-sync schedule loops from the current config snapshot.
+    /// Stops existing loops, then spawns one loop per enabled task.
+    /// Concurrent reloads are serialized by `stops`.
     pub async fn start(self: &Arc<Self>) {
+        self.reload().await;
+    }
+
+    /// Rebuild schedule loops from live config (create / update / remove / enable).
+    pub async fn reload(self: &Arc<Self>) {
+        let mut stops = self.stops.lock().await;
+        for n in stops.values() {
+            n.notify_waiters();
+        }
+        stops.clear();
+
         let tasks: Vec<TaskDef> = {
             let cfg = self.state.config.read().await;
             cfg.task.iter().filter(|t| t.enabled).cloned().collect()
         };
         for t in tasks {
             let notify = Arc::new(Notify::new());
-            self.stops.lock().await.insert(t.name.clone(), notify.clone());
+            stops.insert(t.name.clone(), notify.clone());
             let this = self.clone();
             tokio::spawn(async move { this.schedule_loop(t, notify).await; });
         }
@@ -73,9 +87,11 @@ impl Scheduler {
     }
 
     pub async fn shutdown(&self) {
-        let all: Vec<Arc<Notify>> = { self.stops.lock().await.values().cloned().collect() };
-        for n in all { n.notify_waiters(); }
-        self.stops.lock().await.clear();
+        let mut stops = self.stops.lock().await;
+        for n in stops.values() {
+            n.notify_waiters();
+        }
+        stops.clear();
     }
 }
 
@@ -97,23 +113,73 @@ mod tests {
     use crate::core::state::AppState;
     use std::path::PathBuf;
 
-    #[tokio::test]
-    async fn run_once_records_exit_code() {
-        let task = TaskDef {
-            name: "t".into(), cmd: "cmd".into(),
+    fn sample_task(name: &str, enabled: bool) -> TaskDef {
+        TaskDef {
+            name: name.into(),
+            cmd: "cmd".into(),
             args: vec!["/c".into(), "exit 0".into()],
-            cwd: None, schedule: "0 0 0 * * *".into(), enabled: true,
-        };
+            cwd: None,
+            schedule: "0 0 0 * * *".into(),
+            enabled,
+        }
+    }
+
+    fn state_with(tasks: Vec<TaskDef>) -> SharedState {
         let cfg = Config {
             server: ServerConfig { bind: "127.0.0.1:0".into(), token: "t".into() },
-            process: vec![], task: vec![task],
+            process: vec![],
+            task: tasks,
         };
-        let state = AppState::new(cfg, PathBuf::from("perch.toml"));
+        AppState::new(cfg, PathBuf::from("perch.toml"))
+    }
+
+    #[tokio::test]
+    async fn run_once_records_exit_code() {
+        let state = state_with(vec![sample_task("t", true)]);
         let sched = Scheduler::new(state.clone());
         sched.run_once("t").await.unwrap();
         let rt = state.tasks.read().await.get("t").cloned().unwrap();
         let r = rt.read().await;
         assert_eq!(r.last_exit_code, Some(0));
         assert!(r.last_run.is_some());
+    }
+
+    #[tokio::test]
+    async fn reload_syncs_enabled_tasks() {
+        let state = state_with(vec![sample_task("a", true), sample_task("b", false)]);
+        let sched = Scheduler::new(state.clone());
+        sched.start().await;
+        {
+            let stops = sched.stops.lock().await;
+            assert!(stops.contains_key("a"));
+            assert!(!stops.contains_key("b"));
+        }
+
+        // enable b, disable a
+        {
+            let mut cfg = state.config.write().await;
+            for t in &mut cfg.task {
+                t.enabled = t.name == "b";
+            }
+        }
+        sched.reload().await;
+        {
+            let stops = sched.stops.lock().await;
+            assert!(!stops.contains_key("a"));
+            assert!(stops.contains_key("b"));
+        }
+
+        // create c via config and reload
+        {
+            let mut cfg = state.config.write().await;
+            cfg.task.push(sample_task("c", true));
+        }
+        sched.reload().await;
+        {
+            let stops = sched.stops.lock().await;
+            assert!(!stops.contains_key("a"));
+            assert!(stops.contains_key("b"));
+            assert!(stops.contains_key("c"));
+        }
     }
 }

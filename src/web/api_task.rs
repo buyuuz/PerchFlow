@@ -74,7 +74,9 @@ async fn create(State(ctx): State<WebContext>, Json(def): Json<TaskDef>) -> Json
             crate::core::state::TaskRuntime { last_run: None, last_exit_code: None },
         )),
     );
-    op_result(persist(&ctx).await)
+    let r = persist(&ctx).await;
+    ctx.scheduler.reload().await;
+    op_result(r)
 }
 
 async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(def): Json<TaskDef>) -> Json<serde_json::Value> {
@@ -88,13 +90,17 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(de
             None => return Json(json!({ "ok": false, "error": "not found" })),
         }
     }
-    op_result(persist(&ctx).await)
+    let r = persist(&ctx).await;
+    ctx.scheduler.reload().await;
+    op_result(r)
 }
 
 async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
     { ctx.state.config.write().await.task.retain(|t| t.name != name); }
     ctx.state.tasks.write().await.remove(&name);
-    op_result(persist(&ctx).await)
+    let r = persist(&ctx).await;
+    ctx.scheduler.reload().await;
+    op_result(r)
 }
 
 async fn run_now(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
