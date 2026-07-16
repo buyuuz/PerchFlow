@@ -8,140 +8,90 @@
 <link href="/assets/tailwind.css" rel="stylesheet"/>
 <link href="/assets/logo.ico" rel="icon" type="image/x-icon"/>
 <style>
-        body {
-            background-color: #0e1416;
-            color: #dde3e5;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
         .glass-card {
             background: rgba(255, 255, 255, 0.06);
             backdrop-filter: blur(30px);
             -webkit-backdrop-filter: blur(30px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-top-color: rgba(255, 255, 255, 0.15);
-            border-left-color: rgba(255, 255, 255, 0.15);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background 0.2s ease, transform 0.2s ease;
         }
-
         .glass-card:hover {
             background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
         }
 
-        .glass-toggle {
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
             background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
         }
-        
-        .glass-toggle.active {
-            background: #44d8f1;
-        }
-
-        .glass-toggle-thumb {
-            background: white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .glass-toggle.active .glass-toggle-thumb {
-            transform: translateX(100%);
-            background: white;
-        }
-
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
     </style>
 </head>
-<body class="min-h-screen flex">
-<!-- SideNavBar -->
-<nav class="hidden md:flex flex-col py-6 px-4 gap-gutter bg-surface-container/40 backdrop-blur-[40px] fixed left-0 top-0 h-full w-[240px] z-40 border-r border-white/10 transition-all duration-200 ease-in-out">
-<div class="flex items-center gap-2 mb-8 px-2">
-<img alt="Perch" class="w-6 h-6 rounded-md object-cover" src="/assets/logo.png"/>
-<div>
-<div class="font-headline-md text-headline-md text-primary">Perch Orchestrator</div>
-<div class="font-mono-data text-mono-data text-on-surface-variant mt-1">v2.4.0-stable</div>
-</div>
-</div>
-<button class="w-full bg-primary text-on-primary font-body-sm text-body-sm font-semibold rounded h-9 flex items-center justify-center gap-2 hover:bg-primary-fixed transition-colors mb-4">
-<span class="material-symbols-outlined text-[18px]">add</span>
-            New Service
-        </button>
-<div class="flex-1 flex flex-col gap-2">
-<a class="flex items-center gap-3 px-3 py-2 rounded font-mono-label text-mono-label text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors" href="#">
-<span class="material-symbols-outlined text-[18px]">dashboard</span>
-                Dashboard
-            </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded font-mono-label text-mono-label text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors" href="#">
-<span class="material-symbols-outlined text-[18px]">settings_input_component</span>
-                Services
-            </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded font-mono-label text-mono-label text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors" href="#">
-<span class="material-symbols-outlined text-[18px]">terminal</span>
-                Logs
-            </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded font-mono-label text-mono-label text-primary bg-primary-container/10 border-r-2 border-primary" href="/tasks">
-<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">schedule</span>
-                定时任务
-            </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded font-mono-label text-mono-label text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors" href="#">
-<span class="material-symbols-outlined text-[18px]">settings</span>
-                Settings
-            </a>
-</div>
-<div class="flex flex-col gap-2 mt-auto border-t border-white/10 pt-4">
-<a class="flex items-center gap-3 px-3 py-2 rounded font-mono-label text-mono-label text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors" href="#">
-<span class="material-symbols-outlined text-[18px]">description</span>
-                Docs
-            </a>
-<a class="flex items-center gap-3 px-3 py-2 rounded font-mono-label text-mono-label text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors" href="#">
-<span class="material-symbols-outlined text-[18px]">help</span>
-                Support
-            </a>
-<div class="flex items-center gap-3 px-3 py-2 mt-2">
-<div class="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center border border-white/10">
-<span class="material-symbols-outlined text-on-surface-variant text-[18px]">person</span>
-</div>
-<div class="font-body-sm text-body-sm text-on-surface-variant">System Operator</div>
-</div>
-</div>
-</nav>
-<!-- Main Content -->
-<main class="flex-1 ml-0 md:ml-[240px] p-container-padding flex flex-col gap-container-padding min-h-screen">
-<!-- Header -->
-<header class="flex justify-between items-center bg-surface/60 backdrop-blur-[30px] fixed top-0 left-0 md:left-[240px] right-0 z-30 h-14 border-b border-white/10 px-container-padding shadow-sm">
-<div class="font-headline-lg text-headline-lg font-bold text-primary flex items-center gap-2 md:hidden">
+<body class="bg-background text-on-background min-h-screen font-body-md selection:bg-primary-container/30">
+<!-- TopNavBar (与 processes.html 一致) -->
+<nav class="fixed top-0 w-full z-50 h-14 bg-surface/60 backdrop-blur-[30px] border-b border-white/10 shadow-sm flex justify-between items-center px-container-padding">
+<!-- Left: Logo & Nav Links -->
+<div class="flex items-center gap-8 h-full">
+<div class="font-headline-lg text-headline-lg font-bold text-primary flex items-center gap-2">
 <img alt="Perch" class="w-6 h-6 rounded-md object-cover" src="/assets/logo.png"/>
                 Perch
             </div>
-<div class="hidden md:flex gap-6 h-full items-end pb-[10px]">
-<a class="font-body-md text-body-md text-on-surface-variant font-medium hover:text-on-surface transition-colors" href="/processes">Processes</a>
-<a class="font-body-md text-body-md text-primary border-b-2 border-primary pb-1 font-bold" href="/tasks">定时任务</a>
+<div class="hidden md:flex h-full gap-6">
+<!-- Inactive Nav Item (Processes) -->
+<a class="h-full flex items-center text-on-surface-variant font-medium hover:bg-white/5 transition-colors px-2 rounded-t-sm mt-1 mb-1" href="/processes">
+                    进程
+                </a>
+<!-- Active Nav Item (Tasks) -->
+<a class="h-full flex items-center text-primary border-b-2 border-primary pb-1 font-bold" href="/tasks">
+                    定时任务
+                </a>
 </div>
+</div>
+<!-- Right: Actions & Status -->
 <div class="flex items-center gap-4">
-<button class="text-on-surface-variant hover:bg-white/5 p-2 rounded transition-colors active:scale-[0.98] duration-150">
-<span class="material-symbols-outlined text-[20px]">sensors</span>
-</button>
-<button class="bg-transparent border border-primary text-primary font-body-sm text-body-sm font-medium px-4 py-1.5 rounded hover:bg-primary/10 transition-colors active:scale-[0.98] duration-150" onclick="openAddModal()">
-                    添加任务
-                </button>
+<div class="flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-full border border-white/5">
+<div class="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)] animate-pulse"></div>
+<span class="font-mono-data text-mono-data text-on-surface-variant">Connected</span>
 </div>
-</header>
-<!-- Spacer for fixed header -->
-<div class="h-14"></div>
-<!-- Toolbar / Filters -->
-<div class="flex justify-between items-center mb-2">
+<button class="bg-primary hover:bg-primary-fixed-dim text-on-primary px-4 py-1.5 rounded font-body-md font-medium transition-all duration-150 active:scale-[0.98] flex items-center gap-1 shadow-[0_0_15px_rgba(68,216,241,0.2)]" onclick="openTaskModal()">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                添加任务
+            </button>
+<button class="text-on-surface-variant hover:text-primary hover:bg-white/5 p-1.5 rounded transition-colors">
+<span class="material-symbols-outlined">sensors</span>
+</button>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="pt-[80px] px-container-padding pb-10 max-w-[1600px] mx-auto">
+<!-- Header -->
+<div class="flex justify-between items-end mb-6">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-1">定时任务</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">管理 cron 调度的任务</p>
+</div>
 <div class="flex gap-2">
 <div class="relative">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
-<input class="bg-surface-container-high border border-white/10 rounded pl-9 pr-4 py-1.5 font-body-sm text-body-sm text-on-surface focus:outline-none focus:border-primary/50 w-64" placeholder="Filter tasks..." type="text"/>
+<input class="bg-surface-container-high border border-white/10 rounded pl-9 pr-3 py-1.5 text-sm font-body-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant/50 w-64 transition-all" placeholder="搜索任务..." type="text"/>
 </div>
 </div>
-<div class="font-mono-data text-mono-data text-on-surface-variant" id="task-count">
+</div>
+<div class="font-mono-data text-mono-data text-on-surface-variant mb-4" id="task-count">
                 Total: 0 Active: 0
             </div>
-</div>
 <!-- Task List -->
 <div class="flex flex-col gap-unit">
 <!-- List Header -->
