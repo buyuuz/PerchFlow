@@ -14,13 +14,20 @@ pub fn build_command(def: &ProcessDef) -> Command {
     if let Some(cwd) = &def.cwd {
         cmd.current_dir(cwd);
     }
+    // 默认注入的 Python 相关环境变量,先设,便于用户在 [process.env] 中覆盖:
+    // - PYTHONUNBUFFERED=1:stdout/stderr 被 pipe 时 Python 默认 block-buffered
+    //   (4-8KB),日志会积在缓冲区不刷新,Perch 读不到;设此变量令其立即 flush。
+    // - PYTHONUTF8=1 / PYTHONIOENCODING=utf-8:管道下 Python 默认按系统 ANSI
+    //   (中文 Windows = GBK)输出,写中文/emoji 会触发 UnicodeEncodeError
+    //   (如 loguru 报错甚至崩溃)。强制 UTF-8 输出,日志不再乱码。
+    // 三者对非 Python 进程无副作用(它们不读这些变量)。
+    cmd.env("PYTHONUNBUFFERED", "1");
+    cmd.env("PYTHONUTF8", "1");
+    cmd.env("PYTHONIOENCODING", "utf-8");
+    // 用户显式配置的 env 放在最后,可覆盖上述默认值。
     for (k, v) in &def.env {
         cmd.env(k, v);
     }
-    // Python 子进程在 stdout/stderr 被 pipe 时默认走 block-buffered(4-8KB),
-    // 日志会积在缓冲区不刷新,Perch 读不到。PYTHONUNBUFFERED=1 让 Python
-    // 立即 flush。对非 Python 进程无副作用(它们不读这个变量)。
-    cmd.env("PYTHONUNBUFFERED", "1");
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
     cmd
 }
