@@ -94,6 +94,24 @@ El token por defecto es `change-me` — cámbialo en `perch.toml` antes de cualq
 
 El binario publicado no está firmado digitalmente, así que en el primer inicio Windows SmartScreen puede mostrar **"Windows protegió su PC"**. Esto es normal en herramientas de código abierto sin firmar. Haz clic en **Más información → Ejecutar de todas formas** para continuar. (Descargar el `.zip` evita la advertencia de descarga del navegador; el aviso de SmartScreen en el primer inicio es un paso distinto e inevitable sin un certificado de firma de código de pago.)
 
+### Ejecutar el servicio con tu propia cuenta de usuario
+
+Por defecto el servicio de Perch se ejecuta como `LocalSystem`, que solo ve las variables de entorno a nivel de sistema, no tu PATH de usuario (`HKCU\Environment`, por ejemplo `%USERPROFILE%\.local\bin`, donde viven herramientas como `uv` o CLIs instaladas con `pipx`). Si un proceso gestionado o una tarea programada llama a un comando que depende de variables de entorno de usuario, fallará con "command not found" bajo el servicio, aunque funcione perfectamente cuando lo ejecutas tú mismo.
+
+Para que el servicio se ejecute con tu propia cuenta en lugar de `LocalSystem`:
+
+1. Pulsa `Win+R`, escribe `services.msc` y pulsa Enter.
+2. Busca **Perch Process Manager**, haz clic derecho y elige **Propiedades**.
+3. Ve a la pestaña **Iniciar sesión**.
+4. Selecciona **Esta cuenta**, introduce tu cuenta de Windows (`.\tuusuario` para una cuenta local, o `DOMINIO\tuusuario` para una de dominio) y tu contraseña (dos veces).
+5. Haz clic en Aceptar; Windows concede automáticamente a la cuenta el derecho "Iniciar sesión como servicio". Reinicia el servicio (clic derecho → Reiniciar, o `perch stop` seguido de `perch start`).
+
+El servicio ahora se ejecuta como tú, así que los procesos hijos heredan todo tu entorno de usuario, incluido el PATH de usuario.
+
+Advertencias:
+- Si cambias tu contraseña de Windows más adelante, el servicio no podrá iniciarse hasta que actualices la contraseña en la misma pestaña Iniciar sesión.
+- Alternativamente, evita el cambio de cuenta usando rutas absolutas a los ejecutables en tus comandos de proceso/tarea, o estableciendo explícitamente las variables necesarias.
+
 ## Seguridad
 
 El endpoint de gestión puede iniciar y detener procesos arbitrarios — tiene **privilegios muy altos**. Perch se vincula a `127.0.0.1` por defecto y requiere un token de acceso. No expongas el puerto de gestión a redes no fiables.

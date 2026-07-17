@@ -94,6 +94,24 @@ O token padrão é `change-me` — altere-o em `perch.toml` antes de qualquer us
 
 O binário distribuído não é assinado digitalmente, então no primeiro uso o SmartScreen do Windows pode exibir **"O Windows protegeu o computador"**. Isso é esperado para ferramentas de código aberto não assinadas. Clique em **Mais informações → Executar assim mesmo** para continuar. (Baixar o `.zip` evita o aviso de download do navegador; o aviso do SmartScreen na primeira execução é outra etapa, inevitável sem um certificado de assinatura de código pago.)
 
+### Executando o serviço com sua própria conta de usuário
+
+Por padrão o serviço do Perch é executado como `LocalSystem`, que só vê variáveis de ambiente de nível de sistema, não o seu PATH de usuário (`HKCU\Environment`, por exemplo `%USERPROFILE%\.local\bin`, onde ficam ferramentas como `uv` ou CLIs instaladas via `pipx`). Se um processo gerenciado ou uma tarefa agendada chama um comando que depende de variáveis de ambiente de usuário, ele vai falhar com "command not found" sob o serviço, mesmo que funcione normalmente quando executado por você.
+
+Para fazer o serviço rodar com sua própria conta em vez de `LocalSystem`:
+
+1. Pressione `Win+R`, digite `services.msc` e pressione Enter.
+2. Encontre **Perch Process Manager**, clique com o botão direito e selecione **Propriedades**.
+3. Vá até a guia **Logon**.
+4. Selecione **Esta conta**, informe sua conta do Windows (`.\seunome` para uma conta local, ou `DOMINIO\seunome` para uma de domínio) e sua senha (duas vezes).
+5. Clique em OK; o Windows concede automaticamente à conta o direito "Efetuar logon como um serviço". Reinicie o serviço (botão direito → Reiniciar, ou `perch stop` seguido de `perch start`).
+
+O serviço agora roda como você, então os processos filhos herdam todo o seu ambiente de usuário, incluindo o PATH de usuário.
+
+Ressalvas:
+- Se você alterar sua senha do Windows depois, o serviço vai falhar ao iniciar até que você atualize a senha na mesma guia Logon.
+- Alternativamente, evite a troca de conta usando caminhos absolutos para os executáveis nos comandos do processo/tarefa, ou definindo explicitamente as variáveis necessárias.
+
 ## Segurança
 
 O endpoint de gerenciamento pode iniciar e parar processos arbitrários — ele tem **privilégios muito altos**. Perch vincula-se a `127.0.0.1` por padrão e exige um token de acesso. Não exponha a porta de gerenciamento a redes não confiáveis.

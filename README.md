@@ -94,6 +94,24 @@ The default token is `change-me` — change it in `perch.toml` before any real u
 
 The released binary is not code-signed, so on first launch Windows SmartScreen may show **"Windows protected your PC"**. This is expected for unsigned open-source tools. Click **More info → Run anyway** to proceed. (Downloading the `.zip` avoids the browser's download warning; the SmartScreen prompt on first run is separate and unavoidable without a paid code-signing certificate.)
 
+### Running under your user account
+
+By default the Perch service runs as `LocalSystem`, which only sees system-level environment variables — not your user PATH (`HKCU\Environment`, e.g. `%USERPROFILE%\.local\bin` where tools like `uv` or `pipx`-installed CLIs live). If a managed process or scheduled task calls a command that depends on user-level environment variables, it will fail with "command not found" under the service even though it works fine when you run it yourself.
+
+To make the service run as your own account instead:
+
+1. Press `Win+R`, type `services.msc`, press Enter.
+2. Find **Perch Process Manager**, right-click it, select **Properties**.
+3. Go to the **Log On** tab.
+4. Select **This account**, enter your Windows account (`.\yourname` for a local account, or `DOMAIN\yourname`), and your password (twice).
+5. Click OK — Windows grants the account the "Log on as a service" right automatically. Restart the service (right-click → Restart, or `perch stop` then `perch start`).
+
+The service now runs as you, so child processes inherit your full user environment, including user PATH.
+
+Caveats:
+- If you change your Windows password later, the service will fail to start until you update the password on the same Log On tab.
+- Alternatively, avoid the account change entirely by using absolute paths to executables in your process/task commands, or by setting the needed variables explicitly.
+
 ## Security
 
 The management endpoint can start and stop arbitrary processes — it is **highly privileged**. Perch binds to `127.0.0.1` by default and requires an access token. Do not expose the management port to untrusted networks.
