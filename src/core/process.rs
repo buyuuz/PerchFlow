@@ -13,6 +13,14 @@ pub fn build_command(def: &ProcessDef) -> Command {
     cmd.args(&def.args);
     if let Some(cwd) = &def.cwd {
         cmd.current_dir(cwd);
+    } else if let Some(parent) = std::path::Path::new(&def.cmd).parent() {
+        // cmd 是带路径的可执行文件(如 D:\AI\cmd\kiro-rs\start.bat)且用户未显式
+        // 配 cwd 时,默认以其所在目录为工作目录,对齐"双击 bat"的直觉——否则子进程
+        // 继承服务的工作目录(System32),bat 内的相对路径 .\xxx.exe 会找不到。
+        // parent 为空表示 cmd 是走 PATH 的裸命令(如 "python"),保持继承不干预。
+        if !parent.as_os_str().is_empty() {
+            cmd.current_dir(parent);
+        }
     }
     // 默认注入的 Python 相关环境变量,先设,便于用户在 [process.env] 中覆盖:
     // - PYTHONUNBUFFERED=1:stdout/stderr 被 pipe 时 Python 默认 block-buffered
