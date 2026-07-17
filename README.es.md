@@ -20,8 +20,6 @@ Escrito en Rust. Sin dependencias de runtime. Un binario, doble clic y listo.
 
 ## Capturas de pantalla
 
-> Coloca los archivos de captura en las rutas siguientes (ver [Archivos de captura de pantalla a proporcionar](#archivos-de-captura-de-pantalla-a-proporcionar)).
-
 ### Menú interactivo (doble clic en `perch.exe`)
 
 ![menu](docs/screenshots/menu.png)
@@ -68,7 +66,7 @@ Perch llena ese vacío: **registrar una vez, gestionar todo.** Un único servici
 
 ## Estado
 
-> ⚠️ **Desarrollo temprano.** Perch está en construcción activa y aún no está listo para producción. Las interfaces y la configuración pueden cambiar.
+Perch ya está publicado y es utilizable, actualmente en la versión v0.1.0. Al ser un proyecto en fase 0.x, las interfaces y la configuración todavía pueden cambiar entre versiones.
 
 ## Inicio rápido
 
@@ -135,20 +133,6 @@ cargo build --release
 ```
 
 Requiere una toolchain estable de Rust reciente.
-
-## Archivos de captura de pantalla a proporcionar
-
-Coloca los archivos de captura en `docs/screenshots/` (crea el directorio primero), usando estos nombres exactos:
-
-| Ruta | Qué capturar |
-|---|---|
-| `docs/screenshots/menu.png` | Ventana de consola tras hacer doble clic en `perch.exe`, mostrando el menú bilingüe (Instalar/Desinstalar/Iniciar/Detener/Abrir Web UI/Salir). |
-| `docs/screenshots/login.png` | Página de inicio de sesión de `http://127.0.0.1:9000/` con el logo de Perch y el campo de token. |
-| `docs/screenshots/processes.png` | Panel de `/processes` con la tarjeta `demo` mostrando el estado Running y la barra de navegación superior con el logo. |
-| `docs/screenshots/process-detail.png` | Página `/process-detail?name=demo` con el panel PID/CPU/Mem/Tiempo de actividad y el flujo de logs en vivo. |
-| `docs/screenshots/tasks.png` | Página `/tasks` con al menos una fila de tarea programada, barra de navegación superior con el logo. |
-
-Consejo: captura con un viewport de 1280×800; usa PNG; recorta los bordes del navegador. Una vez colocados los archivos, las referencias de imagen de arriba se renderizarán automáticamente.
 
 ## Licencia
 

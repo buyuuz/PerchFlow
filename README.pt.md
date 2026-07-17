@@ -20,8 +20,6 @@ Escrito em Rust. Sem dependências de runtime. Um binário, duplo clique e pront
 
 ## Capturas de tela
 
-> Coloque os arquivos de captura de tela nos caminhos abaixo (ver [Arquivos de captura de tela a fornecer](#arquivos-de-captura-de-tela-a-fornecer)).
-
 ### Menu interativo (duplo clique em `perch.exe`)
 
 ![menu](docs/screenshots/menu.png)
@@ -68,7 +66,7 @@ Perch preenche essa lacuna: **registrar uma vez, gerenciar tudo.** Um único ser
 
 ## Status
 
-> ⚠️ **Desenvolvimento inicial.** Perch está em construção ativa e ainda não está pronto para produção. Interfaces e configuração podem mudar.
+Perch já foi lançado e está pronto para uso, atualmente na versão v0.1.0. Por ser um projeto na fase 0.x, as interfaces e a configuração ainda podem mudar entre versões.
 
 ## Início rápido
 
@@ -135,20 +133,6 @@ cargo build --release
 ```
 
 Requer uma toolchain estável recente de Rust.
-
-## Arquivos de captura de tela a fornecer
-
-Coloque os arquivos de captura de tela em `docs/screenshots/` (crie o diretório primeiro), usando estes nomes exatos:
-
-| Caminho | O que capturar |
-|---|---|
-| `docs/screenshots/menu.png` | Janela do console após duplo clique em `perch.exe`, mostrando o menu bilíngue (Instalar/Desinstalar/Iniciar/Parar/Abrir Web UI/Sair). |
-| `docs/screenshots/login.png` | Página de login de `http://127.0.0.1:9000/` com o logo do Perch e o campo de token. |
-| `docs/screenshots/processes.png` | Painel `/processes` com o cartão `demo` mostrando o status Running e a barra de navegação superior com o logo. |
-| `docs/screenshots/process-detail.png` | Página `/process-detail?name=demo` com o painel PID/CPU/Mem/Tempo de atividade e o fluxo de logs ao vivo. |
-| `docs/screenshots/tasks.png` | Página `/tasks` com pelo menos uma linha de tarefa agendada, barra de navegação superior com o logo. |
-
-Dica: capture com viewport de 1280×800; use PNG; recorte as bordas do navegador. Assim que os arquivos estiverem no lugar, as referências de imagem acima serão renderizadas automaticamente.
 
 ## Licença
 

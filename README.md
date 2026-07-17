@@ -20,8 +20,6 @@ Written in Rust. No runtime dependencies. One binary, double-click and go.
 
 ## Screenshots
 
-> Place the screenshot files at the paths below (see [Screenshot files to provide](#screenshot-files-to-provide)).
-
 ### Interactive Menu (double-click `perch.exe`)
 
 ![menu](docs/screenshots/menu.png)
@@ -68,7 +66,7 @@ Perch fills the gap: **register once, manage everything.** A single native servi
 
 ## Status
 
-> ⚠️ **Early development.** Perch is under active construction and not yet production-ready. Interfaces and configuration may change.
+Perch is released and usable today, currently at v0.1.0. As a young 0.x project, interfaces and configuration may still change between releases.
 
 ## Quick Start
 
@@ -135,20 +133,6 @@ cargo build --release
 ```
 
 Requires a recent stable Rust toolchain.
-
-## Screenshot files to provide
-
-Put the screenshot image files under `docs/screenshots/` (create the directory first), using these exact filenames:
-
-| Path | What to capture |
-|---|---|
-| `docs/screenshots/menu.png` | Console window after double-clicking `perch.exe`, showing the bilingual menu (Install/Uninstall/Start/Stop/Open Web UI/Exit). |
-| `docs/screenshots/login.png` | `http://127.0.0.1:9000/` login page with the Perch logo and the token input. |
-| `docs/screenshots/processes.png` | `/processes` dashboard with the `demo` card showing Running status, and the top nav bar with the logo. |
-| `docs/screenshots/process-detail.png` | `/process-detail?name=demo` page with PID/CPU/Mem/Uptime panel and the live log stream. |
-| `docs/screenshots/tasks.png` | `/tasks` page with at least one scheduled task row, top nav bar with the logo. |
-
-Tip: capture at a 1280×800 viewport; use PNG; crop the browser chrome. Once the files are in place, the image references above will render automatically.
 
 ## License
 

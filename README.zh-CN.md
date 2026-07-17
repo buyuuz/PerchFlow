@@ -20,8 +20,6 @@ Rust 编写，无运行时依赖。一个可执行文件，双击即用。
 
 ## 截图展示
 
-> 将截图文件放到下文各路径下（待提供文件清单见 [需要提供的截图文件](#需要提供的截图文件)）。
-
 ### 交互菜单（双击 `perch.exe`）
 
 ![menu](docs/screenshots/menu.png)
@@ -68,7 +66,7 @@ Perch 填补了这个空白：**注册一次，管理全部。** 单个原生服
 
 ## 项目状态
 
-> ⚠️ **早期开发中。** Perch 正在积极建设，尚未达到生产可用。接口与配置可能变动。
+Perch 已发布，当前版本 v0.1.0，可正常使用。作为 0.x 阶段的项目，接口与配置在后续版本中仍可能调整。
 
 ## 快速开始
 
@@ -135,20 +133,6 @@ cargo build --release
 ```
 
 需要较新的 stable Rust 工具链。
-
-## 需要提供的截图文件
-
-将截图放到 `docs/screenshots/` 目录下（先创建该目录），使用以下精确文件名：
-
-| 路径 | 截图内容 |
-|---|---|
-| `docs/screenshots/menu.png` | 双击 `perch.exe` 后的控制台窗口，显示中英对照菜单（安装/卸载/启动/停止/打开 Web UI/退出）。 |
-| `docs/screenshots/login.png` | `http://127.0.0.1:9000/` 登录页，含 Perch logo 和 token 输入框。 |
-| `docs/screenshots/processes.png` | `/processes` 进程面板，含 `demo` 进程卡片显示 Running 状态，顶栏含 logo。 |
-| `docs/screenshots/process-detail.png` | `/process-detail?name=demo` 页面，含 PID/CPU/内存/运行时间面板和实时日志流。 |
-| `docs/screenshots/tasks.png` | `/tasks` 定时任务页，至少一行任务，顶栏含 logo。 |
-
-建议：浏览器视口 1280×800，PNG 格式，裁掉浏览器边框。文件放好后，上面的图片引用会自动渲染。
 
 ## 许可证
 
