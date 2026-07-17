@@ -68,6 +68,7 @@ async function runNow(name) {
 }
 
 async function deleteTask(name) {
+  if (!confirm(t('confirm.delete_task'))) return;
   await api(`/api/tasks/${name}`, { method: 'DELETE' });
   loadTasks();
 }

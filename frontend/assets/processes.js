@@ -69,6 +69,9 @@ function renderCard(p) {
 <button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors" onclick="editProcess('${encodeURIComponent(p.name)}')" title="Edit">
 <span class="material-symbols-outlined text-[18px]">edit</span>
 </button>
+<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors" onclick="deleteProcess('${encodeURIComponent(p.name)}')" title="Delete">
+<span class="material-symbols-outlined text-[18px]">delete</span>
+</button>
 <div class="w-[1px] h-4 bg-white/10 my-auto mx-1"></div>
 <button class="w-8 h-8 rounded flex items-center justify-center text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-colors" onclick="window.location.href='/process-detail?name=${encodeURIComponent(p.name)}'" title="View Logs">
 <span class="material-symbols-outlined text-[18px]">terminal</span>
@@ -112,7 +115,7 @@ function editProcess(name) {
   if (!p) return;
   editingName = p.name;
   const title = document.getElementById('add-modal-title');
-  // 移除 data-i18n,避免 applyTranslations 把标题重写回“添加进程”
+  // 移除 data-i18n,避免 applyTranslations 把标题重写回"添加进程"
   title.removeAttribute('data-i18n');
   title.textContent = t('modal.edit_process');
   document.getElementById('add-name').value = p.name;
@@ -122,6 +125,12 @@ function editProcess(name) {
   document.getElementById('add-autostart').checked = p.autostart;
   document.getElementById('add-err').classList.add('hidden');
   showAddModal();
+}
+
+async function deleteProcess(name) {
+  if (!confirm(t('confirm.delete_process'))) return;
+  await api(`/api/processes/${name}`, { method: 'DELETE' });
+  loadProcesses();
 }
 
 function showAddModal() {

@@ -59,6 +59,8 @@
       'error.name_cmd_required': '名称和命令不能为空',
       'error.name_cmd_cron_required': '名称、命令和 cron 表达式不能为空',
       'error.save_failed': '保存失败',
+      'confirm.delete_process': '确定要删除此进程吗？',
+      'confirm.delete_task': '确定要删除此任务吗？',
       'lang.select': '语言'
     },
 
@@ -114,6 +116,8 @@
       'error.name_cmd_required': 'Name and command are required',
       'error.name_cmd_cron_required': 'Name, command and cron expression are required',
       'error.save_failed': 'Save failed',
+      'confirm.delete_process': 'Are you sure you want to delete this process?',
+      'confirm.delete_task': 'Are you sure you want to delete this task?',
       'lang.select': 'Language'
     },
 
@@ -169,6 +173,8 @@
       'error.name_cmd_required': 'El nombre y el comando son obligatorios',
       'error.name_cmd_cron_required': 'Nombre, comando y expresión cron son obligatorios',
       'error.save_failed': 'Error al guardar',
+      'confirm.delete_process': '¿Está seguro de que desea eliminar este proceso?',
+      'confirm.delete_task': '¿Está seguro de que desea eliminar esta tarea?',
       'lang.select': 'Idioma'
     },
 
@@ -224,6 +230,8 @@
       'error.name_cmd_required': '名前とコマンドは必須です',
       'error.name_cmd_cron_required': '名前、コマンド、Cron式は必須です',
       'error.save_failed': '保存に失敗しました',
+      'confirm.delete_process': 'このプロセスを削除してもよろしいですか？',
+      'confirm.delete_task': 'このタスクを削除してもよろしいですか？',
       'lang.select': '言語'
     },
 
@@ -279,6 +287,8 @@
       'error.name_cmd_required': 'Nome e comando são obrigatórios',
       'error.name_cmd_cron_required': 'Nome, comando e expressão cron são obrigatórios',
       'error.save_failed': 'Falha ao salvar',
+      'confirm.delete_process': 'Tem certeza que deseja excluir este processo?',
+      'confirm.delete_task': 'Tem certeza que deseja excluir esta tarefa?',
       'lang.select': 'Idioma'
     }
   };
