@@ -2,13 +2,14 @@ use crate::config::model::TaskDef;
 use crate::core::process::build_command;
 use crate::core::state::SharedState;
 use crate::error::{PerchError, Result};
-use chrono::Utc;
+use chrono::{Local, Utc};
 use cron::Schedule;
 use std::collections::HashMap;
 use std::process::Stdio;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
+use tracing::{info, warn};
 
 pub struct Scheduler {
     state: SharedState,
@@ -56,16 +57,29 @@ impl Scheduler {
     async fn schedule_loop(self: Arc<Self>, task: TaskDef, notify: Arc<Notify>) {
         let schedule = match Schedule::from_str(&task.schedule) {
             Ok(s) => s,
-            Err(_) => return,
+            Err(e) => {
+                warn!("task '{}' has invalid cron '{}': {e}", task.name, task.schedule);
+                return;
+            }
         };
+        info!("task '{}' scheduled with cron '{}'", task.name, task.schedule);
         loop {
-            let next = match schedule.upcoming(Utc).next() {
+            let next = match schedule.upcoming(Local).next() {
                 Some(n) => n,
-                None => return,
+                None => {
+                    warn!("task '{}' has no upcoming schedule, stopping loop", task.name);
+                    return;
+                }
             };
-            let dur = (next - Utc::now()).to_std().unwrap_or(std::time::Duration::from_secs(1));
+            let dur = (next - Local::now()).to_std().unwrap_or(std::time::Duration::from_secs(1));
             tokio::select! {
-                _ = tokio::time::sleep(dur) => { let _ = self.run_once(&task.name).await; }
+                _ = tokio::time::sleep(dur) => {
+                    info!("task '{}' triggered", task.name);
+                    match self.run_once(&task.name).await {
+                        Ok(()) => info!("task '{}' completed", task.name),
+                        Err(e) => warn!("task '{}' failed: {e}", task.name),
+                    }
+                }
                 _ = notify.notified() => break,
             }
         }

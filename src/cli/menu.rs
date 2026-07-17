@@ -3,7 +3,7 @@
 use crate::cli::elevate;
 use std::io::{self, Write};
 
-pub fn show() -> anyhow::Result<()> {
+pub fn show(bind: &str) -> anyhow::Result<()> {
     loop {
         println!("\n=== Perch ===");
         println!("1) 安装服务 (Install)  2) 卸载 (Uninstall)  3) 启动 (Start)  4) 停止 (Stop)  5) 打开 Web UI (Open Web UI)  0) 退出 (Exit)");
@@ -19,7 +19,7 @@ pub fn show() -> anyhow::Result<()> {
             "3" => privileged("start")?,
             "4" => privileged("stop")?,
             "5" => {
-                let _ = open_ui();
+                let _ = open_ui(bind);
             }
             "0" => break,
             _ => println!("无效选择 (Invalid choice)"),
@@ -45,10 +45,8 @@ fn privileged(action: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn open_ui() -> std::io::Result<()> {
-    // 端口被占用说明 server 已在跑;否则 fork 一个后台 `perch run` 子进程,
-    // 等它起来再开浏览器。这样双击 exe → 选 5 → 页面可直接打开。
-    let in_use = std::net::TcpListener::bind("127.0.0.1:9000").is_err();
+fn open_ui(bind: &str) -> std::io::Result<()> {
+    let in_use = std::net::TcpListener::bind(bind).is_err();
     if !in_use {
         println!("启动服务中... (Starting server...)");
         let exe = std::env::current_exe()?;
@@ -68,8 +66,9 @@ fn open_ui() -> std::io::Result<()> {
         // 给 server 2 秒起来
         std::thread::sleep(std::time::Duration::from_secs(2));
     }
+    let url = format!("http://{bind}");
     std::process::Command::new("cmd")
-        .args(["/c", "start", "", "http://127.0.0.1:9000"])
+        .args(["/c", "start", "", &url])
         .spawn()
         .map(|_| ())
 }

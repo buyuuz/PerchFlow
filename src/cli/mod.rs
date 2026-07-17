@@ -35,7 +35,10 @@ pub fn run() -> anyhow::Result<()> {
             println!("未知子命令 '{other}'");
         }
         None => {
-            menu::show()?;
+            let bind = config::load(&config::default_path())
+                .map(|c| c.server.bind.clone())
+                .unwrap_or_else(|_| config::model::ServerConfig::default().bind);
+            menu::show(&bind)?;
         }
     }
     Ok(())
