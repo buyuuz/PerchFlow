@@ -1,5 +1,5 @@
 [server]
-bind = "0.0.0.1:19000"
+bind = "0.0.0.0:9000"
 token = "change-me"
 
 [[process]]
