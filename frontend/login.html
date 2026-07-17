@@ -2,7 +2,7 @@
 
 <html class="dark" lang=""><head>
 <meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>Perch - Process & Service Manager</title>
 <meta name="description" content="Perch - Lightweight Windows process & service manager with built-in web UI. Written in Rust."/>
 <meta property="og:title" content="Perch - Process & Service Manager"/>
@@ -13,6 +13,12 @@
 <link href="/assets/fonts.css" rel="stylesheet"/>
 <link href="/assets/tailwind.css" rel="stylesheet"/>
 <link href="/assets/logo.ico" rel="icon" type="image/x-icon"/>
+<link rel="icon" type="image/png" href="/assets/favicon-96x96.png" sizes="96x96" />
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+<link rel="shortcut icon" href="/assets/favicon.ico" />
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-title" content="Perch" />
+<link rel="manifest" href="/assets/site.webmanifest" />
 <style>
         .glass-card {
             background: rgba(255, 255, 255, 0.06);
@@ -68,7 +74,7 @@
 </div>
 <!-- Footer / Version -->
 <div class="mt-8 text-center flex flex-col items-center gap-3">
-<select class="bg-surface-container-high border border-white/10 rounded px-3 py-2 text-on-surface-variant font-body-md text-body-md cursor-pointer" onchange="setLang(this.value)" data-lang-select>
+<select class="bg-surface-container-high border border-white/10 rounded px-3 h-9 text-on-surface-variant font-body-md text-body-md cursor-pointer" onchange="setLang(this.value)" data-lang-select>
 <option value="zh">🇨🇳 中文</option>
 <option value="en">🇬🇧 English</option>
 <option value="es">🇪🇸 Español</option>

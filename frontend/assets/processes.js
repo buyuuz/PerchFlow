@@ -23,7 +23,7 @@ function renderCard(p) {
   const pidText = p.pid != null ? `PID: ${p.pid}` : 'PID: ---';
   const memMb = Math.round(p.mem_bytes / 1024 / 1024);
   return `
-<div class="glass-card rounded-lg p-5 flex flex-col relative overflow-hidden group">
+<div class="glass-card rounded-lg p-5 flex flex-col relative overflow-hidden group cursor-pointer" onclick="window.location.href='/process-detail?name=${encodeURIComponent(p.name)}'">
 <div class="flex justify-between items-start mb-4">
 <div>
 <h2 class="font-headline-md text-headline-md text-on-surface">${escapeHtml(p.name)}</h2>
@@ -57,24 +57,24 @@ function renderCard(p) {
 </div>
 </div>
 <div class="mt-auto pt-2 flex justify-end gap-2 border-t border-white/5">
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-green-400 hover:bg-white/5 transition-colors" onclick="act('${encodeURIComponent(p.name)}','start')" title="Start">
-<span class="material-symbols-outlined text-[18px]">play_arrow</span>
+<button class="w-10 h-10 rounded flex items-center justify-center text-on-surface-variant hover:text-green-400 hover:bg-white/5 transition-colors" onclick="event.stopPropagation(); act('${encodeURIComponent(p.name)}','start')" title="Start">
+<span class="material-symbols-outlined text-[20px]">play_arrow</span>
 </button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-amber-400 hover:bg-white/5 transition-colors" onclick="act('${encodeURIComponent(p.name)}','restart')" title="Restart">
-<span class="material-symbols-outlined text-[18px]">refresh</span>
+<button class="w-10 h-10 rounded flex items-center justify-center text-on-surface-variant hover:text-amber-400 hover:bg-white/5 transition-colors" onclick="event.stopPropagation(); act('${encodeURIComponent(p.name)}','restart')" title="Restart">
+<span class="material-symbols-outlined text-[20px]">refresh</span>
 </button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-red-400 hover:bg-white/5 transition-colors" onclick="act('${encodeURIComponent(p.name)}','stop')" title="Stop">
-<span class="material-symbols-outlined text-[18px]">stop</span>
+<button class="w-10 h-10 rounded flex items-center justify-center text-on-surface-variant hover:text-red-400 hover:bg-white/5 transition-colors" onclick="event.stopPropagation(); act('${encodeURIComponent(p.name)}','stop')" title="Stop">
+<span class="material-symbols-outlined text-[20px]">stop</span>
 </button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors" onclick="editProcess('${encodeURIComponent(p.name)}')" title="Edit">
-<span class="material-symbols-outlined text-[18px]">edit</span>
+<button class="w-10 h-10 rounded flex items-center justify-center text-on-surface-variant hover:text-on-surface hover:bg-white/5 transition-colors" onclick="event.stopPropagation(); editProcess('${encodeURIComponent(p.name)}')" title="Edit">
+<span class="material-symbols-outlined text-[20px]">edit</span>
 </button>
-<button class="w-8 h-8 rounded flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors" onclick="deleteProcess('${encodeURIComponent(p.name)}')" title="Delete">
-<span class="material-symbols-outlined text-[18px]">delete</span>
+<button class="w-10 h-10 rounded flex items-center justify-center text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors" onclick="event.stopPropagation(); deleteProcess('${encodeURIComponent(p.name)}')" title="Delete">
+<span class="material-symbols-outlined text-[20px]">delete</span>
 </button>
-<div class="w-[1px] h-4 bg-white/10 my-auto mx-1"></div>
-<button class="w-8 h-8 rounded flex items-center justify-center text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-colors" onclick="window.location.href='/process-detail?name=${encodeURIComponent(p.name)}'" title="View Logs">
-<span class="material-symbols-outlined text-[18px]">terminal</span>
+<div class="w-[1px] h-6 bg-white/10 my-auto mx-1"></div>
+<button class="w-10 h-10 rounded flex items-center justify-center text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-colors" onclick="event.stopPropagation(); window.location.href='/process-detail?name=${encodeURIComponent(p.name)}'" title="View Logs">
+<span class="material-symbols-outlined text-[20px]">terminal</span>
 </button>
 </div>
 <div class="absolute left-0 top-0 bottom-0 w-1 ${style.strip}"></div>

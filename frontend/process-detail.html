@@ -2,7 +2,7 @@
 
 <html class="dark" lang=""><head>
 <meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
 <title>Perch - Process Detail</title>
 <meta name="description" content="Perch - Lightweight Windows process & service manager with built-in web UI. Written in Rust."/>
 <meta property="og:title" content="Perch - Process & Service Manager"/>
@@ -41,11 +41,11 @@
 <div class="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary-container/10 blur-[100px]"></div>
 </div>
 <!-- Main Content Canvas (No Nav Shell due to Task-Focused Detail View) -->
-<main class="relative z-10 flex-grow flex flex-col p-container-padding max-w-7xl mx-auto w-full gap-gutter">
+<main class="relative z-10 flex-grow flex flex-col p-4 md:p-container-padding max-w-7xl mx-auto w-full gap-gutter">
 <!-- Header Section -->
 <header class="flex flex-col md:flex-row md:items-center justify-between gap-gutter pb-gutter border-b border-white/5">
 <div class="flex items-center gap-4">
-<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-white/10 transition-colors text-on-surface-variant hover:text-primary group" onclick="window.location.href='/processes'">
+<button class="flex items-center justify-center w-10 h-10 shrink-0 rounded-full hover:bg-white/10 transition-colors text-on-surface-variant hover:text-primary group" onclick="window.location.href='/processes'">
 <span class="material-symbols-outlined text-[20px] group-hover:-translate-x-1 transition-transform">arrow_back</span>
 </button>
 <div class="flex items-center gap-3">
@@ -59,29 +59,29 @@
 </div>
 <div class="flex flex-wrap items-center gap-2">
 <!-- Language Selector -->
-<select class="bg-surface-container-high border border-white/10 rounded px-3 py-2 text-on-surface-variant font-body-md text-body-md cursor-pointer" onchange="setLang(this.value)" data-lang-select>
+<select class="bg-surface-container-high border border-white/10 rounded px-3 h-9 text-on-surface-variant font-body-md text-body-md cursor-pointer" onchange="setLang(this.value)" data-lang-select>
 <option value="zh">🇨🇳 中文</option>
 <option value="en">🇬🇧 English</option>
 <option value="es">🇪🇸 Español</option>
 <option value="ja">🇯🇵 日本語</option>
 <option value="pt">🇧🇷 Português</option>
 </select>
-<button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-DEFAULT border border-outline-variant text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors font-body-sm" onclick="act('stop')">
+<button class="flex-1 md:flex-none flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 h-9 rounded-DEFAULT border border-outline-variant text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors font-body-sm whitespace-nowrap" onclick="act('stop')">
 <span class="material-symbols-outlined text-[18px]">stop</span>
                     <span data-i18n="button.stop">停止</span>
                 </button>
-<button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-DEFAULT border border-primary/30 text-primary hover:bg-primary/10 transition-colors font-body-sm" onclick="act('restart')">
+<button class="flex-1 md:flex-none flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 h-9 rounded-DEFAULT border border-primary/30 text-primary hover:bg-primary/10 transition-colors font-body-sm whitespace-nowrap" onclick="act('restart')">
 <span class="material-symbols-outlined text-[18px]">restart_alt</span>
                     <span data-i18n="button.restart">重启</span>
                 </button>
-<button class="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-DEFAULT bg-primary text-on-primary hover:bg-primary-fixed transition-colors font-body-sm shadow-[0_0_15px_rgba(68,216,241,0.2)]" onclick="act('start')">
+<button class="flex-1 md:flex-none flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 h-9 rounded-DEFAULT bg-primary text-on-primary hover:bg-primary-fixed transition-colors font-body-sm whitespace-nowrap shadow-[0_0_15px_rgba(68,216,241,0.2)]" onclick="act('start')">
 <span class="material-symbols-outlined text-[18px]">play_arrow</span>
                     <span data-i18n="button.start">启动</span>
                 </button>
 </div>
 </header>
 <!-- Upper Section: Frosted Info Panel -->
-<section class="bg-white/[0.06] backdrop-blur-[30px] rounded-lg border-t border-l border-white/10 border-b border-r border-transparent shadow-sm p-container-padding transition-all duration-300 hover:bg-white/[0.08]">
+<section class="bg-white/[0.06] backdrop-blur-[30px] rounded-lg border-t border-l border-white/10 border-b border-r border-transparent shadow-sm p-4 md:p-container-padding transition-all duration-300 hover:bg-white/[0.08]">
 <div class="grid grid-cols-2 md:grid-cols-4 gap-y-gutter gap-x-card-gap">
 <!-- Data Items -->
 <div class="flex flex-col gap-1">
@@ -141,7 +141,7 @@
 <div class="w-2 h-2 rounded-full bg-primary/50"></div>
 </div>
 <!-- Log Content -->
-<div class="p-gutter overflow-y-auto terminal-scroll flex-grow font-mono-data text-mono-data space-y-1" id="log-content"></div>
+<div class="p-4 md:p-gutter overflow-y-auto overflow-x-auto whitespace-pre-wrap break-words terminal-scroll flex-grow font-mono-data text-[10px] sm:text-mono-data space-y-1" id="log-content"></div>
 </div>
 </section>
 </main>
