@@ -116,5 +116,14 @@
                 errEl.classList.remove('hidden');
             }
         }
+
+        (async function autoRedirectIfLoggedIn() {
+            const saved = getToken();
+            if (!saved) return;
+            try {
+                const resp = await fetch('/api/processes', { headers: { 'Authorization': 'Bearer ' + saved } });
+                if (resp.ok) window.location.replace('/processes');
+            } catch (_) { /* network error: stay on login page */ }
+        })();
     </script>
 </body></html>
