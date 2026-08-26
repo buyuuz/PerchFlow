@@ -38,11 +38,18 @@ async fn recent_logs(
 ) -> Json<serde_json::Value> {
     let n = q.lines.unwrap_or(200);
     let rt = ctx.state.procs.read().await.get(&name).cloned();
-    let lines = match rt {
-        Some(rt) => rt.read().await.logs.recent(n),
-        None => vec![],
+    let (lines, seq) = match rt {
+        Some(rt) => {
+            let g = rt.read().await;
+            (g.logs.recent_with_seq(n), g.logs.next_seq())
+        }
+        None => (vec![], 0),
     };
-    Json(json!({ "name": name, "lines": lines }))
+    let lines: Vec<serde_json::Value> = lines
+        .into_iter()
+        .map(|(seq, text)| json!({ "seq": seq, "text": text }))
+        .collect();
+    Json(json!({ "name": name, "lines": lines, "seq": seq }))
 }
 
 async fn stream_logs(
@@ -66,19 +73,24 @@ fn sse_stream(ctx: WebContext, name: String) -> Sse<impl Stream<Item = Result<Ev
         loop {
             interval.tick().await;
             let rt = ctx.state.procs.read().await.get(&name).cloned();
-            let (lines, status) = match rt {
+            let (lines, status) = match &rt {
                 Some(rt) => {
                     let g = rt.read().await;
-                    (g.logs.recent(50), g.status)
+                    (g.logs.recent_with_seq(50), g.status)
                 }
                 None => (vec![], ProcStatus::Stopped),
             };
-            match status {
-                ProcStatus::Running | ProcStatus::Restarting => {
-                    let payload = json!({ "lines": lines }).to_string();
+            match (status, &rt) {
+                (ProcStatus::Running | ProcStatus::Restarting, Some(rt)) => {
+                    let lines: Vec<serde_json::Value> = lines
+                        .into_iter()
+                        .map(|(seq, text)| json!({ "seq": seq, "text": text }))
+                        .collect();
+                    let next_seq = rt.read().await.logs.next_seq();
+                    let payload = json!({ "lines": lines, "seq": next_seq }).to_string();
                     yield Ok(Event::default().data(payload));
                 }
-                terminal => {
+                (terminal, _) => {
                     // 终态:推一次 ended 告知前端关流,然后结束本 SSE 流。
                     let payload = json!({ "ended": true, "status": status_label(terminal) }).to_string();
                     yield Ok(Event::default().data(payload));

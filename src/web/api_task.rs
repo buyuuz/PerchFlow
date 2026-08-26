@@ -83,11 +83,24 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(de
     if cron::Schedule::from_str(&def.schedule).is_err() {
         return Json(json!({ "ok": false, "error": "bad cron" }));
     }
+    let old_name = name;
+    let new_name = def.name.clone();
     {
         let mut cfg = ctx.state.config.write().await;
-        match cfg.task.iter_mut().find(|t| t.name == name) {
+        if new_name != old_name && cfg.task.iter().any(|t| t.name == new_name) {
+            return Json(json!({ "ok": false, "error": "name exists" }));
+        }
+        match cfg.task.iter_mut().find(|t| t.name == old_name) {
             Some(t) => *t = def,
             None => return Json(json!({ "ok": false, "error": "not found" })),
+        }
+    }
+    // 改名时迁移运行期状态到新 key,否则 run_once 按新名字找不到
+    // TaskRuntime,last_run/last_exit_code 会静默丢失。
+    if new_name != old_name {
+        let mut map = ctx.state.tasks.write().await;
+        if let Some(rt) = map.remove(&old_name) {
+            map.insert(new_name.clone(), rt);
         }
     }
     let r = persist(&ctx).await;

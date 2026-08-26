@@ -102,7 +102,6 @@ function editTask(name) {
   editingName = task.name;
   document.getElementById('task-modal-title').textContent = t('modal.edit_task');
   document.getElementById('task-name').value = task.name;
-  document.getElementById('task-name').disabled = true;
   document.getElementById('task-cmd').value = task.cmd;
   document.getElementById('task-args').value = (task.args || []).join(' ');
   document.getElementById('task-schedule').value = task.schedule;

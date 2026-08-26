@@ -2,6 +2,9 @@ const params = new URLSearchParams(window.location.search);
 const procName = params.get('name') || '';
 let liveOn = true;
 let eventSource = null;
+// 已渲染日志的最大全局序号(ring buffer 中每条日志带单调递增 seq)。
+// 清屏时把它设为当前最新 seq,之后 live 推流只追加"清屏之后"的新日志。
+let renderedSeq = -1;
 
 function statusLabel(status) {
   const label = t('status.' + status);
@@ -36,12 +39,32 @@ function renderLine(line) {
   return `<div class="flex gap-4 hover:bg-white/[0.02] px-1 -mx-1 rounded-sm transition-colors"><span class="text-on-surface-variant break-all">${escapeHtml(line)}</span></div>`;
 }
 
+function renderLineSeq(item) {
+  return `<div class="flex gap-4 hover:bg-white/[0.02] px-1 -mx-1 rounded-sm transition-colors"><span class="text-on-surface-variant break-all">${escapeHtml(item.text)}</span></div>`;
+}
+
 async function loadRecentLogs() {
   const lines = document.getElementById('lines-select').value;
   const data = await apiJson(`/api/processes/${encodeURIComponent(procName)}/logs?lines=${lines}`);
   const el = document.getElementById('log-content');
-  el.innerHTML = data.lines.map(renderLine).join('');
+  el.innerHTML = data.lines.map(renderLineSeq).join('');
+  renderedSeq = data.seq - 1;
   el.scrollTop = el.scrollHeight;
+}
+
+// 清屏:清空日志区,并把增量基线推进到当前最新 seq——之后 live 推流只显示新日志。
+function clearLogs() {
+  const el = document.getElementById('log-content');
+  el.innerHTML = '';
+  el.scrollTop = 0;
+}
+
+// 距底部多少像素内视为"正在看最新的",此时新日志到达自动跟随滚动到最底;
+// 用户上翻查看历史时保持不动,不被每秒推流打扰。
+const AUTO_SCROLL_THRESHOLD = 40;
+
+function shouldAutoScroll(el) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight < AUTO_SCROLL_THRESHOLD;
 }
 
 function startStream() {
@@ -59,12 +82,21 @@ function startStream() {
       notice.className = 'text-on-surface-variant italic px-1 py-1';
       notice.textContent = t('log.stream_ended', {status: data.status});
       el.appendChild(notice);
-      el.scrollTop = el.scrollHeight;
+      if (shouldAutoScroll(el)) el.scrollTop = el.scrollHeight;
       return;
     }
     const el = document.getElementById('log-content');
-    el.innerHTML = data.lines.map(renderLine).join('');
-    el.scrollTop = el.scrollHeight;
+    if (data.seq <= renderedSeq) {
+      // buffer 被重置(进程重启,seq 从 0 重新计数):全量重渲染,避免停留空白。
+      el.innerHTML = data.lines.map(renderLineSeq).join('');
+    } else {
+      // 常规增量:只追加 seq 大于已渲染最大序号的行(清屏后据此只显示新日志)。
+      const fresh = data.lines.filter(l => l.seq > renderedSeq);
+      el.innerHTML += fresh.map(renderLineSeq).join('');
+    }
+    renderedSeq = data.seq - 1;
+    // 仅在用户位于底部附近时自动跟随,上翻查看历史时保持当前位置。
+    if (shouldAutoScroll(el)) el.scrollTop = el.scrollHeight;
   };
   eventSource.onerror = () => {
     // 服务端关闭流后 EventSource 会触发 onerror 并自动尝试重连。
