@@ -9,14 +9,39 @@ use tokio::process::{Child, Command};
 use tokio::sync::RwLock;
 
 pub fn build_command(def: &ProcessDef) -> Command {
-    let mut cmd = Command::new(&def.cmd);
-    cmd.args(&def.args);
+    // 脚本文件无法被 CreateProcess 直接执行,需要包装:
+    // - .bat/.cmd: Rust std 已自动经 cmd.exe /c 执行,无需处理
+    // - .ps1: 必须显式经 powershell.exe -File 调用,否则 spawn 报
+    //   "%1 不是有效的 Win32 应用程序"(ERROR_BAD_EXE_FORMAT / os error 193)。
+    //   包装后用户配置的 args 仍原样传给脚本。
+    let (program, prefix_args): (String, Vec<String>) = match std::path::Path::new(&def.cmd)
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("ps1") => (
+            "powershell.exe".into(),
+            vec![
+                "-NoProfile".into(),
+                "-ExecutionPolicy".into(),
+                "Bypass".into(),
+                "-File".into(),
+                def.cmd.clone(),
+            ],
+        ),
+        _ => (def.cmd.clone(), vec![]),
+    };
+
+    let mut cmd = Command::new(&program);
+    cmd.args(&prefix_args).args(&def.args);
     if let Some(cwd) = &def.cwd {
         cmd.current_dir(cwd);
     } else if let Some(parent) = std::path::Path::new(&def.cmd).parent() {
         // cmd 是带路径的可执行文件(如 D:\AI\cmd\kiro-rs\start.bat)且用户未显式
         // 配 cwd 时,默认以其所在目录为工作目录,对齐"双击 bat"的直觉——否则子进程
-        // 继承服务的工作目录(System32),bat 内的相对路径 .\xxx.exe 会找不到。
+        // 继承服务的工作目录(System32),bat/ps1 内的相对路径 .\xxx.exe 会找不到。
+        // 这里始终按用户原始 cmd 推导(ps1 被包装成 powershell.exe 也不受影响)。
         // parent 为空表示 cmd 是走 PATH 的裸命令(如 "python"),保持继承不干预。
         if !parent.as_os_str().is_empty() {
             cmd.current_dir(parent);
@@ -188,6 +213,33 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         let logs = rt.read().await.logs.recent(10);
         assert!(logs.iter().any(|l| l.contains("hello")), "logs={logs:?}");
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn spawn_ps1_script_wrapped_with_powershell() {
+        let dir = std::env::temp_dir().join(format!("perch_ps1_test_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let script = dir.join("test_exit.ps1");
+        std::fs::write(&script, "exit 42").unwrap();
+        let def = ProcessDef {
+            name: "ps1".into(),
+            cmd: script.to_string_lossy().into_owned(),
+            args: vec![],
+            cwd: None,
+            env: HashMap::new(),
+            autostart: false,
+            restart: RestartConfig::default(),
+        };
+        let rt = Arc::new(RwLock::new(ProcRuntime {
+            status: ProcStatus::Stopped, pid: None, started_at: None,
+            restart_count: 0, cpu_percent: 0.0, mem_bytes: 0,
+            logs: crate::core::ringbuf::RingBuffer::new(100),
+        }));
+        let mut spawned = spawn_process(&def, rt.clone()).await.unwrap();
+        let status = spawned.child.wait().await.unwrap();
+        std::fs::remove_dir_all(&dir).ok();
+        assert_eq!(status.code(), Some(42));
     }
 
     #[test]

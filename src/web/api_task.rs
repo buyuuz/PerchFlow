@@ -104,7 +104,14 @@ async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json
 }
 
 async fn run_now(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
-    op_result(ctx.scheduler.run_once(&name).await)
+    let task_name = name.clone();
+    tracing::info!("task '{}' triggered (manual)", task_name);
+    let r = ctx.scheduler.run_once(&name).await;
+    match &r {
+        Ok(()) => tracing::info!("task '{}' completed (manual)", task_name),
+        Err(e) => tracing::warn!("task '{}' failed (manual): {e}", task_name),
+    }
+    op_result(r)
 }
 
 async fn persist(ctx: &WebContext) -> crate::error::Result<()> {
