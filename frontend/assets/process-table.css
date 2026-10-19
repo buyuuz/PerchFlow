@@ -1,5 +1,17 @@
 /* PerchFlow / Processes — full-width management table.
    Independent of precompiled Tailwind utilities; responsive scrolling stays inside the panel. */
+.pf-process-page-title {
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 700;
+  margin: 0 0 3px;
+}
+.pf-process-page-subtitle {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
 .pf-process-table-shell {
   --pf-table-line: rgba(163, 193, 216, .105);
   --pf-table-muted: #93a7b7;
@@ -89,7 +101,7 @@
 }
 
 .pf-process-table tbody tr {
-  height: 81px;
+  height: 73px;
   border-top: 1px solid var(--pf-table-line);
   background: rgba(10, 17, 23, .105);
   transition: background .15s ease;
@@ -104,7 +116,7 @@
 }
 
 .pf-process-table td {
-  padding: 13px 10px;
+  padding: 9px 10px;
   font-size: 13px;
   color: #d9e5ec;
   white-space: nowrap;
@@ -350,7 +362,7 @@
     font-size: 12px;
   }
   .pf-process-table { min-width: 1170px; }
-  .pf-process-table tbody tr { height: 72px; }
-  .pf-process-table td { padding-top: 10px; padding-bottom: 10px; }
+  .pf-process-table tbody tr { height: 68px; }
+  .pf-process-table td { padding-top: 7px; padding-bottom: 7px; }
   .pf-process-table-shell { border-radius: 10px; }
 }

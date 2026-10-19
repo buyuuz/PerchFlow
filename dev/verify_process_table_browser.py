@@ -34,11 +34,16 @@ def inspect_table(page, width: int, min_rows: int = 4):
               firstCols:[...first.children].map(box),
               actualRows:[...document.querySelectorAll('#proc-table-body tr')].map(box),
               icon:box(document.querySelector('.pf-brand-icon')), nav:box(nav),
+              titlePx:parseFloat(getComputedStyle(document.querySelector('.pf-process-page-title')).fontSize),
+              subtitlePx:parseFloat(getComputedStyle(document.querySelector('.pf-process-page-subtitle')).fontSize),
               horizontalScroll:wrapper.scrollWidth-wrapper.clientWidth>3, scrollWidth:wrapper.scrollWidth, clientWidth:wrapper.clientWidth, overflowCandidates:[...document.querySelectorAll('.pf-process-table *')].filter(e=>e.getBoundingClientRect().right > wrapper.getBoundingClientRect().right+3).slice(0,12).map(e=>({tag:e.tagName, cls:e.className?.baseVal || e.className, text:e.textContent?.slice(0,25),right:e.getBoundingClientRect().right}))};
     }""")
     assert row_count >= min_rows, row_count
     assert page.locator("th").count() == 10, "Expected 10 aligned table columns"
-    assert size["first"]["h"] >= 65 and size["first"]["h"] <= 90, size
+    expected_row_height = 68 if width < 700 else 73
+    assert abs(size["first"]["h"] - expected_row_height) <= 1, size
+    assert size["titlePx"] == 17, size
+    assert size["subtitlePx"] == 12, size
     assert size["icon"]["h"] < size["nav"]["h"], size
     assert size["document"] <= width + 3, f"Unexpected horizontal PAGE overflow: {size}"
     assert size["header"]["w"] == size["table"]["w"], size
@@ -47,7 +52,7 @@ def inspect_table(page, width: int, min_rows: int = 4):
     else:
         assert not size["horizontalScroll"], size
     page.screenshot(path=str(OUTPUT / f"process-table-{width}.png"), full_page=True)
-    print(f"VIEWPORT={width}: rows={row_count}, rowHeight={size['first']['h']}, pageWidth={size['document']}, innerScroll={size['horizontalScroll']}")
+    print(f"VIEWPORT={width}: rows={row_count}, rowHeight={size['first']['h']}, title={size['titlePx']}px, subtitle={size['subtitlePx']}px, pageWidth={size['document']}, innerScroll={size['horizontalScroll']}")
     return size
 
 
