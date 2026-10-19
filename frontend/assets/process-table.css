@@ -1,0 +1,356 @@
+/* PerchFlow / Processes — full-width management table.
+   Independent of precompiled Tailwind utilities; responsive scrolling stays inside the panel. */
+.pf-process-table-shell {
+  --pf-table-line: rgba(163, 193, 216, .105);
+  --pf-table-muted: #93a7b7;
+  --pf-table-text: #e9f2f8;
+  position: relative;
+  border: 1px solid rgba(135, 172, 198, .16);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #131f29 0%, #101a23 43%, #101821 100%);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .13), inset 0 1px 0 rgba(255,255,255,.025);
+  overflow: hidden;
+}
+
+.pf-process-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #344c5d transparent;
+}
+
+.pf-process-table {
+  width: 100%;
+  min-width: 1220px;
+  table-layout: fixed;
+  border-collapse: collapse;
+  color: var(--pf-table-text);
+  font-family: inherit;
+}
+
+.pf-process-table th,
+.pf-process-table td {
+  box-sizing: border-box;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.pf-process-table thead {
+  background: rgba(29, 43, 55, .5);
+}
+
+.pf-process-table thead tr {
+  height: 60px;
+}
+
+.pf-process-table th {
+  padding: 0 10px;
+  font-size: 12px;
+  letter-spacing: .015em;
+  font-weight: 600;
+  color: #a8bacb;
+  white-space: nowrap;
+}
+
+.pf-process-table th:first-child,
+.pf-process-table td:first-child { padding-left: 19px; }
+
+.pf-process-table th:last-child,
+.pf-process-table td:last-child { padding-right: 17px; }
+
+.pf-process-table th[aria-sort="ascending"] .pf-sort-icon,
+.pf-process-table th[aria-sort="descending"] .pf-sort-icon {
+  color: #43d6ed;
+}
+
+.pf-sort-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 5px;
+  min-height: 36px;
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pf-sort-button:hover,
+.pf-sort-button:focus-visible { color: #57dff4; }
+.pf-sort-icon {
+  display: inline-block;
+  color: #6e8295;
+  font-size: 15px !important;
+  line-height: 1;
+}
+
+.pf-process-table tbody tr {
+  height: 81px;
+  border-top: 1px solid var(--pf-table-line);
+  background: rgba(10, 17, 23, .105);
+  transition: background .15s ease;
+}
+
+.pf-process-table tbody tr:hover {
+  background: rgba(63, 94, 115, .15);
+}
+
+.pf-process-table tbody tr.pf-is-selected {
+  background: rgba(44, 197, 224, .075);
+}
+
+.pf-process-table td {
+  padding: 13px 10px;
+  font-size: 13px;
+  color: #d9e5ec;
+  white-space: nowrap;
+}
+
+.pf-process-table input[type="checkbox"] {
+  appearance: none;
+  display: block;
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  border: 1.5px solid #748b9d;
+  border-radius: 4px;
+  background: rgba(9, 18, 27, .6);
+  cursor: pointer;
+  flex: none;
+  position: relative;
+}
+
+.pf-process-table input[type="checkbox"]:checked {
+  background: #36cde5;
+  border-color: #36cde5;
+}
+
+.pf-process-table input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 4px;
+  border-left: 2px solid #09202c;
+  border-bottom: 2px solid #09202c;
+  transform: rotate(-45deg);
+  top: 3px;
+  left: 3px;
+}
+
+.pf-process-table input[type="checkbox"]:focus-visible,
+.pf-process-table button:focus-visible,
+.pf-process-table a:focus-visible {
+  outline: 2px solid #48cfe9;
+  outline-offset: 2px;
+}
+
+.pf-process-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.pf-process-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(71, 123, 184, .15);
+  border-radius: 9px;
+  background: #152b4b;
+  color: #45cfff;
+}
+.pf-process-icon .material-symbols-outlined {font-size:20px;}
+.pf-process-icon--stopped { background: #293645; color: #b4b6ed; }
+.pf-process-icon--crashed { background: #273047; color: #ff8b9d; }
+.pf-process-icon--restarting { background: #263145; color: #f1c177; }
+
+.pf-process-name {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 650;
+  font-size: 13px;
+  color: #ecf4fc;
+  text-decoration: none;
+}
+
+.pf-process-name:hover { color: #4fe1f3; }
+.pf-process-pid,
+.pf-process-metric { font-variant-numeric: tabular-nums; }
+.pf-process-pid {
+  color: #b7c9d9;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+}
+.pf-process-metric { color: #e0ebf6; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-weight: 550; }
+
+.pf-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  border-radius: 7px;
+  padding: 6px 9px;
+  font: 700 11px/1.15 ui-monospace, SFMono-Regular, Consolas, monospace;
+  border: 1px solid rgba(152, 174, 196, .14);
+  background: rgba(163, 190, 209, .09);
+  color: #b7c6d2;
+}
+.pf-status::before {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #a7b4c1;
+  content: "";
+  flex: none;
+}
+.pf-status--running { background: rgba(23, 197, 103, .10); border-color: rgba(38, 198, 112, .25); color: #4ce897; }
+.pf-status--running::before { background: #27d77d; box-shadow: 0 0 8px rgba(45,226,136,.35); }
+.pf-status--crashed { background: rgba(224, 69, 91, .10); border-color: rgba(235, 86, 100, .3); color: #ff8c96; }
+.pf-status--crashed::before { background: #f55370; }
+.pf-status--restarting { background: rgba(231, 171, 71, .10); border-color: rgba(231, 171, 71, .28); color: #f2cc74; }
+.pf-status--restarting::before { background: #ebb657; }
+
+.pf-command {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 7px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 5px 0 11px;
+  border: 1px solid rgba(111, 143, 169, .18);
+  background: rgba(4, 12, 18, .6);
+}
+.pf-command-dollar { color: #31d0ed; font-weight: 700; }
+.pf-command-text {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #bdcedd;
+  font: 12px ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.pf-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+}
+.pf-action {
+  display: inline-flex;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: #bccedb;
+  cursor: pointer;
+  overflow: hidden;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.pf-action .material-symbols-outlined { font-size: 19px; }
+.pf-action:hover:not(:disabled) {
+  background: rgba(58, 93, 117, .24);
+  color: #fff;
+  border-color: rgba(125, 157, 181, .16);
+}
+.pf-action--delete:hover:not(:disabled) { color: #fb8198; }
+.pf-action--terminal {
+  margin-left: 5px;
+  border-color: rgba(29, 190, 226, .5);
+  background: rgba(19, 176, 215, .08);
+  color: #46d9f4;
+}
+.pf-action--terminal:hover:not(:disabled) {
+  border-color: #40d0ef;
+  background: rgba(30, 185, 229, .16);
+  color: #69e5fa;
+}
+.pf-action:disabled {
+  opacity: .33;
+  cursor: not-allowed;
+}
+
+.pf-selection-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #97dff0;
+  margin-top: 12px;
+}
+.pf-selection-toolbar[hidden] { display: none; }
+.pf-clear-selection {
+  border: 1px solid rgba(73, 176, 203, .28);
+  border-radius: 6px;
+  background: rgba(41, 110, 133, .11);
+  padding: 5px 9px;
+  color: #bceefa;
+  cursor: pointer;
+}
+.pf-clear-selection:hover { background: rgba(41, 110, 133, .23); }
+.pf-process-empty {
+  text-align: center !important;
+  padding: 34px 16px !important;
+  font-size: 14px !important;
+  color: #9badbe !important;
+}
+.pf-table-scroll-hint {
+  display: none;
+  font-size: 12px;
+  margin-top: 9px;
+  color: #879bac;
+}
+@media (max-width: 1260px) {
+  .pf-table-scroll-hint { display: block; }
+}
+@media (max-width: 700px) {
+  .pf-process-topnav {
+    padding-left: 10px;
+    padding-right: 10px;
+    gap: 6px;
+  }
+  .pf-process-topnav .pf-header-brand .pf-brand-name { font-size: 15px; }
+  .pf-process-topnav .pf-process-nav-right { gap: 6px; }
+  .pf-process-topnav .pf-process-add {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 12px;
+    padding-left: 8px;
+    padding-right: 8px;
+    gap: 2px;
+  }
+  .pf-process-topnav .pf-process-add .material-symbols-outlined { font-size: 16px; }
+  .pf-process-topnav .pf-process-lang {
+    width: 94px;
+    max-width: 94px;
+    min-width: 0;
+    padding-left: 5px;
+    padding-right: 5px;
+    font-size: 12px;
+  }
+  .pf-process-table { min-width: 1170px; }
+  .pf-process-table tbody tr { height: 72px; }
+  .pf-process-table td { padding-top: 10px; padding-bottom: 10px; }
+  .pf-process-table-shell { border-radius: 10px; }
+}

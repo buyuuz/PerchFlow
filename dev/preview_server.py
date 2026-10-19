@@ -63,6 +63,7 @@ class MockState:
                 make_process("MailHub (DEMO)", "running", 12340, 1.6, 68, "python launcher.py"),
                 make_process("Daily_Check (DEMO)", "stopped", None, 0.0, 0, "python daily_check.py"),
                 make_process("Video Publisher (DEMO)", "crashed", None, 0.0, 0, "python video_auto.py"),
+                make_process("Data Collector (DEMO)", "running", 25678, 3.4, 128, "python collector.py"),
             ]
         }
         self.tasks = {

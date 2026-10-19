@@ -13,6 +13,7 @@
 <link href="/assets/fonts.css" rel="stylesheet"/>
 <link href="/assets/tailwind.css" rel="stylesheet"/>
 <link href="/assets/branding.css?v=brand3" rel="stylesheet"/>
+<link href="/assets/process-table.css?v=table1" rel="stylesheet"/>
 <link href="/assets/logo.ico?v=brand2" rel="icon" type="image/x-icon"/>
 <link rel="icon" type="image/png" href="/assets/favicon-96x96.png?v=brand2" sizes="96x96" />
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=brand2" />
@@ -57,7 +58,7 @@
 </head>
 <body class="bg-background text-on-background min-h-screen font-body-md selection:bg-primary-container/30">
 <!-- TopNavBar (Adapted from Shared Components) -->
-<nav class="fixed top-0 w-full z-50 h-14 bg-surface/60 backdrop-blur-[30px] border-b border-white/10 shadow-sm flex justify-between items-center px-4 md:px-container-padding">
+<nav class="pf-process-topnav fixed top-0 w-full z-50 h-14 bg-surface/60 backdrop-blur-[30px] border-b border-white/10 shadow-sm flex justify-between items-center px-4 md:px-container-padding">
 <!-- Left: Logo & Nav Links -->
 <div class="flex items-center gap-8 h-full">
 <div class="pf-header-brand text-primary">
@@ -76,19 +77,19 @@
 </div>
 </div>
 <!-- Right: Actions & Status -->
-<div class="flex items-center gap-4">
+<div class="pf-process-nav-right flex items-center gap-4">
 <!-- Connection Status -->
 <div class="hidden md:flex items-center gap-2 bg-surface-container-high px-3 py-1.5 rounded-full border border-white/5">
 <div class="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)] animate-pulse"></div>
 <span class="font-mono-data text-mono-data text-on-surface-variant">Connected</span>
 </div>
 <!-- Primary Action -->
-<button class="bg-primary hover:bg-primary-fixed-dim text-on-primary px-4 h-9 rounded font-body-md font-medium transition-all duration-150 active:scale-[0.98] flex items-center gap-1 shadow-[0_0_15px_rgba(68,216,241,0.2)]" onclick="openAddModal()">
+<button class="pf-process-add bg-primary hover:bg-primary-fixed-dim text-on-primary px-4 h-9 rounded font-body-md font-medium transition-all duration-150 active:scale-[0.98] flex items-center gap-1 shadow-[0_0_15px_rgba(68,216,241,0.2)]" onclick="openAddModal()">
 <span class="material-symbols-outlined text-[18px]">add</span>
                 <span data-i18n="button.add_process">添加进程</span>
             </button>
 <!-- Language Selector -->
-<select class="bg-surface-container-high border border-white/10 rounded px-3 h-9 text-on-surface-variant font-body-md text-body-md cursor-pointer" onchange="setLang(this.value)" data-lang-select>
+<select class="pf-process-lang bg-surface-container-high border border-white/10 rounded px-3 h-9 text-on-surface-variant font-body-md text-body-md cursor-pointer" onchange="setLang(this.value)" data-lang-select>
 <option value="zh">🇨🇳 中文</option>
 <option value="en">🇬🇧 English</option>
 <option value="es">🇪🇸 Español</option>
@@ -109,12 +110,49 @@
 <div class="flex gap-2">
 <div class="relative">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
-<input class="bg-surface-container-high border border-white/10 rounded pl-9 pr-3 py-1.5 text-sm font-body-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant/50 w-32 md:w-64 transition-all" data-i18n-placeholder="search.processes" placeholder="搜索进程..." type="text"/>
+<input id="proc-search" class="bg-surface-container-high border border-white/10 rounded pl-9 pr-3 py-1.5 text-sm font-body-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant/50 w-32 md:w-64 transition-all" data-i18n-placeholder="search.processes" placeholder="搜索进程..." type="search" autocomplete="off" aria-label="搜索进程"/>
 </div>
 </div>
 </div>
-<!-- Dashboard Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-card-gap" id="proc-grid"></div>
+<!-- Process management table: one process per horizontal row -->
+<section class="pf-process-table-shell" aria-label="进程列表">
+  <div class="pf-process-table-scroll" tabindex="0" aria-label="可横向滚动的进程列表">
+    <table class="pf-process-table" aria-label="进程管理列表">
+      <colgroup>
+        <col style="width:3.5%">
+        <col style="width:17%">
+        <col style="width:8%">
+        <col style="width:6.5%">
+        <col style="width:6.4%">
+        <col style="width:7%">
+        <col style="width:8.4%">
+        <col style="width:8%">
+        <col style="width:16.3%">
+        <col style="width:18.9%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th scope="col"><input type="checkbox" id="proc-select-all" aria-label="选择所有显示的进程"/></th>
+          <th scope="col" aria-sort="none"><button type="button" class="pf-sort-button" data-sort-key="name"><span data-table-label="name">进程名称</span><span class="material-symbols-outlined pf-sort-icon" aria-hidden="true">unfold_more</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" class="pf-sort-button" data-sort-key="status"><span data-table-label="status">状态</span><span class="material-symbols-outlined pf-sort-icon" aria-hidden="true">unfold_more</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" class="pf-sort-button" data-sort-key="pid"><span data-table-label="pid">PID</span><span class="material-symbols-outlined pf-sort-icon" aria-hidden="true">unfold_more</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" class="pf-sort-button" data-sort-key="cpu"><span data-table-label="cpu">CPU</span><span class="material-symbols-outlined pf-sort-icon" aria-hidden="true">unfold_more</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" class="pf-sort-button" data-sort-key="mem"><span data-table-label="mem">MEM</span><span class="material-symbols-outlined pf-sort-icon" aria-hidden="true">unfold_more</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" class="pf-sort-button" data-sort-key="uptime"><span data-table-label="uptime">UPTIME</span><span class="material-symbols-outlined pf-sort-icon" aria-hidden="true">unfold_more</span></button></th>
+          <th scope="col" aria-sort="none"><button type="button" class="pf-sort-button" data-sort-key="restarts"><span data-table-label="restarts">RESTARTS</span><span class="material-symbols-outlined pf-sort-icon" aria-hidden="true">unfold_more</span></button></th>
+          <th scope="col" data-table-label="cmd">启动命令</th>
+          <th scope="col" data-table-label="actions">操作</th>
+        </tr>
+      </thead>
+      <tbody id="proc-table-body"></tbody>
+    </table>
+  </div>
+</section>
+<div id="proc-selection-toolbar" class="pf-selection-toolbar" hidden>
+  <span id="proc-selected-label" role="status"></span>
+  <button type="button" id="proc-clear-selection" class="pf-clear-selection">取消选择</button>
+</div>
+<p id="proc-scroll-hint" class="pf-table-scroll-hint">左右滑动表格可查看更多列和操作</p>
 <!-- Mobile Bottom Spacer -->
 <div style="height: 80px;" class="block md:hidden w-full shrink-0"></div>
 </main>

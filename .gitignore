@@ -4,3 +4,4 @@
 perch-*-with-logo.png
 __pycache__/
 *.py[cod]
+dev/screenshots/
