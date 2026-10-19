@@ -62,7 +62,21 @@ class PreviewTests(unittest.TestCase):
                 status, headers, content = self.get(path)
                 self.assertEqual(status, 200)
                 self.assertGreater(len(content), 20)
-                self.assertEqual(headers["Cache-Control"], "no-store, max-age=0")
+                expected_cache = "private, max-age=86400" if path.endswith(".woff2") else "no-store, max-age=0"
+                self.assertEqual(headers["Cache-Control"], expected_cache)
+
+    def test_font_caching_is_distinct_from_live_editing(self):
+        for path in ("/assets/fonts/material-symbols-outlined.woff2",
+                     "/assets/fonts/inter-700.woff2"):
+            with self.subTest(path=path):
+                status, headers, _ = self.get(path)
+                self.assertEqual(status, 200)
+                self.assertEqual(headers["Cache-Control"], "private, max-age=86400")
+        # Changing frontend HTML and JS must remain visible immediately.
+        for path in ("/processes", "/assets/processes.js",
+                     "/assets/branding.css", "/assets/process-table.css"):
+            _, headers, _ = self.get(path)
+            self.assertEqual(headers["Cache-Control"], "no-store, max-age=0")
 
     def test_mock_data_and_process_mutations_are_in_memory(self):
         _, processes = self.request_json("/api/processes")

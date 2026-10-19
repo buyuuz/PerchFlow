@@ -103,11 +103,12 @@ def build_handler(frontend: Path = FRONTEND, mode: str = "mock",
             return
 
         def send_bytes(self, status: int, body: bytes, content_type: str,
-                       extra: dict | None = None):
+                       extra: dict | None = None,
+                       cache_control: str = "no-store, max-age=0"):
             self.send_response(status)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Cache-Control", cache_control)
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-PerchFlow-Preview", PREVIEW_MARKER)
             self.send_header("Referrer-Policy", "no-referrer")
@@ -164,7 +165,10 @@ def build_handler(frontend: Path = FRONTEND, mode: str = "mock",
                 mime = MIMES.get(target.suffix.lower()) or mimetypes.guess_type(target.name)[0] or "application/octet-stream"
                 if mime.startswith("text/") or mime in ("application/manifest+json",):
                     mime += "; charset=utf-8"
-                return self.send_bytes(200, target.read_bytes(), mime)
+                # Fonts are immutable during ordinary HTML/CSS/JS editing.
+                # Cache only fonts; the rest stays no-store for instant live reload.
+                font_cache = "private, max-age=86400" if target.suffix.lower() == ".woff2" else "no-store, max-age=0"
+                return self.send_bytes(200, target.read_bytes(), mime, cache_control=font_cache)
             self.send_json({"error": "Not found"}, 404)
 
         def do_POST(self):

@@ -37,7 +37,21 @@ async fn asset(Path(path): Path<String>) -> Response {
     match Assets::get(&full) {
         Some(f) => {
             let mime = mime_guess::from_path(&full).first_or_octet_stream();
-            ([(header::CONTENT_TYPE, mime.as_ref())], f.data.into_owned()).into_response()
+            // Font assets are immutable between UI edits; Material Symbols alone
+            // is over 3 MiB, so avoid redownloading it on each navigation.
+            let cache = if full.ends_with(".woff2") {
+                "private, max-age=86400"
+            } else {
+                "no-cache"
+            };
+            (
+                [
+                    (header::CONTENT_TYPE, mime.as_ref()),
+                    (header::CACHE_CONTROL, cache),
+                ],
+                f.data.into_owned(),
+            )
+                .into_response()
         }
         None => (StatusCode::NOT_FOUND, "not found").into_response(),
     }
