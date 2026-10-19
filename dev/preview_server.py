@@ -54,6 +54,30 @@ def make_process(name: str, status: str, pid: int | None,
     }
 
 
+def cwd_error_on_host(raw) -> str | None:
+    """Validate on the host, never infer filesystem state from a browser."""
+    if raw is None or raw == "":
+        return None
+    if not isinstance(raw, str):
+        return "cwd_not_absolute"
+    cwd = raw.strip()
+    if not cwd:
+        return None
+    if len(cwd) > 1024:
+        return "cwd_too_long"
+    path = Path(cwd)
+    if not path.is_absolute():
+        return "cwd_not_absolute"
+    try:
+        if not path.exists():
+            return "cwd_not_found"
+        if not path.is_dir():
+            return "cwd_not_directory"
+    except OSError:
+        return "cwd_inaccessible"
+    return None
+
+
 class MockState:
     def __init__(self) -> None:
         self.lock = threading.RLock()
@@ -248,6 +272,13 @@ def build_handler(frontend: Path = FRONTEND, mode: str = "mock",
                         return self.send_json({"ok": True})
                     return self.send_json({"ok": False, "error": "invalid lang"}, 400)
 
+                if path == "/api/processes/validate-cwd" and method == "POST":
+                    payload = self.json_body()
+                    if payload is None or "cwd" not in payload:
+                        return self.send_json({"ok": False, "error": "missing cwd"}, 400)
+                    code = cwd_error_on_host(payload["cwd"])
+                    return self.send_json({"ok": False, "error": code} if code else {"ok": True})
+
                 if path == "/api/processes":
                     if method == "GET":
                         return self.send_json({"processes": copy.deepcopy(list(state.processes.values()))})
@@ -255,6 +286,9 @@ def build_handler(frontend: Path = FRONTEND, mode: str = "mock",
                         obj = self.json_body()
                         if not obj or not obj.get("name") or not obj.get("cmd"):
                             return self.send_json({"ok": False, "error": "name/cmd required"}, 400)
+                        code = cwd_error_on_host(obj.get("cwd"))
+                        if code:
+                            return self.send_json({"ok": False, "error": code})
                         if obj["name"] in state.processes:
                             return self.send_json({"ok": False, "error": "name exists"})
                         state.processes[obj["name"]] = mock_view(obj)
@@ -288,8 +322,27 @@ def build_handler(frontend: Path = FRONTEND, mode: str = "mock",
                             payload = self.json_body()
                             if not payload or not payload.get("cmd"):
                                 return self.send_json({"ok": False, "error": "cmd required"}, 400)
+                            code = cwd_error_on_host(payload.get("cwd"))
+                            if code:
+                                return self.send_json({"ok": False, "error": code})
                             state.processes[name].update(mock_view({**payload, "name": name}))
                             return self.send_json({"ok": True})
+                    if len(chunks) == 4 and chunks[3] == "cwd" and method == "PUT":
+                        payload = self.json_body()
+                        if payload is None or "cwd" not in payload:
+                            return self.send_json({"ok": False, "error": "missing cwd"}, 400)
+                        code = cwd_error_on_host(payload["cwd"])
+                        if code:
+                            return self.send_json({"ok": False, "error": code})
+                        cwd = payload["cwd"].strip() if isinstance(payload["cwd"], str) else None
+                        cwd = cwd or None
+                        changed = obj.get("cwd") != cwd
+                        obj["cwd"] = cwd
+                        if changed and obj["status"] in ("running", "restarting"):
+                            state.next_pid += 1
+                            obj["pid"] = state.next_pid
+                            obj["restart_count"] += 1
+                        return self.send_json({"ok": True})
                     if len(chunks) == 4 and chunks[3] == "alias" and method == "PUT":
                         payload = self.json_body()
                         if payload is None or "alias_zh" not in payload:

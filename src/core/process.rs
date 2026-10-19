@@ -77,6 +77,15 @@ pub async fn spawn_process(
     def: &ProcessDef,
     runtime: Arc<RwLock<ProcRuntime>>,
 ) -> Result<SpawnedChild> {
+    if let Some(ref cwd) = def.cwd {
+        // Protect starts from stale/moved TOML paths, even when the UI was
+        // not involved (e.g. a project directory removed after saving).
+        if !std::path::Path::new(cwd).is_dir() {
+            return Err(PerchError::Process(format!(
+                "working directory is missing or is not a directory: {cwd}"
+            )));
+        }
+    }
     let mut cmd = build_command(def);
     let mut child = cmd.spawn().map_err(|e| PerchError::Process(format!("spawn {}: {e}", def.name)))?;
 

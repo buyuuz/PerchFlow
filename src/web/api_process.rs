@@ -13,8 +13,10 @@ use serde_json::json;
 pub fn routes() -> Router<WebContext> {
     Router::new()
         .route("/processes", get(list).post(create))
+        .route("/processes/validate-cwd", post(validate_cwd))
         .route("/processes/:name", get(detail).put(update).delete(remove))
         .route("/processes/:name/alias", axum::routing::put(update_alias))
+        .route("/processes/:name/cwd", axum::routing::put(update_cwd))
         .route("/processes/:name/start", post(start))
         .route("/processes/:name/stop", post(stop))
         .route("/processes/:name/restart", post(restart))
@@ -96,6 +98,11 @@ async fn persist(ctx: &WebContext) -> crate::error::Result<()> {
 }
 
 async fn create(State(ctx): State<WebContext>, Json(def): Json<ProcessDef>) -> Json<serde_json::Value> {
+    if let Some(ref cwd) = def.cwd {
+        if let Err(code) = verify_working_directory(cwd) {
+            return Json(json!({ "ok": false, "error": code }));
+        }
+    }
     {
         let mut cfg = ctx.state.config.write().await;
         if cfg.process.iter().any(|p| p.name == def.name) {
@@ -116,14 +123,38 @@ async fn create(State(ctx): State<WebContext>, Json(def): Json<ProcessDef>) -> J
     op_result(r)
 }
 
-async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(mut def): Json<ProcessDef>) -> Json<serde_json::Value> {
+async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(payload): Json<serde_json::Value>) -> Json<serde_json::Value> {
+    // Existing UI does not expose env/restart. Preserve them when omitted
+    // instead of silently resetting user-maintained TOML settings.
+    let has_env = payload.get("env").is_some();
+    let has_restart = payload.get("restart").is_some();
+    let Ok(mut def) = serde_json::from_value::<ProcessDef>(payload) else {
+        return Json(json!({ "ok": false, "error": "invalid process fields" }));
+    };
+    // Legacy relative cwd values remain valid if unchanged. New/modified cwd
+    // values must be absolute and must refer to an existing host directory.
+    let cwd_unchanged = {
+        let cfg = ctx.state.config.read().await;
+        cfg.process.iter().any(|p| p.name == name && p.cwd == def.cwd)
+    };
+    if !cwd_unchanged {
+        if let Some(ref cwd) = def.cwd {
+            if let Err(code) = verify_working_directory(cwd) {
+                return Json(json!({ "ok": false, "error": code }));
+            }
+        }
+    }
     // Path name is authoritative; prevents runtime-map desync on rename.
     def.name = name.clone();
     let was_managed = ctx.supervisor.is_managed(&name).await;
     {
         let mut cfg = ctx.state.config.write().await;
         match cfg.process.iter_mut().find(|p| p.name == name) {
-            Some(p) => *p = def,
+            Some(p) => {
+                if !has_env { def.env = p.env.clone(); }
+                if !has_restart { def.restart = p.restart.clone(); }
+                *p = def;
+            },
             None => return Json(json!({ "ok": false, "error": "not found" })),
         }
     }
@@ -159,6 +190,81 @@ async fn update_alias(
         }
     }
     op_result(persist(&ctx).await)
+}
+
+// The browser cannot inspect the filesystem of the PerchFlow host.
+// Validate against the actual host here, behind the existing API token guard.
+#[derive(Deserialize)]
+struct WorkingDirectoryRequest {
+    cwd: Option<String>,
+}
+
+fn normalize_cwd(cwd: Option<String>) -> Option<String> {
+    cwd.map(|value| value.trim().to_string()).filter(|value| !value.is_empty())
+}
+
+fn verify_working_directory(value: &str) -> std::result::Result<(), &'static str> {
+    use std::path::Path;
+    if value.chars().count() > 1024 {
+        return Err("cwd_too_long");
+    }
+    let path = Path::new(value);
+    if !path.is_absolute() {
+        return Err("cwd_not_absolute");
+    }
+    match std::fs::metadata(path) {
+        Ok(metadata) if metadata.is_dir() => Ok(()),
+        Ok(_) => Err("cwd_not_directory"),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Err("cwd_not_found"),
+        Err(_) => Err("cwd_inaccessible"),
+    }
+}
+
+async fn validate_cwd(Json(body): Json<WorkingDirectoryRequest>) -> Json<serde_json::Value> {
+    match normalize_cwd(body.cwd) {
+        Some(value) => match verify_working_directory(&value) {
+            Ok(()) => Json(json!({ "ok": true })),
+            Err(code) => Json(json!({ "ok": false, "error": code })),
+        },
+        None => Json(json!({ "ok": true })),
+    }
+}
+
+// A cwd-only edit must preserve env, restart policy and all other TOML fields.
+// An already running managed process is restarted so its new cwd takes effect.
+async fn update_cwd(
+    State(ctx): State<WebContext>,
+    Path(name): Path<String>,
+    Json(body): Json<WorkingDirectoryRequest>,
+) -> Json<serde_json::Value> {
+    let cwd = normalize_cwd(body.cwd);
+    if let Some(ref value) = cwd {
+        if let Err(code) = verify_working_directory(value) {
+            return Json(json!({ "ok": false, "error": code }));
+        }
+    }
+    let was_managed = ctx.supervisor.is_managed(&name).await;
+    let changed = {
+        let mut cfg = ctx.state.config.write().await;
+        match cfg.process.iter_mut().find(|p| p.name == name) {
+            Some(p) => {
+                let changed = p.cwd != cwd;
+                p.cwd = cwd;
+                changed
+            }
+            None => return Json(json!({ "ok": false, "error": "not found" })),
+        }
+    };
+    if !changed {
+        return Json(json!({ "ok": true }));
+    }
+    if let Err(error) = persist(&ctx).await {
+        return op_result(Err(error));
+    }
+    if was_managed {
+        return op_result(ctx.supervisor.restart(&name).await);
+    }
+    Json(json!({ "ok": true }))
 }
 
 async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {

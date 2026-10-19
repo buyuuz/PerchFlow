@@ -48,8 +48,8 @@ class ProcessAliasTests(unittest.TestCase):
         self.assertIn("/processes/:name/alias",API)
         self.assertIn("Some(p) => p.alias_zh = alias",API)
         self.assertIn("op_result(persist(&ctx).await)",API)
-        self.assertIn("onlyAliasChanged",JS)
-        self.assertIn("(onlyAliasChanged ? '/alias' : '')",JS)
+        self.assertIn("aliasChanged",JS)
+        self.assertIn("base + '/alias'",JS)
         self.assertIn('pub alias_zh: Option<String>',API)
         self.assertIn('obj["alias_zh"] = alias',MOCK)
 

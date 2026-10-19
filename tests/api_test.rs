@@ -215,3 +215,116 @@ async fn update_running_process_restarts_with_new_def() {
     assert_eq!(detail["cwd"], "C:\\Windows");
     let _ = client.post(format!("{base}/api/processes/p/stop")).bearer_auth(&token).send().await;
 }
+
+
+#[tokio::test]
+async fn process_working_directory_is_checked_on_the_host() {
+    let (base, token, _tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().to_string_lossy().to_string();
+    let file = directory.path().join("config.json");
+    std::fs::write(&file, "{}").unwrap();
+
+    let check_url = format!("{base}/api/processes/validate-cwd");
+    let without_token = client.post(&check_url)
+        .json(&serde_json::json!({ "cwd": path }))
+        .send().await.unwrap();
+    assert_eq!(without_token.status(), 401);
+
+    let good: serde_json::Value = client.post(&check_url).bearer_auth(&token)
+        .json(&serde_json::json!({ "cwd": path }))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(good["ok"], true);
+
+    let empty: serde_json::Value = client.post(&check_url).bearer_auth(&token)
+        .json(&serde_json::json!({ "cwd": null }))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(empty["ok"], true);
+
+    let relative: serde_json::Value = client.post(&check_url).bearer_auth(&token)
+        .json(&serde_json::json!({ "cwd": "./relative" }))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(relative["error"], "cwd_not_absolute");
+
+    let missing: serde_json::Value = client.post(&check_url).bearer_auth(&token)
+        .json(&serde_json::json!({ "cwd": directory.path().join("missing").to_string_lossy() }))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(missing["error"], "cwd_not_found");
+
+    let not_directory: serde_json::Value = client.post(&check_url).bearer_auth(&token)
+        .json(&serde_json::json!({ "cwd": file.to_string_lossy() }))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(not_directory["error"], "cwd_not_directory");
+}
+
+#[tokio::test]
+async fn cwd_update_preserves_env_restart_and_chinese_alias() {
+    let (base, token, cfg_file) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let workspace = tempfile::tempdir().unwrap();
+    let another = tempfile::tempdir().unwrap();
+    let cwd = workspace.path().to_string_lossy().to_string();
+    let next_cwd = another.path().to_string_lossy().to_string();
+
+    // Bad cwd is rejected before a process is added to the config.
+    let rejected: serde_json::Value = client.post(format!("{base}/api/processes"))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "name": "bad", "cmd": "cmd",
+            "cwd": workspace.path().join("missing").to_string_lossy(),
+        }))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(rejected["error"], "cwd_not_found");
+
+    let created: serde_json::Value = client.post(format!("{base}/api/processes"))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "name": "api_cwd", "cmd": "cmd", "alias_zh": "工作目录",
+            "cwd": cwd, "env": { "KEEP_ME": "original" },
+            "restart": { "policy": "never", "backoff_secs": 4,
+                         "backoff_max_secs": 80, "max_retries": 3 },
+        }))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"], true);
+
+    let changed: serde_json::Value = client.put(format!("{base}/api/processes/api_cwd/cwd"))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({ "cwd": next_cwd }))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(changed["ok"], true);
+
+    let details: serde_json::Value = client.get(format!("{base}/api/processes/api_cwd"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(details["cwd"], next_cwd);
+    assert_eq!(details["alias_zh"], "工作目录");
+
+    let stored = perch::config::load(cfg_file.path()).unwrap();
+    let process = &stored.process[0];
+    assert_eq!(process.cwd.as_deref(), Some(next_cwd.as_str()));
+    assert_eq!(process.env.get("KEEP_ME").map(String::as_str), Some("original"));
+    assert_eq!(process.restart.policy, RestartPolicy::Never);
+    assert_eq!(process.restart.max_retries, 3);
+    assert_eq!(process.alias_zh.as_deref(), Some("工作目录"));
+
+    // Full modal PUT omits hidden env/restart and must preserve both.
+    let full: serde_json::Value = client.put(format!("{base}/api/processes/api_cwd"))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({
+            "name": "api_cwd", "cmd": "cmd", "args": ["/c", "echo test"],
+            "cwd": next_cwd, "alias_zh": "工作目录", "autostart": false
+        }))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(full["ok"], true);
+    let after_full = perch::config::load(cfg_file.path()).unwrap();
+    assert_eq!(after_full.process[0].env.get("KEEP_ME").map(String::as_str), Some("original"));
+    assert_eq!(after_full.process[0].restart.policy, RestartPolicy::Never);
+
+    let cleared: serde_json::Value = client.put(format!("{base}/api/processes/api_cwd/cwd"))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({ "cwd": null }))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(cleared["ok"], true);
+    let final_cfg = perch::config::load(cfg_file.path()).unwrap();
+    assert!(final_cfg.process[0].cwd.is_none());
+}

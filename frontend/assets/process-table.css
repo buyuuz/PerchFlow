@@ -229,6 +229,67 @@
   font-size: 11px;
   line-height: 1.4;
 }
+/* Working-directory controls match the compact dark modal visual language. */
+.pf-cwd-input {
+  width: 100%;
+  min-width: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.pf-cwd-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(64, 176, 201, .22);
+  border-radius: 7px;
+  background: rgba(34, 97, 116, .1);
+  color: #9eb8c8;
+  font-size: 11px;
+}
+.pf-cwd-suggestion[hidden], .pf-cwd-validation[hidden] { display: none !important; }
+.pf-cwd-suggestion .material-symbols-outlined {
+  flex: 0 0 auto;
+  color: #5acfe4;
+  font-size: 16px;
+}
+.pf-cwd-suggestion code {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+.pf-cwd-suggestion button {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid rgba(85, 207, 226, .32);
+  border-radius: 6px;
+  background: rgba(65, 178, 202, .12);
+  color: #67dbe9;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.pf-cwd-suggestion button:hover { background: rgba(65, 178, 202, .2); }
+.pf-cwd-validation {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #95adc0;
+}
+.pf-cwd-validation[data-tone="error"] { color: #f29aa7; }
+.pf-cwd-validation[data-tone="success"] { color: #73deac; }
+.pf-cwd-validation[data-tone="checking"] { color: #b4c7d3; }
+#add-modal button:disabled { opacity: .52; cursor: progress; }
+#add-modal .pf-cwd-field input:focus-visible,
+#add-modal .pf-cwd-suggestion button:focus-visible {
+  outline: 2px solid #62d7ef;
+  outline-offset: 2px;
+}
+
 /* Keep the taller add/edit modal usable on short laptop screens. */
 #add-modal > .glass-card {
   max-height: calc(100dvh - 28px);

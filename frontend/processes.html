@@ -187,6 +187,17 @@
 <label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.args">参数 (空格分隔)</label>
 <input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="add-args" placeholder="server.js --port 8080" type="text"/>
 </div>
+<div class="flex flex-col gap-1.5 pf-cwd-field">
+<label class="font-body-sm text-body-sm text-on-surface-variant" for="add-cwd" data-i18n="label.cwd">工作目录（可选）</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface pf-cwd-input" id="add-cwd" type="text" spellcheck="false" autocomplete="off" placeholder="D:\Projects\MyApp" data-i18n-placeholder="placeholder.cwd" aria-describedby="cwd-help cwd-validation"/>
+<p class="pf-process-alias-hint" id="cwd-help" data-i18n="label.cwd_hint">相对路径以此目录为基准，留空则沿用默认启动规则。</p>
+<div class="pf-cwd-suggestion" id="cwd-suggestion" hidden>
+  <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+  <code id="cwd-suggest-value"></code>
+  <button type="button" id="cwd-use-suggestion" onclick="applySuggestedCwd()" data-i18n="button.use_cwd_suggestion">使用建议</button>
+</div>
+<p class="pf-cwd-validation" id="cwd-validation" role="status" aria-live="polite" hidden></p>
+</div>
 <div class="flex items-center gap-2">
 <input id="add-autostart" type="checkbox"/>
 <label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.autostart" for="add-autostart">开机自启</label>
@@ -212,5 +223,6 @@
 <script src="/assets/i18n.js"></script>
 <script src="/assets/app.js"></script>
 <script src="/assets/topbar-controls.js?v=top2"></script>
-<script src="/assets/processes.js"></script>
+<script src="/assets/process-cwd.js?v=cwd1"></script>
+<script src="/assets/processes.js?v=cwd1"></script>
 </body></html>

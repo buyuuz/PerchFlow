@@ -226,6 +226,7 @@ function openAddModal() {
   document.getElementById('add-name').disabled = false;
   document.getElementById('add-cmd').value = '';
   document.getElementById('add-args').value = '';
+  resetWorkingDirectoryField();
   document.getElementById('add-autostart').checked = false;
   document.getElementById('add-err').classList.add('hidden');
   showAddModal();
@@ -243,6 +244,7 @@ function editProcess(name) {
   document.getElementById('add-name').disabled = true;
   document.getElementById('add-cmd').value = p.cmd_raw;
   document.getElementById('add-args').value = (p.args || []).join(' ');
+  resetWorkingDirectoryField(p.cwd || '');
   document.getElementById('add-autostart').checked = p.autostart;
   document.getElementById('add-err').classList.add('hidden');
   showAddModal();
@@ -267,10 +269,15 @@ function closeAddModal() {
 async function submitAddModal() {
   const name = document.getElementById('add-name').value.trim();
   const alias_zh = document.getElementById('add-alias-zh').value.trim();
-  const cmd = document.getElementById('add-cmd').value.trim();
+  // Windows CreateProcess expects the executable path without surrounding quotes.
+  const cmd = normalizedCwdText(document.getElementById('add-cmd').value);
   const args = document.getElementById('add-args').value.trim().split(/\s+/).filter(Boolean);
+  const cwd = getWorkingDirectoryInput();
   const autostart = document.getElementById('add-autostart').checked;
   const errEl = document.getElementById('add-err');
+  const saveButton = document.querySelector('#add-modal button[onclick="submitAddModal()"]');
+  errEl.classList.add('hidden');
+
   if (Array.from(alias_zh).length > 80) {
     errEl.textContent = t('error.alias_too_long');
     errEl.classList.remove('hidden');
@@ -281,31 +288,68 @@ async function submitAddModal() {
     errEl.classList.remove('hidden');
     return;
   }
-  // Keep existing cwd on edit; the modal does not expose that field.
-  const cwd = editingName ? cachedProcesses.find(x => x.name === editingName)?.cwd : undefined;
-  const old = editingName ? cachedProcesses.find(x => x.name === editingName) : null;
-  // Alias-only edits use a dedicated route: don't restart a running process,
-  // and don't overwrite hidden environment/restart settings from TOML.
-  const onlyAliasChanged = old && cmd === old.cmd_raw &&
+
+  const old = editingName ? cachedProcesses.find(p => p.name === editingName) : null;
+  const sameRuntimeSettings = Boolean(old) &&
+    cmd === normalizedCwdText(old.cmd_raw) &&
     JSON.stringify(args) === JSON.stringify(old.args || []) &&
     autostart === Boolean(old.autostart);
-  const body = onlyAliasChanged ? { alias_zh } : {
-    name, alias_zh: alias_zh || null, cmd, args, cwd, autostart,
-    restart: { policy: 'on-failure', backoff_secs: 2, backoff_max_secs: 60, max_retries: 0 },
-  };
-  const path = editingName
-    ? `/api/processes/${encodeURIComponent(editingName)}` + (onlyAliasChanged ? '/alias' : '')
-    : '/api/processes';
-  const method = editingName ? 'PUT' : 'POST';
-  const resp = await api(path, { method, body: JSON.stringify(body) });
-  const result = await resp.json();
-  if (!result.ok) {
-    errEl.textContent = result.error || t('error.save_failed');
-    errEl.classList.remove('hidden');
+  const cwdChanged = Boolean(old) && cwd !== String(old.cwd || '').trim();
+  const aliasChanged = Boolean(old) && alias_zh !== String(old.alias_zh || '').trim();
+
+  // Save only an alias if that is all that changed; it never restarts processes.
+  // A cwd-only edit uses the dedicated endpoint to preserve hidden env/restart.
+  // Full PUT is required only for changes to execution settings.
+  if ((!old || !sameRuntimeSettings || cwdChanged) && !(await validateWorkingDirectory())) {
+    document.getElementById('add-cwd').focus();
     return;
   }
-  closeAddModal();
-  await loadProcesses();
+
+  const save = async (path, method, body) => {
+    const resp = await api(path, { method, body: JSON.stringify(body) });
+    const result = await resp.json();
+    if (!resp.ok || !result.ok) {
+      const errors = {
+        cwd_too_long: 'error.cwd_too_long',
+        cwd_not_absolute: 'error.cwd_not_absolute',
+        cwd_not_found: 'error.cwd_not_found',
+        cwd_not_directory: 'error.cwd_not_directory',
+        cwd_inaccessible: 'error.cwd_inaccessible',
+      };
+      throw new Error(errors[result.error] ? t(errors[result.error]) : (result.error || t('error.save_failed')));
+    }
+  };
+
+  if (saveButton) saveButton.disabled = true;
+  try {
+    if (old && sameRuntimeSettings) {
+      const base = '/api/processes/' + encodeURIComponent(editingName);
+      if (cwdChanged) {
+        await save(base + '/cwd', 'PUT', { cwd: cwd || null });
+      }
+      if (aliasChanged) {
+        await save(base + '/alias', 'PUT', { alias_zh: alias_zh || null });
+      }
+    } else {
+      const body = {
+        name, alias_zh: alias_zh || null, cmd, args, cwd: cwd || null, autostart,
+      };
+      const path = editingName
+        ? '/api/processes/' + encodeURIComponent(editingName)
+        : '/api/processes';
+      await save(path, editingName ? 'PUT' : 'POST', body);
+    }
+    closeAddModal();
+    await loadProcesses();
+  } catch (err) {
+    errEl.textContent = err.message || t('error.save_failed');
+    errEl.classList.remove('hidden');
+    // An alias/cwd multi-step update can be partially saved if a later request
+    // fails. Reload from the server so the next edit shows the persisted state.
+    await loadProcesses();
+  } finally {
+    if (saveButton) saveButton.disabled = false;
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
