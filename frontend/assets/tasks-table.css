@@ -1,0 +1,56 @@
+/* Scheduled tasks use the same surface, typography and 73px row rhythm as Processes.
+   This file only contains task-specific differences; shared primitives come from process-table.css. */
+.pf-task-table { min-width: 1160px; }
+.pf-task-table tbody tr { height: 73px; }
+.pf-task-table .pf-process-identity { gap: 11px; }
+.pf-task-table .pf-process-name { cursor: default; }
+.pf-task-table .pf-process-icon { background: #27304d; color: #8fb5ff; }
+.pf-task-table .pf-process-icon--stopped { background: #26323e; color: #9baabd; }
+.pf-task-cron {
+  display: inline-block;
+  max-width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(47, 200, 229, .19);
+  background: rgba(43, 181, 218, .07);
+  color: #70dced;
+  font: 12px/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.pf-task-status--enabled { color: #48e595; border-color: rgba(35, 193, 108, .28); background: rgba(28, 182, 97, .09); }
+.pf-task-status--enabled::before { background: #2bdd82; }
+.pf-task-status--disabled { color: #adbecb; border-color: rgba(151, 167, 185, .2); background: rgba(144, 162, 183, .075); }
+.pf-task-status--disabled::before { background: #95a6b5; }
+.pf-task-result { display: inline-flex; gap: 7px; align-items: center; font-weight: 600; font-size: 12px; color: #a4b6c5; }
+.pf-task-result .material-symbols-outlined { font-size: 17px; }
+.pf-task-result--success { color: #4ce39a; }
+.pf-task-result--failed { color: #ff8595; }
+.pf-task-last-run { font-size: 12px; line-height: 1.4; color: #c1d0dc; font-variant-numeric: tabular-nums; }
+.pf-task-action-toggle { color: #6fd2e6; }
+.pf-task-action-toggle[aria-pressed="false"] { color: #a6b2c1; }
+.pf-task-action-toggle:hover:not(:disabled) { color: #69e3f3; }
+.pf-task-action-run {
+  border: 1px solid rgba(91, 129, 155, .18);
+  background: rgba(45, 75, 95, .13);
+}
+.pf-task-count {
+  margin: -9px 0 13px;
+  color: #8ca6b7;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.pf-task-count strong { color: #b6dce8; font-weight: 650; }
+.pf-task-table .pf-actions { gap: 4px; }
+.pf-task-table .pf-action { flex-basis: 32px; }
+.pf-task-table .pf-command { height: 38px; }
+.pf-task-table .pf-process-empty { padding: 38px 16px !important; }
+
+@media (max-width: 700px) {
+  .pf-task-table { min-width: 1080px; }
+  .pf-task-table tbody tr { height: 68px; }
+  .pf-task-table td { padding-top: 7px; padding-bottom: 7px; }
+  .pf-task-count { margin: -7px 0 12px; }
+}

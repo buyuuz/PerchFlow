@@ -74,6 +74,12 @@ class MockState:
                 {"name": "Weekly Report (DEMO)", "schedule": "0 0 10 * * MON",
                  "cmd": "python weekly_report.py", "args": [], "cwd": None,
                  "enabled": False, "last_run": None, "last_exit_code": None},
+                {"name": "Video Publisher (DEMO)", "schedule": "0 0 18 * * *",
+                 "cmd": "python video_auto.py", "args": [], "cwd": None,
+                 "enabled": True, "last_run": "2026-10-18T18:00:00Z", "last_exit_code": 1},
+                {"name": "Data Backup (DEMO)", "schedule": "0 30 2 * * *",
+                 "cmd": "python backup.py", "args": [], "cwd": None,
+                 "enabled": True, "last_run": "2026-10-19T02:30:00Z", "last_exit_code": 0},
             ]
         }
         self.logs = {

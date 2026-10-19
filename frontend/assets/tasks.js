@@ -1,84 +1,243 @@
-let editingName = null;
+/* PerchFlow scheduled tasks — matches the process-management table.
+   Never synthesise "next run": that field is not provided by the Rust API. */
 
-function escapeHtml(s) {
-  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const TASK_TEXT = {
+  zh: { name:'任务名称', enabled:'状态', schedule:'Cron 表达式', command:'启动命令', last_run:'上次运行', last_exit_code:'运行结果', actions:'操作', on:'已启用', off:'已停用', success:'成功', failed:'失败', never:'尚未运行', run:'立即运行', enable:'启用任务', disable:'停用任务', edit:'编辑', remove:'删除', copy:'复制命令', copied:'已复制', empty:'没有匹配的定时任务', count:'共 {total} 项 · 已启用 {active} 项', selected:'已选择 {count} 项', clear:'取消选择', chooseAll:'选择所有显示的任务', scroll:'左右滑动表格可查看更多列和操作', error:'任务操作失败，请重试' },
+  en: { name:'Task name', enabled:'Status', schedule:'Cron schedule', command:'Command', last_run:'Last run', last_exit_code:'Last result', actions:'Actions', on:'ENABLED', off:'DISABLED', success:'Success', failed:'Failed', never:'Not run', run:'Run now', enable:'Enable task', disable:'Disable task', edit:'Edit', remove:'Delete', copy:'Copy command', copied:'Copied', empty:'No matching scheduled tasks', count:'Total: {total} · Enabled: {active}', selected:'{count} selected', clear:'Clear selection', chooseAll:'Select all visible tasks', scroll:'Scroll horizontally to view more columns and actions', error:'Task operation failed. Please try again' },
+  es: { name:'Tarea', enabled:'Estado', schedule:'Cron', command:'Comando', last_run:'Última ejecución', last_exit_code:'Resultado', actions:'Acciones', on:'ACTIVA', off:'INACTIVA', success:'Correcto', failed:'Error', never:'Sin ejecutar', run:'Ejecutar', enable:'Activar', disable:'Desactivar', edit:'Editar', remove:'Eliminar', copy:'Copiar comando', copied:'Copiado', empty:'No hay tareas coincidentes', count:'Total: {total} · Activas: {active}', selected:'{count} seleccionadas', clear:'Limpiar', chooseAll:'Seleccionar todas las tareas visibles', scroll:'Desplácese horizontalmente para ver más columnas', error:'No se pudo completar la operación' },
+  ja: { name:'タスク名', enabled:'状態', schedule:'Cron式', command:'実行コマンド', last_run:'最終実行', last_exit_code:'結果', actions:'操作', on:'有効', off:'無効', success:'成功', failed:'失敗', never:'未実行', run:'今すぐ実行', enable:'有効にする', disable:'無効にする', edit:'編集', remove:'削除', copy:'コマンドコピー', copied:'コピー済み', empty:'一致するタスクがありません', count:'合計 {total} 件 · 有効 {active} 件', selected:'{count} 件選択中', clear:'選択解除', chooseAll:'表示中のタスクを選択', scroll:'横にスクロールして他の列を表示', error:'タスク操作が失敗しました' },
+  pt: { name:'Tarefa', enabled:'Estado', schedule:'Cron', command:'Comando', last_run:'Última execução', last_exit_code:'Resultado', actions:'Ações', on:'ATIVA', off:'INATIVA', success:'Sucesso', failed:'Falha', never:'Não executada', run:'Executar agora', enable:'Ativar', disable:'Desativar', edit:'Editar', remove:'Excluir', copy:'Copiar comando', copied:'Copiado', empty:'Nenhuma tarefa encontrada', count:'Total: {total} · Ativas: {active}', selected:'{count} selecionadas', clear:'Limpar seleção', chooseAll:'Selecionar tarefas visíveis', scroll:'Role horizontalmente para ver outras colunas', error:'Falha na operação da tarefa' },
+};
+
+function taskText(key, vars = {}) {
+  const lang = typeof getLang === 'function' ? getLang() : 'zh';
+  let message = (TASK_TEXT[lang] || TASK_TEXT.en)[key] || TASK_TEXT.en[key] || key;
+  for (const [name, value] of Object.entries(vars)) {
+    message = message.replace('{' + name + '}', String(value));
+  }
+  return message;
 }
 
-function renderRow(t) {
-  const toggleActive = t.enabled ? 'active' : '';
-  const lastRun = t.last_run ? new Date(t.last_run).toLocaleString() : '-';
-  const statusIcon = t.last_exit_code == null ? 'remove'
-    : (t.last_exit_code === 0 ? 'check_circle' : 'error');
-  const statusColor = t.last_exit_code == null ? 'text-on-surface-variant'
-    : (t.last_exit_code === 0 ? 'text-green-400' : 'text-error');
-  const toggleHtml = `<div class="w-8 h-4 rounded-full glass-toggle ${toggleActive} relative cursor-pointer" onclick="toggleEnabled('${encodeURIComponent(t.name)}', ${!t.enabled})"><div class="w-4 h-4 rounded-full glass-toggle-thumb absolute left-0 top-0"></div></div>`;
-  const actionsHtml = `<button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-primary rounded-lg hover:bg-white/5 transition-colors" onclick="event.stopPropagation(); runNow('${encodeURIComponent(t.name)}')" title="Run Now"><span class="material-symbols-outlined text-[20px]">play_arrow</span></button><button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-white/5 transition-colors" onclick="event.stopPropagation(); editTask('${encodeURIComponent(t.name)}')" title="Edit"><span class="material-symbols-outlined text-[20px]">edit</span></button><button class="w-10 h-10 flex items-center justify-center text-on-surface-variant hover:text-error rounded-lg hover:bg-error/10 transition-colors" onclick="event.stopPropagation(); deleteTask('${encodeURIComponent(t.name)}')" title="Delete"><span class="material-symbols-outlined text-[20px]">delete</span></button>`;
+function taskEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[ch]));
+}
+
+function taskCommand(task) {
+  return [String(task.cmd || ''), ...(Array.isArray(task.args) ? task.args.map(String) : [])].filter(Boolean).join(' ');
+}
+
+function taskIcon(name) {
+  const value = String(name || '').toLowerCase();
+  if (value.includes('mail')) return 'mail';
+  if (value.includes('report')) return 'description';
+  if (value.includes('data') || value.includes('backup')) return 'database';
+  if (value.includes('video')) return 'videocam';
+  return 'calendar_month';
+}
+
+function formatTaskTime(time) {
+  if (!time) return '—';
+  const date = new Date(time);
+  if (!Number.isFinite(date.getTime())) return '—';
+  const lang = typeof getLang === 'function' ? getLang() : 'zh';
+  const locale = {zh:'zh-CN', en:'en-US', es:'es-ES', ja:'ja-JP', pt:'pt-BR'}[lang] || 'zh-CN';
+  return new Intl.DateTimeFormat(locale, {month:'2-digit', day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(date);
+}
+
+function taskAction(task, action, icon, title, extra = '') {
+  return `<button type="button" class="pf-action ${extra}" data-task-action="${action}" data-name="${taskEscape(task.name)}" aria-label="${taskEscape(title + ': ' + task.name)}" title="${taskEscape(title)}"${action === 'toggle' ? ' aria-pressed="' + String(Boolean(task.enabled)) + '"' : ''}><span class="material-symbols-outlined" aria-hidden="true">${icon}</span></button>`;
+}
+
+function renderTaskRow(task) {
+  const on = Boolean(task.enabled);
+  const name = taskEscape(task.name);
+  const command = taskCommand(task);
+  const checked = selectedTasks.has(task.name);
+  const lastTime = formatTaskTime(task.last_run);
+  const lastFull = task.last_run ? new Date(task.last_run).toLocaleString() : taskText('never');
+  const resultKey = task.last_exit_code == null ? 'never' : Number(task.last_exit_code) === 0 ? 'success' : 'failed';
+  const resultIcon = {never:'remove', success:'check_circle', failed:'error'}[resultKey];
   return `
-<!-- Desktop row -->
-<div class="glass-card rounded-lg hidden md:flex items-center p-3 transition-colors duration-200 group mb-2">
-<div class="w-10 flex justify-center">${toggleHtml}</div>
-<div class="flex-1.5 grid grid-cols-[1.5fr_1fr_2fr_1fr] gap-4 items-center w-full ml-4">
-<div class="font-body-md text-body-md font-semibold text-on-surface truncate">${escapeHtml(t.name)}</div>
-<div class="font-mono-data text-mono-data text-primary truncate bg-primary/10 px-2 py-0.5 rounded w-max">${escapeHtml(t.schedule)}</div>
-<div class="font-mono-data text-mono-data text-on-surface-variant truncate opacity-80">${escapeHtml(t.cmd)}</div>
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[16px] ${statusColor}">${statusIcon}</span>
-<span class="font-mono-data text-mono-data text-on-surface-variant">${lastRun}</span>
-</div>
-</div>
-<div class="w-24 flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">${actionsHtml}</div>
-</div>
-<!-- Mobile card -->
-<div class="glass-card rounded-lg md:hidden p-3 mb-2 flex flex-col gap-2">
-<div class="flex items-center justify-between gap-2">
-<div class="flex items-center gap-3 min-w-0 flex-1">
-<div class="shrink-0">${toggleHtml}</div>
-<div class="font-body-md text-body-md font-semibold text-on-surface truncate">${escapeHtml(t.name)}</div>
-<span class="material-symbols-outlined text-[16px] ${statusColor} shrink-0">${statusIcon}</span>
-</div>
-<div class="flex gap-1 shrink-0">${actionsHtml}</div>
-</div>
-<div class="grid grid-cols-2 gap-2">
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider">Schedule</span>
-<span class="font-mono-data text-mono-data text-primary bg-primary/10 px-2 py-0.5 rounded w-max">${escapeHtml(t.schedule)}</span>
-</div>
-<div class="flex flex-col">
-<span class="text-[10px] text-on-surface-variant uppercase tracking-wider">Last Run</span>
-<span class="font-mono-data text-mono-data text-on-surface-variant">${lastRun}</span>
-</div>
-</div>
-<div class="font-mono-data text-mono-data text-on-surface-variant truncate opacity-80" title="${escapeHtml(t.cmd)}">${escapeHtml(t.cmd)}</div>
-</div>`;
+<tr data-task-name="${name}" class="${checked ? 'pf-is-selected' : ''}">
+  <td><input type="checkbox" class="pf-task-select" data-name="${name}" aria-label="${name}" ${checked ? 'checked' : ''}></td>
+  <td>
+    <div class="pf-process-identity">
+      <span class="pf-process-icon ${on ? '' : 'pf-process-icon--stopped'}" aria-hidden="true"><span class="material-symbols-outlined">${taskIcon(task.name)}</span></span>
+      <span class="pf-process-name" title="${name}">${name}</span>
+    </div>
+  </td>
+  <td><span class="pf-status pf-task-status--${on ? 'enabled' : 'disabled'}">${taskText(on ? 'on' : 'off')}</span></td>
+  <td><span class="pf-task-cron" title="${taskEscape(task.schedule)}">${taskEscape(task.schedule)}</span></td>
+  <td><div class="pf-command" title="${taskEscape(command)}">
+    <span class="pf-command-dollar" aria-hidden="true">$</span>
+    <span class="pf-command-text">${taskEscape(command)}</span>
+    ${taskAction(task, 'copy', 'content_copy', taskText('copy'))}
+  </div></td>
+  <td class="pf-task-last-run" title="${taskEscape(lastFull)}">${taskEscape(lastTime)}</td>
+  <td><span class="pf-task-result pf-task-result--${resultKey}" title="${task.last_exit_code == null ? taskEscape(taskText('never')) : 'Exit code: ' + taskEscape(task.last_exit_code)}"><span class="material-symbols-outlined" aria-hidden="true">${resultIcon}</span>${taskText(resultKey)}</span></td>
+  <td><div class="pf-actions">
+    ${taskAction(task, 'run', 'play_arrow', taskText('run'), 'pf-task-action-run')}
+    ${taskAction(task, 'toggle', on ? 'toggle_on' : 'toggle_off', taskText(on ? 'disable' : 'enable'), 'pf-task-action-toggle')}
+    ${taskAction(task, 'edit', 'edit', taskText('edit'))}
+    ${taskAction(task, 'delete', 'delete', taskText('remove'), 'pf-action--delete')}
+  </div></td>
+</tr>`;
 }
 
 let cachedTasks = [];
+let editingName = null;
+let taskSearch = '';
+let taskSortKey = null;
+let taskSortAsc = true;
+let taskRequestSequence = 0;
+const selectedTasks = new Set();
+
+function visibleTasks() {
+  const needle = taskSearch.trim().toLocaleLowerCase();
+  const rows = cachedTasks.filter(task => (
+    !needle || [task.name, task.schedule, taskCommand(task),
+      task.enabled ? taskText('on') : taskText('off'),
+      task.last_exit_code == null ? taskText('never') : Number(task.last_exit_code) === 0 ? taskText('success') : taskText('failed')
+    ].some(s => String(s || '').toLocaleLowerCase().includes(needle))
+  ));
+  if (taskSortKey) {
+    rows.sort((a, b) => {
+      const value = t => {
+        if (taskSortKey === 'last_run') return t.last_run ? new Date(t.last_run).getTime() || 0 : -1;
+        if (taskSortKey === 'last_exit_code') return t.last_exit_code == null ? -1 : Number(t.last_exit_code);
+        if (taskSortKey === 'enabled') return Number(Boolean(t.enabled));
+        return String(t[taskSortKey] || '');
+      };
+      const left = value(a), right = value(b);
+      const comparison = typeof left === 'string' ? left.localeCompare(right) : left - right;
+      return (taskSortAsc ? 1 : -1) * comparison;
+    });
+  }
+  return rows;
+}
+
+function renderTaskTable() {
+  const body = document.getElementById('task-rows');
+  if (!body) return;
+  const rows = visibleTasks();
+  body.innerHTML = rows.length ? rows.map(renderTaskRow).join('') :
+    `<tr><td class="pf-process-empty" colspan="8">${taskEscape(taskText('empty'))}</td></tr>`;
+
+  document.querySelectorAll('[data-task-label]').forEach(el => {
+    el.textContent = taskText(el.dataset.taskLabel);
+  });
+  document.querySelectorAll('[data-task-sort]').forEach(el => {
+    const key = el.dataset.taskSort;
+    const th = el.closest('th');
+    if (th) th.setAttribute('aria-sort', key === taskSortKey ? (taskSortAsc ? 'ascending' : 'descending') : 'none');
+    const indicator = el.querySelector('.pf-sort-icon');
+    if (indicator) indicator.textContent = key === taskSortKey ? (taskSortAsc ? 'arrow_upward' : 'arrow_downward') : 'unfold_more';
+  });
+  const count = document.getElementById('task-count');
+  if (count) count.textContent = taskText('count', {
+    total: cachedTasks.length, active: cachedTasks.filter(task => task.enabled).length,
+  });
+
+  const all = document.getElementById('task-select-all');
+  if (all) {
+    const selectedVisible = rows.filter(task => selectedTasks.has(task.name)).length;
+    all.checked = rows.length > 0 && selectedVisible === rows.length;
+    all.indeterminate = selectedVisible > 0 && selectedVisible < rows.length;
+    all.setAttribute('aria-label', taskText('chooseAll'));
+  }
+  const toolbar = document.getElementById('task-selection-toolbar');
+  if (toolbar) toolbar.hidden = selectedTasks.size === 0;
+  const label = document.getElementById('task-selected-label');
+  if (label) label.textContent = taskText('selected', {count: selectedTasks.size});
+  const clear = document.getElementById('task-clear-selection');
+  if (clear) clear.textContent = taskText('clear');
+  const hint = document.getElementById('task-scroll-hint');
+  if (hint) hint.textContent = taskText('scroll');
+}
+
+function taskError(error) {
+  console.error('PerchFlow task:', error);
+  const el = document.getElementById('task-feedback');
+  if (el) {
+    el.textContent = taskText('error') + ': ' + (error.message || error);
+    el.hidden = false;
+    el.style.display = 'block';
+    el.style.color = '#f8a0ad';
+  }
+}
 
 async function loadTasks() {
-  const { tasks } = await apiJson('/api/tasks');
-  cachedTasks = tasks;
-  document.getElementById('task-rows').innerHTML = tasks.map(renderRow).join('');
-  const active = tasks.filter(t => t.enabled).length;
-  document.getElementById('task-count').textContent = `Total: ${tasks.length} Active: ${active}`;
+  const sequence = ++taskRequestSequence;
+  try {
+    const result = await apiJson('/api/tasks');
+    if (sequence !== taskRequestSequence) return;
+    cachedTasks = Array.isArray(result.tasks) ? result.tasks : [];
+    const names = new Set(cachedTasks.map(task => task.name));
+    for (const name of selectedTasks) if (!names.has(name)) selectedTasks.delete(name);
+    renderTaskTable();
+  } catch (error) {
+    taskError(error);
+    if (!cachedTasks.length) {
+      const body = document.getElementById('task-rows');
+      if (body) body.innerHTML = `<tr><td class="pf-process-empty" colspan="8">${taskEscape(taskText('error'))}</td></tr>`;
+    }
+  }
+}
+
+async function executeTaskOperation(path, options) {
+  const response = await api(path, options);
+  const result = await response.json();
+  if (!response.ok || !result.ok) throw new Error(result.error || 'Request failed');
+  await loadTasks();
+  return result;
 }
 
 async function runNow(name) {
-  await api(`/api/tasks/${name}/run`, { method: 'POST' });
-  loadTasks();
+  try { await executeTaskOperation(`/api/tasks/${name}/run`, {method:'POST'}); }
+  catch (error) { taskError(error); }
 }
 
 async function deleteTask(name) {
   if (!confirm(t('confirm.delete_task'))) return;
-  await api(`/api/tasks/${name}`, { method: 'DELETE' });
-  loadTasks();
+  try { await executeTaskOperation(`/api/tasks/${name}`, {method:'DELETE'}); }
+  catch (error) { taskError(error); }
 }
 
 async function toggleEnabled(name, enabled) {
-  const t = cachedTasks.find(x => x.name === decodeURIComponent(name));
-  if (!t) return;
-  const body = { name: t.name, cmd: t.cmd, args: t.args || [], cwd: t.cwd, schedule: t.schedule, enabled };
-  await api(`/api/tasks/${name}`, { method: 'PUT', body: JSON.stringify(body) });
-  loadTasks();
+  const existing = cachedTasks.find(item => item.name === decodeURIComponent(name));
+  if (!existing) return;
+  const body = {
+    name: existing.name, cmd: existing.cmd, args: existing.args || [],
+    cwd: existing.cwd, schedule: existing.schedule, enabled,
+  };
+  try {
+    await executeTaskOperation(`/api/tasks/${name}`, {method:'PUT',body:JSON.stringify(body)});
+  } catch (error) { taskError(error); }
+}
+
+async function copyTaskCommand(name, button) {
+  const item = cachedTasks.find(task => task.name === name);
+  if (!item) return;
+  const text = taskCommand(item);
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const field = document.createElement('textarea');
+      field.value = text;
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (!copied) throw new Error('Clipboard unavailable');
+    }
+    button.title = taskText('copied');
+    setTimeout(() => { if (button.isConnected) button.title = taskText('copy'); }, 1250);
+  } catch (error) { taskError(error); }
 }
 
 function openTaskModal() {
@@ -95,13 +254,13 @@ function openTaskModal() {
 }
 
 function editTask(name) {
-  // 注意:局部变量不能命名为 `t`,否则会遮蔽全局翻译函数 t(),
-  // 导致 t('modal.edit_task') 把任务对象当函数调用而抛异常(编辑失效的原因)。
-  const task = cachedTasks.find(x => x.name === decodeURIComponent(name));
+  // Do not shadow the global t() translation function with a local task.
+  const task = cachedTasks.find(item => item.name === decodeURIComponent(name));
   if (!task) return;
   editingName = task.name;
   document.getElementById('task-modal-title').textContent = t('modal.edit_task');
   document.getElementById('task-name').value = task.name;
+  document.getElementById('task-name').disabled = false;
   document.getElementById('task-cmd').value = task.cmd;
   document.getElementById('task-args').value = (task.args || []).join(' ');
   document.getElementById('task-schedule').value = task.schedule;
@@ -132,19 +291,82 @@ async function submitTaskModal() {
     errEl.classList.remove('hidden');
     return;
   }
-  const cwd = editingName ? cachedTasks.find(x => x.name === editingName)?.cwd : undefined;
-  const body = { name, cmd, args, cwd, schedule, enabled };
+  const cwd = editingName ? cachedTasks.find(task => task.name === editingName)?.cwd : undefined;
+  const body = {name,cmd,args,cwd,schedule,enabled};
   const path = editingName ? `/api/tasks/${encodeURIComponent(editingName)}` : '/api/tasks';
   const method = editingName ? 'PUT' : 'POST';
-  const resp = await api(path, { method, body: JSON.stringify(body) });
-  const result = await resp.json();
-  if (!result.ok) {
-    errEl.textContent = result.error || t('error.save_failed');
+  try {
+    const response = await api(path, {method,body:JSON.stringify(body)});
+    const result = await response.json();
+    if (!response.ok || !result.ok) {
+      errEl.textContent = result.error || t('error.save_failed');
+      errEl.classList.remove('hidden');
+      return;
+    }
+    closeTaskModal();
+    await loadTasks();
+  } catch (error) {
+    errEl.textContent = String(error.message || error);
     errEl.classList.remove('hidden');
-    return;
   }
-  closeTaskModal();
-  loadTasks();
 }
 
-document.addEventListener('DOMContentLoaded', () => { loadTasks(); setInterval(loadTasks, 3000); });
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('task-search');
+  if (input) input.addEventListener('input', () => {
+    taskSearch = input.value;
+    renderTaskTable();
+  });
+
+  const table = document.querySelector('.pf-task-table');
+  if (table) {
+    table.addEventListener('click', event => {
+      const sort = event.target.closest('[data-task-sort]');
+      if (sort) {
+        const key = sort.dataset.taskSort;
+        taskSortAsc = key === taskSortKey ? !taskSortAsc : true;
+        taskSortKey = key;
+        renderTaskTable();
+        return;
+      }
+      const button = event.target.closest('button[data-task-action]');
+      if (!button || button.disabled) return;
+      const name = button.dataset.name;
+      const encoded = encodeURIComponent(name);
+      const action = button.dataset.taskAction;
+      if (action === 'run') void runNow(encoded);
+      else if (action === 'toggle') void toggleEnabled(encoded, button.getAttribute('aria-pressed') !== 'true');
+      else if (action === 'edit') editTask(encoded);
+      else if (action === 'delete') void deleteTask(encoded);
+      else if (action === 'copy') void copyTaskCommand(name, button);
+    });
+    table.addEventListener('change', event => {
+      if (event.target.id === 'task-select-all') {
+        const checked = event.target.checked;
+        for (const task of visibleTasks()) {
+          if (checked) selectedTasks.add(task.name);
+          else selectedTasks.delete(task.name);
+        }
+        renderTaskTable();
+        return;
+      }
+      if (event.target.matches('.pf-task-select')) {
+        const name = event.target.dataset.name;
+        if (event.target.checked) selectedTasks.add(name);
+        else selectedTasks.delete(name);
+        renderTaskTable();
+      }
+    });
+  }
+
+  const clear = document.getElementById('task-clear-selection');
+  if (clear) clear.addEventListener('click', () => {
+    selectedTasks.clear();
+    renderTaskTable();
+  });
+  document.querySelectorAll('[data-lang-select]').forEach(select => {
+    select.addEventListener('change', renderTaskTable);
+  });
+  void loadTasks();
+  setInterval(loadTasks, 3000);
+});
