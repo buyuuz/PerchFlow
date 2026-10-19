@@ -1,0 +1,288 @@
+/* PerchFlow shared top-right controls for Processes and Scheduled Tasks.
+   Stable sizing avoids the mix of large buttons and native Windows select styles. */
+.pf-top-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 10px;
+  min-width: 0;
+}
+
+.pf-top-status {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(151, 174, 191, .14);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(55, 68, 75, .72), rgba(35, 46, 53, .78));
+  color: #b8c7d1;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .01em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.pf-top-status-dot {
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  background: #35d889;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(54, 208, 135, .09), 0 0 7px rgba(54, 208, 135, .36);
+}
+
+.pf-process-topnav .pf-top-add {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 5px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  margin: 0;
+  border: 1px solid rgba(92, 236, 254, .55);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #42d5ed, #30c4e0);
+  box-shadow: 0 2px 9px rgba(33, 190, 222, .13), inset 0 1px 0 rgba(255,255,255,.16);
+  color: #09212c;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+
+.pf-process-topnav .pf-top-add:hover {
+  background: linear-gradient(180deg, #62e3f4, #44d2eb);
+  border-color: #82eff9;
+  box-shadow: 0 3px 12px rgba(36, 211, 242, .20);
+}
+
+.pf-process-topnav .pf-top-add:active {
+  background: #27b9d4;
+  box-shadow: inset 0 2px 5px rgba(3, 41, 55, .14);
+  transform: none;
+}
+
+.pf-top-add .material-symbols-outlined {
+  font-size: 17px;
+  line-height: 1;
+  flex: 0 0 17px;
+}
+
+.pf-top-add:focus-visible,
+.pf-lang-trigger:focus-visible,
+.pf-lang-option:focus-visible,
+.pf-top-lang:focus-visible {
+  outline: 2px solid #69e4f5;
+  outline-offset: 2px;
+}
+
+.pf-lang-picker {
+  position: relative;
+  flex: 0 0 auto;
+  width: 118px;
+  height: 32px;
+  z-index: 1;
+}
+
+/* Visible as a native fallback until topbar-controls.js has initialized. */
+.pf-top-lang,
+.pf-lang-trigger {
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  border: 1px solid rgba(151, 174, 191, .22);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #263036, #202a30);
+  color: #c0ced8;
+  font: 600 12px/1 system-ui, "Segoe UI", sans-serif;
+  transition: border-color .15s ease, background-color .15s ease;
+}
+
+.pf-top-lang {
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.pf-lang-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 8px 0 9px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pf-lang-trigger[hidden],
+.pf-lang-menu[hidden] {
+  display: none !important;
+}
+
+.pf-lang-trigger:hover,
+.pf-lang-trigger[aria-expanded="true"] {
+  background: #293740;
+  border-color: rgba(89, 202, 231, .53);
+  color: #e9f4f9;
+}
+
+.pf-lang-code {
+  flex: 0 0 auto;
+  color: #8ea7b8;
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: .02em;
+}
+
+.pf-lang-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.pf-lang-chevron {
+  flex: 0 0 15px;
+  font-size: 15px !important;
+  line-height: 1;
+  color: #b2c5d0;
+  transition: transform .15s ease;
+}
+
+.pf-lang-trigger[aria-expanded="true"] .pf-lang-chevron {
+  transform: rotate(180deg);
+}
+
+.pf-lang-picker.is-enhanced .pf-top-lang {
+  position: absolute !important;
+  width: 1px !important;
+  min-width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  opacity: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  pointer-events: none;
+}
+
+.pf-lang-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 168px;
+  box-sizing: border-box;
+  padding: 5px;
+  border: 1px solid rgba(105, 147, 167, .26);
+  border-radius: 10px;
+  background: #1b262f;
+  box-shadow: 0 16px 34px rgba(0,0,0,.42), 0 2px 8px rgba(0,0,0,.18);
+  z-index: 100;
+}
+
+.pf-lang-option {
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  height: 34px;
+  gap: 10px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #c4d2dd;
+  text-align: left;
+  font: 500 12px/1 system-ui, "Segoe UI", sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pf-lang-option:hover,
+.pf-lang-option:focus-visible {
+  background: rgba(77, 113, 134, .24);
+  color: #f1fbff;
+}
+
+.pf-lang-option[aria-selected="true"] {
+  background: rgba(47, 190, 226, .13);
+  border-color: rgba(64, 207, 240, .15);
+  color: #62dff5;
+}
+
+.pf-lang-option .pf-lang-code {
+  width: 22px;
+}
+
+.pf-lang-option-label {
+  flex: 1;
+}
+
+.pf-lang-check {
+  display: none !important;
+  flex: 0 0 16px;
+  font-size: 16px !important;
+}
+
+.pf-lang-option[aria-selected="true"] .pf-lang-check {
+  display: inline-flex !important;
+}
+
+@media (max-width: 767px) {
+  .pf-top-status {
+    display: none;
+  }
+
+  .pf-top-actions {
+    gap: 7px;
+  }
+
+  .pf-process-topnav .pf-top-add {
+    padding: 0 9px;
+    gap: 3px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  .pf-lang-picker {
+    width: 96px;
+  }
+
+  .pf-lang-trigger {
+    gap: 5px;
+    padding: 0 7px;
+  }
+
+  .pf-lang-menu {
+    width: 158px;
+  }
+}
+
+@media (max-width: 370px) {
+  .pf-process-topnav .pf-header-brand .pf-brand-name {
+    display: none;
+  }
+
+  .pf-lang-picker {
+    width: 90px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-top-add,
+  .pf-top-lang,
+  .pf-lang-trigger,
+  .pf-lang-chevron {
+    transition: none !important;
+  }
+}

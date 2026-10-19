@@ -333,6 +333,7 @@
     currentLang = lang;
     localStorage.setItem(STORAGE_KEY, lang);
     applyTranslations();
+    document.dispatchEvent(new CustomEvent('perchflow:language-changed', { detail: {lang: currentLang} }));
     const token = localStorage.getItem('perch_token');
     if (token) {
       fetch('/api/lang', {
