@@ -73,10 +73,47 @@
   transform: none;
 }
 
-.pf-top-add .material-symbols-outlined {
-  font-size: 17px;
-  line-height: 1;
-  flex: 0 0 17px;
+/* CSS-drawn plus: the icon and label share the exact flex centerline.
+   Icon font glyphs have their own baseline and used to look slightly raised. */
+.pf-top-add-icon {
+  display: inline-block;
+  position: relative;
+  box-sizing: border-box;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  align-self: center;
+  color: inherit;
+}
+
+.pf-top-add-icon::before,
+.pf-top-add-icon::after {
+  content: "";
+  position: absolute;
+  display: block;
+  top: 50%;
+  left: 50%;
+  background: currentColor;
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+
+.pf-top-add-icon::before {
+  width: 11px;
+  height: 1.6px;
+}
+
+.pf-top-add-icon::after {
+  width: 1.6px;
+  height: 11px;
+}
+
+.pf-top-add-text {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  line-height: 18px;
+  white-space: nowrap;
 }
 
 .pf-top-add:focus-visible,

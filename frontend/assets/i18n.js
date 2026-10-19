@@ -1,9 +1,9 @@
 /**
  * Perch i18n — lightweight client-side internationalization.
- * Supports: zh, en, es, ja, pt
+ * User-selectable languages: zh, en; legacy translations retained for compatibility.
  */
 (function () {
-  const LANGS = ['zh', 'en', 'es', 'ja', 'pt'];
+  const LANGS = ['zh', 'en'];
   const STORAGE_KEY = 'perch-lang';
 
   const translations = {
@@ -303,7 +303,7 @@
 
   function detectLang() {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored && translations[stored]) return stored;
+    if (stored && LANGS.includes(stored)) return stored;
     return 'en';
   }
 
@@ -329,7 +329,7 @@
   function getLang() { return currentLang; }
 
   function setLang(lang) {
-    if (!translations[lang]) return;
+    if (!LANGS.includes(lang)) return;
     currentLang = lang;
     localStorage.setItem(STORAGE_KEY, lang);
     applyTranslations();
@@ -389,7 +389,7 @@
   // browser has never made an explicit choice, so a local override always wins.
   if (!hadStoredLang) {
     fetch('/api/lang').then(r => r.json()).then(data => {
-      if (data && data.lang && translations[data.lang] && data.lang !== currentLang) {
+      if (data && data.lang && LANGS.includes(data.lang) && data.lang !== currentLang) {
         setLang(data.lang);
       }
     }).catch(() => {});

@@ -26,7 +26,8 @@ def measure(page, route, width):
       const before=document.querySelector('input[type="search"]').getBoundingClientRect();
       return {window:innerWidth, scrollWidth:document.documentElement.scrollWidth,
         actions:geom('.pf-top-actions'), status:geom('.pf-top-status'),
-        add:geom('.pf-top-add'), lang:geom('.pf-lang-trigger'),
+        add:geom('.pf-top-add'), plus:geom('.pf-top-add-icon'),
+        addText:geom('.pf-top-add-text'), lang:geom('.pf-lang-trigger'),
         nav:geom('.pf-process-topnav'),
         search:{x:before.x,y:before.y,w:before.width,h:before.height},
         nativeHidden:getComputedStyle(document.querySelector('select[data-lang-select]')).opacity==="0",
@@ -42,6 +43,10 @@ def measure(page, route, width):
     assert abs(metrics["status"]["height"]-32)<0.5 if width>=768 else True
     assert metrics["add"]["font"]<=13
     assert metrics["lang"]["font"]<=13
+    # Both CSS plus strokes and text wrapper must have identical vertical centers.
+    plus_center=metrics["plus"]["y"]+metrics["plus"]["height"]/2
+    text_center=metrics["addText"]["y"]+metrics["addText"]["height"]/2
+    assert abs(plus_center-text_center)<0.5,metrics
     assert metrics["scrollWidth"]<=width+2,metrics
     assert metrics["lang"]["x"]>=0
     assert metrics["lang"]["x"]+metrics["lang"]["width"]<=width+2,metrics
@@ -68,7 +73,8 @@ def main():
                     menu=page.locator(".pf-lang-menu")
                     assert menu.is_visible()
                     assert trigger.get_attribute("aria-expanded")=="true"
-                    assert page.locator(".pf-lang-option").count()==5
+                    assert page.locator(".pf-lang-option").count()==2
+                    assert page.locator('select[data-lang-select] option').count()==2
                     openInfo=page.evaluate("""() => ({
                        menu:document.querySelector('.pf-lang-menu').getBoundingClientRect().toJSON(),
                        search:document.querySelector('input[type="search"]').getBoundingClientRect().toJSON(),
@@ -111,14 +117,17 @@ def main():
                     assert not menu.is_visible()
                     assert trigger.evaluate("(e)=>e===document.activeElement")
 
-                    # Keyboard click: ArrowDown then Enter chooses a different language.
+                    # Keyboard click: ArrowDown then Enter selects Chinese from English.
                     trigger.press("ArrowDown")
                     page.keyboard.press("ArrowDown")
                     page.keyboard.press("Enter")
                     assert not menu.is_visible()
-                    assert page.locator("[data-lang-current]").inner_text()=="Español"
+                    assert page.locator("[data-lang-current]").inner_text()=="中文"
 
-                    # Native select also remains valid and triggers dynamic table updates.
+                    # Native select remains usable and triggers dynamic table translations.
+                    page.locator('select[data-lang-select]').select_option("en")
+                    assert page.locator("[data-lang-current]").inner_text()=="English"
+                    assert page.locator("html").get_attribute("lang")=="en"
                     page.locator('select[data-lang-select]').select_option("zh")
                     assert page.locator("[data-lang-current]").inner_text()=="中文"
                     assert page.locator("[data-lang-code]").first.inner_text()=="CN"
@@ -148,6 +157,21 @@ def main():
         page.wait_for_url("**/tasks")
         p2=page.locator(".pf-top-add").bounding_box()
         assert abs(p1["height"]-p2["height"])<0.5
+        # Pre-existing unsupported localStorage preferences must fall back to English.
+        stale=browser.new_context(viewport={"width":1440,"height":900})
+        stale.add_init_script("localStorage.setItem('perch-lang', 'es')")
+        old=stale.new_page()
+        old.goto(BASE+"/processes")
+        old.locator(".pf-lang-picker.is-enhanced").wait_for()
+        assert old.locator("html").get_attribute("lang")=="en"
+        assert old.locator("[data-lang-current]").inner_text()=="English"
+        assert old.locator('select[data-lang-select]').input_value()=="en"
+        assert old.locator(".pf-lang-option").count()==2
+        stale.close()
+
+        for static_page in ("/", "/process-detail?name=MailHub%20(DEMO)"):
+            page.goto(BASE+static_page)
+            assert page.locator('select[data-lang-select] option').count()==2,static_page
         assert not errors,errors
         browser.close()
     print("TOPBAR_BROWSER=PASS",flush=True)

@@ -9,15 +9,15 @@
 | 控件 | 旧样式 | 新样式 |
 |---|---|---|
 | Connected 状态框 | 32px 高、独立的背景和圆角 | 32px 高，12px 字体，绿色小状态点、细边框、16px 圆角 |
-| 添加进程／添加任务 | 36px 高、16px 字体、4px 圆角 | 32px 高、12.5px 字体、8px 圆角、收敛的青蓝渐变 |
+| 添加进程／添加任务 | 36px 高、16px 字体、4px 圆角 | 32px 高、12.5px 字体、8px 圆角、收敛的青蓝渐变、CSS 精确居中的加号 |
 | 语言选择 | Windows 原生 36px 高，14px 字体，4px 圆角 | 32px 高、12px 字体、8px 圆角、自定义深色下拉菜单 |
 
 按钮间距统一为 10px（小屏 7px）；控件在顶部 56px 导航栏中居中。无大幅发光、文字位置不会因为悬停或选中状态改变。
 
 ## 语言菜单
 
-- 通过 `frontend/assets/topbar-controls.js` 进行渐进增强：默认仍保留原生 `select[data-lang-select]`，加载 JS 后换成深色列表框；禁用 JS 时仍能看到原生选择框。
-- 菜单有 CN 中文、EN English、ES Español、JP 日本語、BR Português 五个项目。当前选中项使用青色、浅底纹和勾选图标。
+- 通过 `frontend/assets/topbar-controls.js` 进行渐进增强：默认仍保留原生 `select[data-lang-select]`，加载 JS 后换成深色列表框；禁用 JS 时仍能看到原生选择框。登录、详情、进程和定时任务四处均只显示中文／英文。若原来保存的语言是西班牙语／日语／葡萄牙语，自动回退英语。
+- 菜单只保留 CN 中文、EN English 两个项目。当前选中项使用青色、浅底纹和勾选图标。
 - 支持鼠标选择、点击外部关闭、Esc 关闭、方向键／Home／End 导航、回车确认和键盘焦点。
 - 自定义控件在用户选中语言时更新原生 `select` 并触发正常的 `change` 事件；原有 `processes.js` 和 `tasks.js` 的表格多语言重绘流程不变。
 - `i18n.js` 的 `setLang` 额外发出 `perchflow:language-changed` 事件，用于同步服务器主动指定语言时的菜单标签和选中状态。
