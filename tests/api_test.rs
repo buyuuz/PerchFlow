@@ -4,13 +4,18 @@ use perch::core::state::AppState;
 use perch::core::supervisor::Supervisor;
 use perch::web::{build_router, WebContext};
 
-async fn spawn_server() -> (String, String, tempfile::NamedTempFile) {
-    let tmp = tempfile::NamedTempFile::new().unwrap();
+async fn spawn_server() -> (String, String, tempfile::TempDir) {
+    // A NamedTempFile holds the config handle open on Windows and prevents
+    // writer::save from atomically persisting to the same path. Use a real
+    // config file inside a temporary directory, just like production.
+    let tmp = tempfile::tempdir().unwrap();
     let cfg = Config {
         server: ServerConfig { bind: "127.0.0.1:0".into(), token: "secret".into(), lang: "en".into() },
         process: vec![], task: vec![],
     };
-    let state = AppState::new(cfg, tmp.path().to_path_buf());
+    let config_path = tmp.path().join("perch.toml");
+    perch::config::writer::save(&config_path, &cfg).unwrap();
+    let state = AppState::new(cfg, config_path);
     let ctx = WebContext {
         supervisor: Supervisor::new(state.clone()),
         scheduler: Scheduler::new(state.clone()),
@@ -299,7 +304,7 @@ async fn cwd_update_preserves_env_restart_and_chinese_alias() {
     assert_eq!(details["cwd"], next_cwd);
     assert_eq!(details["alias_zh"], "工作目录");
 
-    let stored = perch::config::load(cfg_file.path()).unwrap();
+    let stored = perch::config::load(&cfg_file.path().join("perch.toml")).unwrap();
     let process = &stored.process[0];
     assert_eq!(process.cwd.as_deref(), Some(next_cwd.as_str()));
     assert_eq!(process.env.get("KEEP_ME").map(String::as_str), Some("original"));
