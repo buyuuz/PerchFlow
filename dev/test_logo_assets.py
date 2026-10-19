@@ -66,7 +66,8 @@ class BrandAssetsTest(unittest.TestCase):
         self.assertIn("height: 80px;", css)
         for page_name in ("processes.html", "tasks.html", "login.html"):
             html = (FRONTEND / page_name).read_text(encoding="utf-8")
-            self.assertIn("/assets/branding.css?v=brand3", html)
+            version = "brand3" if page_name == "login.html" else "brand4"
+            self.assertIn(f"/assets/branding.css?v={version}", html)
             if page_name == "login.html":
                 self.assertIn('class="pf-login-icon"', html)
             else:
@@ -82,6 +83,22 @@ class BrandAssetsTest(unittest.TestCase):
         self.assertIn("font-size: 12px;", css)
         self.assertIn('class="pf-management-page-title text-on-surface"', html)
         self.assertIn('class="pf-management-page-subtitle text-on-surface-variant"', html)
+
+    def test_desktop_nav_styles_keep_active_labels_stationary(self):
+        css = (ASSETS / "branding.css").read_text(encoding="utf-8")
+        self.assertIn(".pf-main-nav-link {", css)
+        self.assertIn(".pf-main-nav-link::after", css)
+        self.assertIn('.pf-main-nav-link[aria-current="page"]', css)
+        self.assertIn("position: absolute;", css)
+        self.assertIn("font-weight: 600;", css)
+        for route, active in (("processes.html", "/processes"),
+                              ("tasks.html", "/tasks")):
+            html = (FRONTEND / route).read_text(encoding="utf-8")
+            self.assertEqual(html.count('class="pf-main-nav-link"'), 2)
+            self.assertIn(f'href="{active}" aria-current="page"', html)
+            self.assertIn('/assets/branding.css?v=brand4', html)
+            self.assertNotIn('border-b-2 border-primary pb-1 font-bold" data-i18n="nav.', html)
+            self.assertNotIn('rounded-t-sm mt-1 mb-1" data-i18n="nav.', html)
 
     def test_manifest_icons_resolve_under_assets(self):
         data = json.loads((ASSETS / "site.webmanifest").read_text(encoding="utf-8"))

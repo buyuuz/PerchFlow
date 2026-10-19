@@ -52,6 +52,66 @@
   letter-spacing: -0.02em;
 }
 
+/* Identical box model and font weight for active/inactive top navigation.
+   The underline is absolutely positioned, so it never moves the label. */
+.pf-main-nav-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 100%;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 0;
+  white-space: nowrap;
+  font-weight: 600;
+  line-height: 1;
+  color: #a7b5c3;
+  text-decoration: none;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.pf-main-nav-link::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: #46d6ed;
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 180ms ease;
+  pointer-events: none;
+}
+
+.pf-main-nav-link:hover {
+  color: #e4f6ff;
+  background-color: rgba(255,255,255,0.025);
+}
+
+.pf-main-nav-link[aria-current="page"] {
+  color: #46d6ed;
+}
+
+.pf-main-nav-link[aria-current="page"]::after {
+  transform: scaleX(1);
+}
+
+.pf-main-nav-link:focus-visible {
+  outline: 2px solid #46d6ed;
+  outline-offset: -4px;
+  border-radius: 5px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-main-nav-link,
+  .pf-main-nav-link::after { transition: none; }
+}
+
 .pf-login-brand img.pf-login-icon {
   display: block;
   box-sizing: border-box;
