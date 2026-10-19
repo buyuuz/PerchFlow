@@ -1,4 +1,19 @@
 /* Stable brand sizes; intentionally independent of precompiled Tailwind utilities. */
+
+/* Shared title hierarchy for PerchFlow management pages. */
+.pf-management-page-title {
+  font-size: 17px;
+  line-height: 1.35;
+  font-weight: 700;
+  margin: 0 0 3px;
+}
+
+.pf-management-page-subtitle {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
 .pf-header-brand {
   display: inline-flex;
   align-items: center;

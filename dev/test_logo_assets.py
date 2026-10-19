@@ -73,6 +73,16 @@ class BrandAssetsTest(unittest.TestCase):
                 self.assertIn('class="pf-brand-icon"', html)
                 self.assertIn('width="28" height="28"', html)
 
+    def test_task_page_heading_matches_process_page_typography(self):
+        css = (ASSETS / "branding.css").read_text(encoding="utf-8")
+        html = (FRONTEND / "tasks.html").read_text(encoding="utf-8")
+        self.assertIn(".pf-management-page-title", css)
+        self.assertIn("font-size: 17px;", css)
+        self.assertIn(".pf-management-page-subtitle", css)
+        self.assertIn("font-size: 12px;", css)
+        self.assertIn('class="pf-management-page-title text-on-surface"', html)
+        self.assertIn('class="pf-management-page-subtitle text-on-surface-variant"', html)
+
     def test_manifest_icons_resolve_under_assets(self):
         data = json.loads((ASSETS / "site.webmanifest").read_text(encoding="utf-8"))
         self.assertEqual(data["name"], "PerchFlow")
