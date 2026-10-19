@@ -52,6 +52,27 @@ class BrandAssetsTest(unittest.TestCase):
             text = (FRONTEND / name).read_text(encoding="utf-8")
             self.assertIn('Perch<span class="text-on-surface">Flow</span>', text)
 
+    def test_branding_has_explicit_fixed_icon_dimensions(self):
+        # The prebuilt Tailwind bundle does not guarantee the newly added w-7
+        # and h-7 utilities; a missing rule previously made the logo huge.
+        css = (ASSETS / "branding.css").read_text(encoding="utf-8")
+        self.assertIn(".pf-header-brand img.pf-brand-icon", css)
+        self.assertIn("width: 28px;", css)
+        self.assertIn("height: 28px;", css)
+        self.assertIn("max-width: 28px;", css)
+        self.assertIn("max-height: 28px;", css)
+        self.assertIn(".pf-login-brand img.pf-login-icon", css)
+        self.assertIn("width: 80px;", css)
+        self.assertIn("height: 80px;", css)
+        for page_name in ("processes.html", "tasks.html", "login.html"):
+            html = (FRONTEND / page_name).read_text(encoding="utf-8")
+            self.assertIn("/assets/branding.css?v=brand3", html)
+            if page_name == "login.html":
+                self.assertIn('class="pf-login-icon"', html)
+            else:
+                self.assertIn('class="pf-brand-icon"', html)
+                self.assertIn('width="28" height="28"', html)
+
     def test_manifest_icons_resolve_under_assets(self):
         data = json.loads((ASSETS / "site.webmanifest").read_text(encoding="utf-8"))
         self.assertEqual(data["name"], "PerchFlow")

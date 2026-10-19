@@ -1,0 +1,75 @@
+/* Stable brand sizes; intentionally independent of precompiled Tailwind utilities. */
+.pf-header-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  flex: 0 0 auto;
+  min-width: 0;
+  height: 100%;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.pf-header-brand img.pf-brand-icon {
+  display: block;
+  box-sizing: border-box;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  max-width: 28px;
+  max-height: 28px;
+  object-fit: contain;
+  object-position: center;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pf-header-brand .pf-brand-name {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.pf-login-brand img.pf-login-icon {
+  display: block;
+  box-sizing: border-box;
+  flex: 0 0 80px;
+  width: 80px;
+  height: 80px;
+  min-width: 80px;
+  min-height: 80px;
+  max-width: 80px;
+  max-height: 80px;
+  object-fit: contain;
+  object-position: center;
+  border: none;
+  padding: 0;
+  margin: 0 0 16px;
+}
+
+@media (max-width: 640px) {
+  .pf-header-brand {
+    gap: 7px;
+  }
+
+  .pf-header-brand img.pf-brand-icon {
+    flex-basis: 26px;
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
+    max-width: 26px;
+    max-height: 26px;
+  }
+
+  .pf-header-brand .pf-brand-name {
+    font-size: 17px;
+  }
+}
