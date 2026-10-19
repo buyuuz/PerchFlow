@@ -69,6 +69,7 @@ fn save_then_load_roundtrips() {
     let cfg = Config {
         server: ServerConfig { bind: "127.0.0.1:9000".into(), token: "tok".into(), lang: "en".into() },
         process: vec![ProcessDef {
+            alias_zh: Some("应用管理".into()),
             name: "app".into(), cmd: "ping".into(), args: vec!["localhost".into()],
             cwd: None, env: HashMap::new(), autostart: true, restart: RestartConfig::default(),
         }],
@@ -80,5 +81,6 @@ fn save_then_load_roundtrips() {
     perch::config::writer::save(&path, &cfg).unwrap();
     let loaded = perch::config::load(&path).unwrap();
     assert_eq!(loaded.process[0].name, "app");
+    assert_eq!(loaded.process[0].alias_zh.as_deref(), Some("应用管理"));
     assert_eq!(loaded.server.token, "tok");
 }

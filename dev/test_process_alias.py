@@ -41,6 +41,7 @@ class ProcessAliasTests(unittest.TestCase):
 
     def test_api_optional_field_is_persisted_without_restarting(self):
         self.assertIn("pub alias_zh: Option<String>",MODEL)
+        self.assertIn("alias_zh: Some(\"应用管理\".into())", (ROOT/"tests/config_test.rs").read_text(encoding="utf-8"))
         self.assertIn('skip_serializing_if = "Option::is_none"',MODEL)
         self.assertIn('alias_zh.as_deref(), Some("邮箱管理中心")',MODEL)
         self.assertIn("struct AliasUpdate",API)
