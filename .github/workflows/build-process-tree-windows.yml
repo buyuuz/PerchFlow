@@ -1,0 +1,35 @@
+name: Windows - process tree metrics
+
+on:
+  push:
+    branches:
+      - fix/process-tree-metrics
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out Perch source
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run tests
+        run: cargo test --release
+
+      - name: Build Windows executable
+        run: cargo build --release
+
+      - name: Upload portable EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: perch-process-tree-windows
+          path: target/release/perch.exe
+          if-no-files-found: error
+          retention-days: 14
