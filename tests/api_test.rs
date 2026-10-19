@@ -321,7 +321,7 @@ async fn cwd_update_preserves_env_restart_and_chinese_alias() {
         }))
         .send().await.unwrap().json().await.unwrap();
     assert_eq!(full["ok"], true);
-    let after_full = perch::config::load(cfg_file.path()).unwrap();
+    let after_full = perch::config::load(&cfg_file.path().join("perch.toml")).unwrap();
     assert_eq!(after_full.process[0].env.get("KEEP_ME").map(String::as_str), Some("original"));
     assert_eq!(after_full.process[0].restart.policy, RestartPolicy::Never);
 
@@ -330,6 +330,6 @@ async fn cwd_update_preserves_env_restart_and_chinese_alias() {
         .json(&serde_json::json!({ "cwd": null }))
         .send().await.unwrap().json().await.unwrap();
     assert_eq!(cleared["ok"], true);
-    let final_cfg = perch::config::load(cfg_file.path()).unwrap();
+    let final_cfg = perch::config::load(&cfg_file.path().join("perch.toml")).unwrap();
     assert!(final_cfg.process[0].cwd.is_none());
 }
