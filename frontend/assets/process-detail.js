@@ -71,6 +71,10 @@ function renderProcess(p) {
   const name = String(p.name || procName);
   document.getElementById('proc-name').textContent = name;
   document.getElementById('proc-name').title = name;
+  const alias = document.getElementById('proc-alias-zh');
+  alias.textContent = String(p.alias_zh || '').trim();
+  alias.title = alias.textContent;
+  alias.hidden = !alias.textContent;
   document.getElementById('log-process-name').textContent = name;
   const status = ['running','stopped','crashed','restarting'].includes(p.status) ? p.status : 'unknown';
   document.getElementById('proc-status-badge').dataset.status = status;

@@ -111,6 +111,7 @@ impl Scheduler {
 
 fn build_command_for_task(task: &TaskDef) -> tokio::process::Command {
     let def = crate::config::model::ProcessDef {
+        alias_zh: None,
         name: task.name.clone(), cmd: task.cmd.clone(), args: task.args.clone(),
         cwd: task.cwd.clone(), env: Default::default(), autostart: false,
         restart: Default::default(),

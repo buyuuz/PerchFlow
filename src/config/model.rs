@@ -41,6 +41,9 @@ impl Default for RestartConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessDef {
+    /// Optional Chinese display alias; `name` remains the process identifier.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alias_zh: Option<String>,
     pub name: String,
     pub cmd: String,
     #[serde(default)]
@@ -87,11 +90,38 @@ impl Default for Config {
 
 /// 首次运行时(exe 同目录无 perch.toml)生成的默认配置:含一个 demo 进程,
 /// 让用户登录后能立刻看到 running 状态的卡片,可用 UI 删除或编辑。
+#[cfg(test)]
+mod alias_tests {
+    use super::*;
+
+    #[test]
+    fn legacy_process_configs_without_alias_still_load() {
+        let original = default_demo_config();
+        let saved = toml::to_string(&original).expect("serialize demo config");
+        assert!(!saved.contains("alias_zh"), "None should not be serialized");
+        let parsed: Config = toml::from_str(&saved).expect("parse legacy config");
+        assert!(parsed.process[0].alias_zh.is_none());
+        assert_eq!(parsed.process[0].name, "demo");
+    }
+
+    #[test]
+    fn chinese_alias_survives_toml_roundtrip_without_changing_process_name() {
+        let mut cfg = default_demo_config();
+        cfg.process[0].alias_zh = Some("邮箱管理中心".into());
+        let saved = toml::to_string(&cfg).expect("serialize alias");
+        assert!(saved.contains("alias_zh"));
+        let restored: Config = toml::from_str(&saved).expect("parse alias");
+        assert_eq!(restored.process[0].name, "demo");
+        assert_eq!(restored.process[0].alias_zh.as_deref(), Some("邮箱管理中心"));
+    }
+}
+
 pub fn default_demo_config() -> Config {
     Config {
         server: ServerConfig::default(),
         process: vec![ProcessDef {
             name: "demo".into(),
+            alias_zh: None,
             cmd: "cmd".into(),
             args: vec!["/c".into(), "ping -n 100 127.0.0.1".into()],
             cwd: None,

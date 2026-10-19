@@ -197,6 +197,46 @@
 }
 
 .pf-process-name:hover { color: #4fe1f3; }
+
+/* Process title is always English; optional Chinese alias sits below it. */
+.pf-process-name-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.pf-process-name-stack .pf-process-name {
+  font-size: 13.5px;
+  line-height: 1.2;
+}
+.pf-process-alias {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #8fa6b6;
+  font-size: 11px;
+  line-height: 1.2;
+  font-weight: 460;
+}
+.pf-process-alias-hint {
+  color: #829aab;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+}
+/* Keep the taller add/edit modal usable on short laptop screens. */
+#add-modal > .glass-card {
+  max-height: calc(100dvh - 28px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #385061 transparent;
+}
+
 .pf-process-pid,
 .pf-process-metric { font-variant-numeric: tabular-nums; }
 .pf-process-pid {

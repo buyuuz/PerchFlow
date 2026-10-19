@@ -171,8 +171,13 @@
 <div class="glass-card w-full max-w-md rounded-xl p-6 flex flex-col gap-4">
 <h2 class="font-headline-md text-headline-md text-on-surface" id="add-modal-title" data-i18n="modal.add_process">添加进程</h2>
 <div class="flex flex-col gap-2">
-<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.name">名称</label>
-<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="add-name" type="text"/>
+<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.name_en" for="add-name">进程名称（英文）</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="add-name" type="text" autocomplete="off" data-i18n-placeholder="placeholder.process_name" placeholder="MailHub"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="font-body-sm text-body-sm text-on-surface-variant" for="add-alias-zh" data-i18n="label.alias_zh">中文别名（可选）</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-body-md text-body-md text-on-surface" id="add-alias-zh" type="text" maxlength="80" autocomplete="off" placeholder="邮箱管理中心" data-i18n-placeholder="placeholder.process_alias"/>
+<p class="pf-process-alias-hint" data-i18n="label.alias_zh_hint">只用于展示，不改变进程启动、停止和日志对应的英文名称。</p>
 </div>
 <div class="flex flex-col gap-2">
 <label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.command">命令</label>

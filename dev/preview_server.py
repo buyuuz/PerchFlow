@@ -42,9 +42,10 @@ DEV_BADGE = (
 
 
 def make_process(name: str, status: str, pid: int | None,
-                 cpu: float, memory_mb: int, command: str) -> dict:
+                 cpu: float, memory_mb: int, command: str,
+                 alias_zh: str | None = None) -> dict:
     return {
-        "name": name, "status": status, "pid": pid,
+        "name": name, "alias_zh": alias_zh, "status": status, "pid": pid,
         "uptime_secs": 7311 if status == "running" else 0,
         "restart_count": 1 if status == "crashed" else 0,
         "cpu_percent": cpu, "mem_bytes": memory_mb * 1024 * 1024,
@@ -60,9 +61,9 @@ class MockState:
         self.processes = {
             p["name"]: p
             for p in [
-                make_process("MailHub (DEMO)", "running", 12340, 1.6, 68, "python launcher.py"),
-                make_process("Daily_Check (DEMO)", "stopped", None, 0.0, 0, "python daily_check.py"),
-                make_process("Video Publisher (DEMO)", "crashed", None, 0.0, 0, "python video_auto.py"),
+                make_process("MailHub (DEMO)", "running", 12340, 1.6, 68, "python launcher.py", "邮箱管理中心"),
+                make_process("Daily_Check (DEMO)", "stopped", None, 0.0, 0, "python daily_check.py", "每日巡检"),
+                make_process("Video Publisher (DEMO)", "crashed", None, 0.0, 0, "python video_auto.py", "视频发布器"),
                 make_process("Data Collector (DEMO)", "running", 25678, 3.4, 128, "python collector.py"),
             ]
         }
@@ -289,6 +290,18 @@ def build_handler(frontend: Path = FRONTEND, mode: str = "mock",
                                 return self.send_json({"ok": False, "error": "cmd required"}, 400)
                             state.processes[name].update(mock_view({**payload, "name": name}))
                             return self.send_json({"ok": True})
+                    if len(chunks) == 4 and chunks[3] == "alias" and method == "PUT":
+                        payload = self.json_body()
+                        if payload is None or "alias_zh" not in payload:
+                            return self.send_json({"ok": False, "error": "alias_zh field required"}, 400)
+                        alias = payload["alias_zh"]
+                        if alias is not None and not isinstance(alias, str):
+                            return self.send_json({"ok": False, "error": "alias must be text"}, 400)
+                        alias = alias.strip() if alias else None
+                        if alias and len(alias) > 80:
+                            return self.send_json({"ok": False, "error": "alias too long"}, 400)
+                        obj["alias_zh"] = alias
+                        return self.send_json({"ok": True})
                     if len(chunks) == 4 and chunks[3] == "logs" and method == "GET":
                         lines = state.logs.get(name, [])
                         return self.send_json({"name": name, "lines": lines, "seq": len(lines)})
@@ -357,7 +370,8 @@ def mock_view(obj: dict) -> dict:
     command = str(obj["cmd"])
     args = [str(x) for x in obj.get("args", [])]
     return {
-        "name": name, "status": "stopped", "pid": None, "uptime_secs": 0,
+        "name": name, "alias_zh": obj.get("alias_zh") or None,
+        "status": "stopped", "pid": None, "uptime_secs": 0,
         "restart_count": 0, "cpu_percent": 0.0, "mem_bytes": 0,
         "cmd": " ".join([command, *args]), "cmd_raw": command,
         "args": args, "cwd": obj.get("cwd"), "autostart": bool(obj.get("autostart")),

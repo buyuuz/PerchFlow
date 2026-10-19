@@ -191,6 +191,7 @@ mod tests {
     fn echo_def() -> ProcessDef {
         // Windows: cmd /c echo hello
         ProcessDef {
+            alias_zh: None,
             name: "echo".into(),
             cmd: "cmd".into(),
             args: vec!["/c".into(), "echo hello".into()],
@@ -223,6 +224,7 @@ mod tests {
         let script = dir.join("test_exit.ps1");
         std::fs::write(&script, "exit 42").unwrap();
         let def = ProcessDef {
+            alias_zh: None,
             name: "ps1".into(),
             cmd: script.to_string_lossy().into_owned(),
             args: vec![],

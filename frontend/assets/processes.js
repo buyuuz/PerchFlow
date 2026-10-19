@@ -66,7 +66,10 @@ function renderProcessRow(p) {
   <td>
     <div class="pf-process-identity">
       <span class="pf-process-icon pf-process-icon--${status}" aria-hidden="true"><span class="material-symbols-outlined">${processIcon(p.name)}</span></span>
-      <a class="pf-process-name" href="/process-detail?name=${encodedName}" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</a>
+      <div class="pf-process-name-stack">
+        <a class="pf-process-name" href="/process-detail?name=${encodedName}" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</a>
+        ${String(p.alias_zh || '').trim() ? `<span class="pf-process-alias" title="${escapeHtml(p.alias_zh)}">${escapeHtml(p.alias_zh)}</span>` : ''}
+      </div>
     </div>
   </td>
   <td><span class="pf-status pf-status--${status}" title="${escapeHtml(typeof t === 'function' ? t('status.' + status) : statusText)}">${statusText}</span></td>
@@ -106,6 +109,7 @@ function getVisibleProcesses() {
   const needle = processSearch.trim().toLocaleLowerCase();
   const filtered = cachedProcesses.filter(p => (
     !needle || String(p.name || '').toLocaleLowerCase().includes(needle)
+    || String(p.alias_zh || '').toLocaleLowerCase().includes(needle)
     || String(p.cmd || '').toLocaleLowerCase().includes(needle)
     || String(p.status || '').toLocaleLowerCase().includes(needle)
     || (p.pid != null && String(p.pid).includes(needle))
@@ -218,6 +222,7 @@ function openAddModal() {
   title.setAttribute('data-i18n', 'modal.add_process');
   title.textContent = t('modal.add_process');
   document.getElementById('add-name').value = '';
+  document.getElementById('add-alias-zh').value = '';
   document.getElementById('add-name').disabled = false;
   document.getElementById('add-cmd').value = '';
   document.getElementById('add-args').value = '';
@@ -234,6 +239,7 @@ function editProcess(name) {
   title.removeAttribute('data-i18n');
   title.textContent = t('modal.edit_process');
   document.getElementById('add-name').value = p.name;
+  document.getElementById('add-alias-zh').value = p.alias_zh || '';
   document.getElementById('add-name').disabled = true;
   document.getElementById('add-cmd').value = p.cmd_raw;
   document.getElementById('add-args').value = (p.args || []).join(' ');
@@ -260,10 +266,16 @@ function closeAddModal() {
 
 async function submitAddModal() {
   const name = document.getElementById('add-name').value.trim();
+  const alias_zh = document.getElementById('add-alias-zh').value.trim();
   const cmd = document.getElementById('add-cmd').value.trim();
   const args = document.getElementById('add-args').value.trim().split(/\s+/).filter(Boolean);
   const autostart = document.getElementById('add-autostart').checked;
   const errEl = document.getElementById('add-err');
+  if (Array.from(alias_zh).length > 80) {
+    errEl.textContent = t('error.alias_too_long');
+    errEl.classList.remove('hidden');
+    return;
+  }
   if (!name || !cmd) {
     errEl.textContent = t('error.name_cmd_required');
     errEl.classList.remove('hidden');
@@ -271,11 +283,19 @@ async function submitAddModal() {
   }
   // Keep existing cwd on edit; the modal does not expose that field.
   const cwd = editingName ? cachedProcesses.find(x => x.name === editingName)?.cwd : undefined;
-  const body = {
-    name, cmd, args, cwd, autostart,
+  const old = editingName ? cachedProcesses.find(x => x.name === editingName) : null;
+  // Alias-only edits use a dedicated route: don't restart a running process,
+  // and don't overwrite hidden environment/restart settings from TOML.
+  const onlyAliasChanged = old && cmd === old.cmd_raw &&
+    JSON.stringify(args) === JSON.stringify(old.args || []) &&
+    autostart === Boolean(old.autostart);
+  const body = onlyAliasChanged ? { alias_zh } : {
+    name, alias_zh: alias_zh || null, cmd, args, cwd, autostart,
     restart: { policy: 'on-failure', backoff_secs: 2, backoff_max_secs: 60, max_retries: 0 },
   };
-  const path = editingName ? `/api/processes/${encodeURIComponent(editingName)}` : '/api/processes';
+  const path = editingName
+    ? `/api/processes/${encodeURIComponent(editingName)}` + (onlyAliasChanged ? '/alias' : '')
+    : '/api/processes';
   const method = editingName ? 'PUT' : 'POST';
   const resp = await api(path, { method, body: JSON.stringify(body) });
   const result = await resp.json();

@@ -7,13 +7,14 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 pub fn routes() -> Router<WebContext> {
     Router::new()
         .route("/processes", get(list).post(create))
         .route("/processes/:name", get(detail).put(update).delete(remove))
+        .route("/processes/:name/alias", axum::routing::put(update_alias))
         .route("/processes/:name/start", post(start))
         .route("/processes/:name/stop", post(stop))
         .route("/processes/:name/restart", post(restart))
@@ -21,6 +22,7 @@ pub fn routes() -> Router<WebContext> {
 
 #[derive(Serialize)]
 pub struct ProcView {
+    pub alias_zh: Option<String>,
     pub name: String,
     pub status: ProcStatus,
     pub pid: Option<u32>,
@@ -40,6 +42,7 @@ async fn build_view(state: &SharedState, name: &str) -> Option<ProcView> {
     let def = cfg.process.iter().find(|p| p.name == name)?;
     let cmd = if def.args.is_empty() { def.cmd.clone() }
         else { format!("{} {}", def.cmd, def.args.join(" ")) };
+    let alias_zh = def.alias_zh.clone();
     let cmd_raw = def.cmd.clone();
     let args = def.args.clone();
     let cwd = def.cwd.clone();
@@ -49,7 +52,7 @@ async fn build_view(state: &SharedState, name: &str) -> Option<ProcView> {
     let rt = rt_arc.read().await;
     let uptime = rt.started_at.map(|t| t.elapsed().as_secs()).unwrap_or(0);
     Some(ProcView {
-        name: name.to_string(), status: rt.status, pid: rt.pid,
+        name: name.to_string(), alias_zh, status: rt.status, pid: rt.pid,
         uptime_secs: uptime, restart_count: rt.restart_count,
         cpu_percent: rt.cpu_percent, mem_bytes: rt.mem_bytes, cmd, cmd_raw,
         args, cwd, autostart,
@@ -131,6 +134,31 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(mu
         }
     }
     op_result(r)
+}
+
+// Display-only Chinese alias. Update without touching the supervisor or a running process.
+#[derive(Deserialize)]
+struct AliasUpdate {
+    alias_zh: Option<String>,
+}
+
+async fn update_alias(
+    State(ctx): State<WebContext>,
+    Path(name): Path<String>,
+    Json(body): Json<AliasUpdate>,
+) -> Json<serde_json::Value> {
+    let alias = body.alias_zh.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
+    if alias.as_ref().is_some_and(|s| s.chars().count() > 80) {
+        return Json(json!({ "ok": false, "error": "alias too long (max 80 characters)" }));
+    }
+    {
+        let mut cfg = ctx.state.config.write().await;
+        match cfg.process.iter_mut().find(|p| p.name == name) {
+            Some(p) => p.alias_zh = alias,
+            None => return Json(json!({ "ok": false, "error": "not found" })),
+        }
+    }
+    op_result(persist(&ctx).await)
 }
 
 async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {

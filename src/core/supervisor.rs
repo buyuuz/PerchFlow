@@ -262,6 +262,7 @@ mod tests {
     async fn start_then_stop_marks_stopped() {
         // 长驻进程:ping -t 本机
         let def = ProcessDef {
+            alias_zh: None,
             name: "p".into(), cmd: "cmd".into(),
             args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
             cwd: None, env: HashMap::new(), autostart: false,
@@ -285,6 +286,7 @@ mod tests {
         // 覆盖 start() 中 spawn_process().await 完成前 stop() 就到达的窗口:
         // 用 CancellationToken 取代 Notify 后,该窗口内的 cancel 不会丢失。
         let def = ProcessDef {
+            alias_zh: None,
             name: "p".into(), cmd: "cmd".into(),
             args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
             cwd: None, env: HashMap::new(), autostart: false,
@@ -312,6 +314,7 @@ mod tests {
         // 此时 stop() 必须让最终状态落到 Stopped,而非卡在 classify_exit 写入的 Restarting。
         // 用较长退避确保 stop() 落在 backoff 的 sleep 窗口内。
         let def = ProcessDef {
+            alias_zh: None,
             name: "p".into(), cmd: "cmd".into(),
             args: vec!["/c".into(), "exit 1".into()],
             cwd: None, env: HashMap::new(), autostart: false,
@@ -340,6 +343,7 @@ mod tests {
         // 覆盖新实例的 Running,旧任务也不会误删新实例的注册表条目。
         // 多次 restart 后进程必须仍处于 Running。
         let def = ProcessDef {
+            alias_zh: None,
             name: "p".into(), cmd: "cmd".into(),
             args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
             cwd: None, env: HashMap::new(), autostart: false,
@@ -366,6 +370,7 @@ mod tests {
         // 多线程 runtime 下真实存在 spawn_process().await 与 stop() 并发执行的窗口
         // (单线程 runtime 下几乎不可能触发)。循环多次以增加命中该窗口的概率。
         let def = ProcessDef {
+            alias_zh: None,
             name: "p".into(), cmd: "cmd".into(),
             args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
             cwd: None, env: HashMap::new(), autostart: false,

@@ -104,6 +104,25 @@ body.pf-detail-body {
 .pf-detail-breadcrumb a:hover { color: #67d7eb; }
 .pf-detail-breadcrumb-separator { color: #52616c; }
 
+/* Fixed English heading and optional, smaller Chinese alias. */
+.pf-detail-title-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.pf-detail-alias {
+  margin: 0;
+  max-width: min(500px, 43vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #91a9ba;
+  font-size: 12px;
+  line-height: 1.3;
+}
+.pf-detail-alias[hidden] { display: none !important; }
+
 .pf-detail-title-line {
   display: flex;
   gap: 13px;
@@ -565,6 +584,7 @@ body.pf-detail-body {
   .pf-detail-heading { flex: 1; }
   .pf-detail-title-line { flex-wrap: wrap; gap: 8px; }
   .pf-detail-title-line h1 { max-width: calc(100vw - 105px); font-size: 19px; }
+  .pf-detail-alias { max-width: calc(100vw - 105px); }
   .pf-detail-header-actions { width: 100%; justify-content: space-between; gap: 8px; }
   .pf-detail-action-group { flex: 1; justify-content: flex-end; gap: 5px; }
   .pf-detail-action { padding: 0 9px; gap: 3px; font-size: 11.5px; }
