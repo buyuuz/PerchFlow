@@ -1,0 +1,48 @@
+name: Build Windows UI on demand
+
+# Ordinary UI pushes do NOT compile Rust. Only an explicit ui-build-* tag
+# (created after design approval) triggers the final bundled EXE build.
+on:
+  push:
+    tags:
+      - 'ui-build-*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - name: Check out selected source
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Test Rust backend
+        run: cargo test --release
+
+      - name: Test standalone frontend preview
+        run: python -m unittest discover -s dev -p test_*.py -v
+
+      - name: Compile frontend into single Windows binary
+        run: cargo build --release
+
+      - name: Create checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash target/release/perch.exe -Algorithm SHA256).Hash
+          "$hash  perch.exe" | Set-Content -Encoding ascii target/release/SHA256.txt
+
+      - name: Upload portable executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: PerchFlow-UI-Windows
+          path: |
+            target/release/perch.exe
+            target/release/SHA256.txt
+          if-no-files-found: error
+          retention-days: 30

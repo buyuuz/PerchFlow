@@ -2,3 +2,5 @@
 .omo/
 .playwright-mcp/
 perch-*-with-logo.png
+__pycache__/
+*.py[cod]
