@@ -2,7 +2,7 @@
 
 <html class="dark" lang=""><head>
 <meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>PerchFlow - Process Detail</title>
 <meta name="description" content="PerchFlow - Lightweight Windows process & service manager with built-in web UI. Written in Rust."/>
 <meta property="og:title" content="PerchFlow - Process & Service Manager"/>
@@ -12,6 +12,9 @@
 <meta property="og:image" content="/assets/logo.png?v=brand2"/>
 <link href="/assets/fonts.css" rel="stylesheet"/>
 <link href="/assets/tailwind.css" rel="stylesheet"/>
+<link href="/assets/branding.css?v=brand4" rel="stylesheet"/>
+<link href="/assets/topbar-controls.css?v=top2" rel="stylesheet"/>
+<link href="/assets/process-detail.css?v=detail1" rel="stylesheet"/>
 <link href="/assets/logo.ico?v=brand2" rel="icon" type="image/x-icon"/>
 <link rel="icon" type="image/png" href="/assets/favicon-96x96.png?v=brand2" sizes="96x96" />
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg?v=brand2" />
@@ -46,120 +49,155 @@
         }
     </style>
 </head>
-<body class="bg-background text-on-background h-screen overflow-hidden flex flex-col font-body-md antialiased selection:bg-primary-container/30 selection:text-primary">
+<body class="pf-detail-body">
 <!-- Abstract Gradient Background for OS Depth -->
 <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
 <div class="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-primary-container/5 blur-[120px]"></div>
 <div class="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-secondary-container/10 blur-[100px]"></div>
 </div>
-<!-- Main Content Canvas (No Nav Shell due to Task-Focused Detail View) -->
-<main class="relative z-10 flex-grow layout-min-h-0 flex flex-col p-4 md:p-container-padding max-w-7xl mx-auto w-full gap-gutter">
-<!-- Header Section -->
-<header class="flex flex-col md:flex-row md:items-center justify-between gap-gutter pb-gutter border-b border-white/5">
-<div class="flex items-center gap-4">
-<button class="flex items-center justify-center w-10 h-10 shrink-0 rounded-full hover:bg-white/10 transition-colors text-on-surface-variant hover:text-primary group" onclick="window.location.href='/processes'">
-<span class="material-symbols-outlined text-[20px] group-hover:-translate-x-1 transition-transform">arrow_back</span>
-</button>
-<div class="flex items-center gap-3">
-<h1 class="font-headline-lg text-headline-lg text-on-surface" id="proc-name">-</h1>
-<!-- Technical Badge -->
-<div class="flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-primary-container/10 border border-primary/20">
-<div class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-<span class="font-mono-label text-mono-label text-primary" id="proc-status">-</span>
-</div>
-</div>
-</div>
-<div class="flex flex-wrap items-center gap-2">
-<!-- Language Selector -->
-<select class="bg-surface-container-high border border-white/10 rounded px-3 h-9 text-on-surface-variant font-body-md text-body-md cursor-pointer" onchange="setLang(this.value)" data-lang-select>
-<option value="zh">🇨🇳 中文</option>
-<option value="en">🇬🇧 English</option>
-</select>
-<button class="flex-1 md:flex-none flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 h-9 rounded-DEFAULT border border-outline-variant text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors font-body-sm whitespace-nowrap" onclick="act('stop')">
-<span class="material-symbols-outlined text-[18px]">stop</span>
-                    <span data-i18n="button.stop">停止</span>
-                </button>
-<button class="flex-1 md:flex-none flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 h-9 rounded-DEFAULT border border-primary/30 text-primary hover:bg-primary/10 transition-colors font-body-sm whitespace-nowrap" onclick="act('restart')">
-<span class="material-symbols-outlined text-[18px]">restart_alt</span>
-                    <span data-i18n="button.restart">重启</span>
-                </button>
-<button class="flex-1 md:flex-none flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 h-9 rounded-DEFAULT bg-primary text-on-primary hover:bg-primary-fixed transition-colors font-body-sm whitespace-nowrap shadow-[0_0_15px_rgba(68,216,241,0.2)]" onclick="act('start')">
-<span class="material-symbols-outlined text-[18px]">play_arrow</span>
-                    <span data-i18n="button.start">启动</span>
-                </button>
-</div>
-</header>
-<!-- Upper Section: Frosted Info Panel -->
-<section class="bg-white/[0.06] backdrop-blur-[30px] rounded-lg border-t border-l border-white/10 border-b border-r border-transparent shadow-sm p-4 md:p-container-padding transition-all duration-300 hover:bg-white/[0.08]">
-<div class="grid grid-cols-2 md:grid-cols-4 gap-y-gutter gap-x-card-gap">
-<!-- Data Items -->
-<div class="flex flex-col gap-1">
-<span class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.pid">PID</span>
-<span class="font-mono-data text-mono-data text-on-surface" id="proc-pid">-</span>
-</div>
-<div class="flex flex-col gap-1">
-<span class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.cpu_usage">CPU 使用率</span>
-<span class="font-mono-data text-mono-data text-primary" id="proc-cpu">-</span>
-</div>
-<div class="flex flex-col gap-1">
-<span class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.memory">内存占用</span>
-<span class="font-mono-data text-mono-data text-on-surface" id="proc-mem">-</span>
-</div>
-<div class="flex flex-col gap-1">
-<span class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.uptime">运行时间</span>
-<span class="font-mono-data text-mono-data text-on-surface" id="proc-uptime">-</span>
-</div>
-<div class="flex flex-col gap-1 col-span-2 md:col-span-4">
-<span class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.command_start">启动命令</span>
-<div class="bg-black/20 px-3 py-1.5 rounded-DEFAULT border border-white/5 overflow-x-auto terminal-scroll">
-<span class="font-mono-data text-mono-data text-on-surface whitespace-nowrap" id="proc-cmd">-</span>
-</div>
-</div>
-</div>
-</section>
-<!-- Lower Section: Log Viewer -->
-<section class="flex flex-col flex-grow layout-min-h-0 mt-2">
-<!-- Log Controls -->
-<div class="flex items-center justify-between mb-card-gap">
-<h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-[20px]">terminal</span>
-                    <span data-i18n="log.output">日志输出</span>
-                </h2>
-<div class="flex items-center gap-gutter">
-<!-- Clear Button -->
-<button class="flex items-center justify-center gap-1 px-3 h-8 rounded-DEFAULT border border-outline-variant text-on-surface-variant hover:bg-white/5 hover:text-on-surface transition-colors font-body-sm whitespace-nowrap" onclick="clearLogs()" data-i18n-title="log.clear" title="清屏">
-<span class="material-symbols-outlined text-[18px]">cleaning_services</span>
-                    <span data-i18n="log.clear">清屏</span>
-                </button>
-<!-- Lines Selector -->
-<select class="bg-surface-container border border-outline-variant text-on-surface-variant font-body-sm text-body-sm rounded-DEFAULT px-3 py-1 focus:ring-1 focus:ring-primary focus:border-primary outline-none" id="lines-select" onchange="loadRecentLogs()">
-<option data-i18n="log.lines_100" value="100">100 行</option>
-<option data-i18n="log.lines_500" selected="" value="500">500 行</option>
-<option data-i18n="log.lines_1000" value="1000">1000 行</option>
-</select>
-<!-- Glass Toggle -->
-<div class="flex items-center gap-2 cursor-pointer group" id="live-toggle" onclick="toggleLive()">
-<span class="font-body-sm text-body-sm text-on-surface-variant group-hover:text-on-surface transition-colors" data-i18n="log.live">实时</span>
-<div class="toggle-track w-8 h-4 bg-primary/20 rounded-full p-[2px] transition-colors border border-white/10 backdrop-blur-md relative flex items-center">
-<div class="toggle-thumb w-3 h-3 bg-primary rounded-full transform transition-transform shadow-sm"></div>
-</div>
-</div>
-</div>
-</div>
-<!-- Terminal Area -->
-<div class="bg-[#000000]/40 backdrop-blur-md rounded-lg border border-white/[0.08] flex-grow flex flex-col overflow-hidden relative shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)]">
-<!-- Terminal Header bar (optional subtle indication) -->
-<div class="h-6 bg-white/[0.02] border-b border-white/[0.05] flex items-center px-4 gap-2">
-<div class="w-2 h-2 rounded-full bg-error/50"></div>
-<div class="w-2 h-2 rounded-full bg-tertiary-container/50"></div>
-<div class="w-2 h-2 rounded-full bg-primary/50"></div>
-</div>
-<!-- Log Content -->
-<div class="p-4 md:p-gutter overflow-y-auto overflow-x-auto whitespace-pre-wrap break-words terminal-scroll flex-grow layout-min-h-0 font-mono-data text-[10px] sm:text-mono-data space-y-1" id="log-content"></div>
-</div>
-</section>
+<!-- Process detail: same dark-management visual system, purpose-built for monitoring. -->
+<main class="pf-detail-main" id="main">
+  <header class="pf-detail-header">
+    <div class="pf-detail-header-left">
+      <a class="pf-detail-back" href="/processes" aria-label="返回进程管理" data-i18n-title="detail.back" title="返回进程管理">
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+      </a>
+      <div class="pf-detail-heading">
+        <div class="pf-detail-breadcrumb">
+          <a href="/processes" data-i18n="detail.back">进程管理</a>
+          <span class="pf-detail-breadcrumb-separator" aria-hidden="true">/</span>
+          <span data-i18n="detail.label">进程详情</span>
+        </div>
+        <div class="pf-detail-title-line">
+          <h1 id="proc-name" title="">—</h1>
+          <span class="pf-detail-status" id="proc-status-badge" data-status="unknown">
+            <span class="pf-detail-status-dot" aria-hidden="true"></span>
+            <span id="proc-status">—</span>
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="pf-detail-header-actions">
+      <!-- Same compact two-language picker used by Process / Tasks pages. -->
+      <div class="pf-lang-picker" data-pf-language-picker>
+        <select class="pf-top-lang" data-lang-select aria-label="语言 / Language" onchange="setLang(this.value)">
+          <option value="zh">CN 中文</option>
+          <option value="en">EN English</option>
+        </select>
+        <button type="button" class="pf-lang-trigger" data-lang-trigger aria-label="Language / 语言"
+                aria-haspopup="listbox" aria-expanded="false" aria-controls="pf-language-menu" hidden>
+          <span class="pf-lang-code" data-lang-code>CN</span>
+          <span class="pf-lang-label" data-lang-current>中文</span>
+          <span class="material-symbols-outlined pf-lang-chevron" aria-hidden="true">keyboard_arrow_down</span>
+        </button>
+        <div class="pf-lang-menu" id="pf-language-menu" data-lang-menu role="listbox" aria-label="Language / 语言" hidden>
+          <button type="button" class="pf-lang-option" role="option" data-lang-value="zh" data-lang-code="CN" data-lang-label="中文" aria-selected="true" tabindex="-1"><span class="pf-lang-code">CN</span><span class="pf-lang-option-label">中文</span><span class="material-symbols-outlined pf-lang-check" aria-hidden="true">check</span></button>
+          <button type="button" class="pf-lang-option" role="option" data-lang-value="en" data-lang-code="EN" data-lang-label="English" aria-selected="false" tabindex="-1"><span class="pf-lang-code">EN</span><span class="pf-lang-option-label">English</span><span class="material-symbols-outlined pf-lang-check" aria-hidden="true">check</span></button>
+        </div>
+      </div>
+      <div class="pf-detail-action-group" role="group" aria-label="进程操作">
+        <button type="button" class="pf-detail-action pf-detail-action--neutral" id="detail-stop"
+                onclick="act('stop')" data-i18n-title="button.stop" title="停止">
+          <span class="material-symbols-outlined" aria-hidden="true">stop</span><span data-i18n="button.stop">停止</span>
+        </button>
+        <button type="button" class="pf-detail-action pf-detail-action--outline" id="detail-restart"
+                onclick="act('restart')" data-i18n-title="button.restart" title="重启">
+          <span class="material-symbols-outlined" aria-hidden="true">refresh</span><span data-i18n="button.restart">重启</span>
+        </button>
+        <button type="button" class="pf-detail-action pf-detail-action--primary" id="detail-start"
+                onclick="act('start')" data-i18n-title="button.start" title="启动">
+          <span class="material-symbols-outlined" aria-hidden="true">play_arrow</span><span data-i18n="button.start">启动</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="pf-detail-overview" aria-label="进程指标">
+    <div class="pf-detail-metrics">
+      <div class="pf-metric">
+        <div class="pf-metric-label"><span class="material-symbols-outlined" aria-hidden="true">tag</span><span data-i18n="label.pid">PID</span></div>
+        <div class="pf-metric-value" id="proc-pid">—</div>
+      </div>
+      <div class="pf-metric">
+        <div class="pf-metric-label"><span class="material-symbols-outlined" aria-hidden="true">speed</span><span data-i18n="label.cpu_usage">CPU 使用率</span></div>
+        <div class="pf-metric-value pf-metric-accent" id="proc-cpu">—</div>
+      </div>
+      <div class="pf-metric">
+        <div class="pf-metric-label"><span class="material-symbols-outlined" aria-hidden="true">memory</span><span data-i18n="label.memory">内存占用</span></div>
+        <div class="pf-metric-value" id="proc-mem">—</div>
+      </div>
+      <div class="pf-metric">
+        <div class="pf-metric-label"><span class="material-symbols-outlined" aria-hidden="true">schedule</span><span data-i18n="label.uptime">运行时间</span></div>
+        <div class="pf-metric-value" id="proc-uptime">—</div>
+      </div>
+    </div>
+    <div class="pf-detail-command-row">
+      <div class="pf-detail-command-label">
+        <span class="material-symbols-outlined" aria-hidden="true">terminal</span>
+        <span data-i18n="label.command_start">启动命令</span>
+      </div>
+      <div class="pf-detail-command-box">
+        <span class="pf-detail-dollar" aria-hidden="true">$</span>
+        <code id="proc-cmd">—</code>
+        <button class="pf-detail-copy" type="button" onclick="copyProcessCommand()"
+                id="detail-copy" data-i18n-title="detail.copy_command" title="复制命令" aria-label="复制命令">
+          <span class="material-symbols-outlined" aria-hidden="true">content_copy</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="pf-detail-logs">
+    <header class="pf-log-toolbar">
+      <div class="pf-log-heading">
+        <div class="pf-log-title-line">
+          <span class="pf-log-title-icon material-symbols-outlined" aria-hidden="true">terminal</span>
+          <h2 data-i18n="log.output">日志输出</h2>
+          <span class="pf-log-counter" id="log-line-count" aria-live="off">0 行</span>
+        </div>
+        <p data-i18n="detail.log_subtitle">查看进程输出与运行记录</p>
+      </div>
+      <div class="pf-log-tools">
+        <button class="pf-log-clear" type="button" onclick="clearLogs()"
+                data-i18n-title="log.clear" title="清屏">
+          <span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span>
+          <span data-i18n="log.clear">清屏</span>
+        </button>
+        <div class="pf-log-lines-wrapper">
+          <select id="lines-select" onchange="loadRecentLogs()" aria-label="日志行数">
+            <option data-i18n="log.lines_100" value="100">100 行</option>
+            <option data-i18n="log.lines_500" selected value="500">500 行</option>
+            <option data-i18n="log.lines_1000" value="1000">1000 行</option>
+          </select>
+          <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+        </div>
+        <button class="pf-live-toggle is-on" type="button" id="live-toggle" onclick="toggleLive()"
+                role="switch" aria-checked="true" data-i18n-title="detail.switch_live" title="切换实时日志">
+          <span data-i18n="log.live">实时</span>
+          <span class="toggle-track"><span class="toggle-thumb"></span></span>
+        </button>
+      </div>
+    </header>
+
+    <div class="pf-terminal-window">
+      <div class="pf-terminal-chrome">
+        <span class="pf-terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="pf-terminal-chrome-title">stdout <span class="pf-terminal-chrome-sep">/</span> <span id="log-process-name">process</span></span>
+        <span class="pf-terminal-chrome-right">UTF-8</span>
+      </div>
+      <div class="pf-terminal-content terminal-scroll" id="log-content" data-empty="等待日志输出…"
+           role="log" aria-label="进程日志" aria-live="off" tabindex="0"></div>
+      <div class="pf-terminal-footer">
+        <span class="material-symbols-outlined" aria-hidden="true">subdirectory_arrow_right</span>
+        <span data-i18n="detail.log_footer">标准输出 · 仅当前进程</span>
+        <span class="pf-terminal-footer-spacer"></span>
+        <span class="pf-terminal-footer-indicator" id="log-view-mode" data-i18n="detail.live_status">实时模式</span>
+      </div>
+    </div>
+  </section>
 </main>
 <script src="/assets/i18n.js"></script>
 <script src="/assets/app.js"></script>
+<script src="/assets/topbar-controls.js?v=top2"></script>
 <script src="/assets/process-detail.js"></script>
 </body></html>
