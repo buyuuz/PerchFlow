@@ -131,6 +131,7 @@ mod restore_tests {
                 name: "check".into(), cmd: "cmd".into(), args: vec![],
                 cwd: None, schedule: "0 0 0 * * *".into(), timeout_secs: 0, enabled: false,
             }],
+            project: vec![],
         };
         let app = AppState::new(cfg, dir.path().join("perch.toml"));
         let handle = app.tasks.read().await.get("check").cloned().unwrap();
