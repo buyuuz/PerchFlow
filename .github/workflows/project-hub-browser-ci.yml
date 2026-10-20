@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/project-hub-v2
+      - feature/project-hub-v3
     paths:
       - 'frontend/**'
       - 'dev/verify_project_hub_browser.py'
