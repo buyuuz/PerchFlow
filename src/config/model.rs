@@ -88,6 +88,9 @@ pub struct ProjectDef {
     pub inputs: Vec<String>,
     #[serde(default)]
     pub outputs: Vec<String>,
+    /// Project-relative output directories to scan for file metadata after each run.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub output_dirs: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
