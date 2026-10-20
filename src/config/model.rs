@@ -91,6 +91,10 @@ pub struct ProjectDef {
     /// Project-relative output directories to scan for file metadata after each run.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub output_dirs: Vec<String>,
+    /// Opt-in validation of declared input files before starting any project task.
+    /// False preserves legacy behavior for existing projects and Python scripts.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub preflight_inputs: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
