@@ -40,6 +40,9 @@ CHANGES = {
 }
 CAPTURED = []
 LOG_READS = []
+SCHEDULE_TOGGLES = []
+MANUAL_RUNS = []
+MANUAL_STOPS = []
 
 def check_ci():
     assert os.name == "nt" and os.environ.get("GITHUB_ACTIONS") == "true"
@@ -71,6 +74,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return
             if path=="/api/projects": return self.api(200,{"projects":[PROJECT]})
             if path=="/api/tasks": return self.api(200,{"tasks":TASKS})
+            if path=="/api/tasks/mock_job":
+                return self.api(200,TASKS[0])
             if path==f"/api/projects/{PROJECT_NAME}":
                 return self.api(200,{"ok":True,"project":PROJECT,"files":FILES})
             if path==f"/api/projects/{PROJECT_NAME}/preflight":
@@ -78,7 +83,10 @@ class Handler(SimpleHTTPRequestHandler):
                     "enabled":True,"checked":1,"ready":True,"unavailable":[],"reason":None
                 }})
             if path=="/api/tasks/mock_job/history":
-                return self.api(200,{"ok":True,"runs":[{
+                cancelled = ([{"run_id":"mock-live-2-1","started_at":"2026-10-20T01:00:00Z",
+                    "finished_at":"2026-10-20T01:00:02Z","status":"cancelled","duration_ms":2000,
+                    "exit_code":None,"files_recorded":False}] if MANUAL_STOPS else [])
+                return self.api(200,{"ok":True,"runs":cancelled + [{
                     "run_id":"123-1-1","started_at":"2026-10-20T00:00:00Z",
                     "status":"success","files_recorded":True,"duration_ms":1234,"exit_code":0,
                     "preflight":{"enabled":True,"ready":True,"checked":1,"unavailable":[]},
@@ -93,12 +101,36 @@ class Handler(SimpleHTTPRequestHandler):
         if path=="/projects":
             self.path="/projects.html"
         return super().do_GET()
-    def do_POST(self):
+    def do_PUT(self):
         path=urllib.parse.unquote(urllib.parse.urlsplit(self.path).path)
         if not self.authenticate():
             return
         length=int(self.headers.get("Content-Length",0))
         data=json.loads(self.rfile.read(length).decode("utf-8"))
+        if path==f"/api/projects/{PROJECT_NAME}/tasks/mock_job/schedule":
+            assert sorted(data)==["enabled"], data
+            SCHEDULE_TOGGLES.append(data["enabled"])
+            TASKS[0]["enabled"]=data["enabled"]
+            return self.api(200,{"ok":True,"enabled":data["enabled"]})
+        return self.api(404,{"ok":False,"error":"not found"})
+
+    def do_POST(self):
+        path=urllib.parse.unquote(urllib.parse.urlsplit(self.path).path)
+        if not self.authenticate():
+            return
+        length=int(self.headers.get("Content-Length",0))
+        data=json.loads(self.rfile.read(length).decode("utf-8")) if length else None
+        if path=="/api/tasks/mock_job/run":
+            assert not TASKS[0]["enabled"], "manual run must not enable Cron"
+            MANUAL_RUNS.append("mock-live-2-1")
+            TASKS[0]["status"]="running"
+            TASKS[0]["run_id"]="mock-live-2-1"
+            return self.api(200,{"ok":True,"run_id":"mock-live-2-1"})
+        if path=="/api/tasks/mock_job/stop":
+            assert TASKS[0]["status"]=="running"
+            MANUAL_STOPS.append("mock-live-2-1")
+            TASKS[0]["status"]="cancelled"
+            return self.api(200,{"ok":True,"run_id":"mock-live-2-1"})
         if path==f"/api/projects/{PROJECT_NAME}/python-task":
             CAPTURED.append(data)
             assert data["name"] == "mock_python", data
@@ -125,6 +157,7 @@ def main():
             browser=playwright.chromium.launch(channel="msedge",headless=True)
             desktop=browser.new_page(viewport={"width":1280,"height":800})
             desktop.add_init_script(f"localStorage.setItem('perch_token', {json.dumps(TOKEN)});")
+            desktop.on("dialog", lambda dialog: dialog.accept())
             desktop.goto(f"http://127.0.0.1:{server.server_port}/projects",wait_until="networkidle")
             expect(desktop.locator("#project-current-name")).to_have_text(PROJECT_NAME)
             expect(desktop.locator("#project-job-count")).to_have_text("1")
@@ -134,7 +167,13 @@ def main():
             expect(desktop.locator("#project-output-dirs")).to_have_value("reports")
             expect(desktop.locator("#project-preflight-inputs")).to_be_checked()
             desktop.locator("#project-cancel").click()
-            desktop.get_by_role("button",name="执行记录").click()
+            # Existing mock task can be scheduled, run and cancelled in place.
+            desktop.get_by_role("button",name="启用定时").click()
+            expect(desktop.locator(".pf-project-task-item")).to_contain_text("Cron：已启用")
+            desktop.get_by_role("button",name="暂停定时").click()
+            expect(desktop.locator(".pf-project-task-item")).to_contain_text("Cron：已暂停")
+            assert SCHEDULE_TOGGLES == [True, False]
+            desktop.get_by_role("button",name="执行详情").click()
             expect(desktop.locator("#project-runs")).to_be_visible()
             expect(desktop.locator("#project-run-changes")).to_contain_text("generated.xlsx")
             expect(desktop.locator("#project-run-changes")).to_contain_text("自动发现")
@@ -145,6 +184,16 @@ def main():
             desktop.get_by_role("button", name="按需查看该次日志").click()
             expect(desktop.locator("#project-run-log")).to_contain_text("MOCK_LOG_ONLY")
             assert len(LOG_READS) == 1
+            desktop.get_by_role("button",name="运行一次").click()
+            expect(desktop.locator(".pf-project-task-item")).to_contain_text("运行中")
+            assert MANUAL_RUNS == ["mock-live-2-1"]
+            assert not TASKS[0]["enabled"]
+            desktop.get_by_role("button",name="停止",exact=True).click()
+            expect(desktop.locator(".pf-project-task-item")).to_contain_text("已取消")
+            assert MANUAL_STOPS == ["mock-live-2-1"]
+            expect(desktop.locator("#project-run-summary")).to_contain_text("已取消")
+            desktop.locator("#project-refresh").click()
+            expect(desktop.locator("#project-current-name")).to_have_text(PROJECT_NAME)
             desktop.locator("#project-add-python").click()
             expect(desktop.locator("#project-python-modal")).to_be_visible()
             desktop.locator("#project-python-name").fill("mock_python")
@@ -170,6 +219,8 @@ def main():
             "run_scoped_file_changes":"PASS (mock API)",
             "opt_in_preflight_display":"PASS (mock API)",
             "run_summary_and_explicit_log":"PASS (mock API)",
+            "project_inline_cron_control":"PASS (mock API, verified confirmations)",
+            "manual_run_stop":"PASS (mock API, no real execution)",
             "mobile_ui":"PASS",
             "production_invoked":False
         },indent=2),encoding="utf-8")
