@@ -102,6 +102,10 @@
       <label>输出文件（相对项目目录，每行一个）
         <textarea id="project-outputs" rows="3" placeholder="results.txt&#10;failed.txt"></textarea>
       </label>
+      <label>自动追踪的输出目录（相对项目目录，每行一个，最多 8 个）
+        <textarea id="project-output-dirs" rows="3" placeholder="output&#10;reports"></textarea>
+      </label>
+      <p class="pf-project-muted">每次执行前后仅比较输出目录中最多 512 个文件的大小和修改时间；最多扫描两层目录，不读取文件正文。</p>
       <p class="pf-project-muted">不会复制、读取或自动修改关联文件。请勿填写包含 .. 的越界路径。</p>
       <p id="project-form-error" class="pf-project-form-error" role="alert" hidden></p>
       <div class="pf-project-form-footer">
