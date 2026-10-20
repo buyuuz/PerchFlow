@@ -229,3 +229,22 @@ fn op_result(r: crate::error::Result<()>) -> Json<serde_json::Value> {
         Err(e) => Json(json!({ "ok": false, "error": e.to_string() })),
     }
 }
+
+
+/// Per-run file change metadata; protected by the same bearer auth as task logs.
+/// No file body, account password or API key is ever returned by this route.
+async fn files(
+    State(ctx): State<WebContext>,
+    Path((name, run_id)): Path<(String, String)>,
+) -> Json<serde_json::Value> {
+    if ctx.state.config.read().await.task.iter().all(|t| t.name != name) {
+        return Json(json!({"ok":false,"error":"task not found"}));
+    }
+    let base = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs");
+    match crate::core::task_files::read(&base, &name, &run_id) {
+        Ok(record) => Json(json!({"ok":true,"record":record})),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound =>
+            Json(json!({"ok":false,"error":"file metadata not recorded for this run"})),
+        Err(_) => Json(json!({"ok":false,"error":"file metadata unavailable"})),
+    }
+}
