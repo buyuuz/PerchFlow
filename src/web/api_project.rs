@@ -46,6 +46,7 @@ fn file_statuses(project: &ProjectDef) -> Vec<Value> {
     let canonical_root = root.canonicalize().ok();
     project.inputs.iter().map(|p| ("input", p))
         .chain(project.outputs.iter().map(|p| ("output", p)))
+        .chain(project.output_dirs.iter().map(|p| ("output_dir", p)))
         .map(|(role, relative)| {
             let mut result = json!({
                 "role":role,"path":relative,"exists":false,
