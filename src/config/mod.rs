@@ -55,8 +55,10 @@ pub fn validate(cfg: &Config) -> Result<()> {
             return Err(PerchError::Config(format!("duplicate project: {}", project.name)));
         }
         let root = Path::new(&project.root);
-        if !root.is_absolute() || !root.is_dir() {
-            return Err(PerchError::Config(format!("project {} needs an existing absolute directory", project.name)));
+        // Missing/offline project drives should not stop the whole PerchFlow service.
+        // The read-only file-status API reports unavailable files instead.
+        if !root.is_absolute() {
+            return Err(PerchError::Config(format!("project {} needs an absolute directory path", project.name)));
         }
         let mut local = HashSet::new();
         for name in &project.tasks {
