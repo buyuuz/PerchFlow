@@ -93,7 +93,7 @@ pub struct ProjectDef {
     pub output_dirs: Vec<String>,
     /// Opt-in validation of declared input files before starting any project task.
     /// False preserves legacy behavior for existing projects and Python scripts.
-    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[serde(default)]
     pub preflight_inputs: bool,
 }
 
