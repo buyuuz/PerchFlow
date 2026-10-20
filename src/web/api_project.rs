@@ -21,6 +21,7 @@ pub fn routes() -> Router<WebContext> {
         .route("/projects/:name", get(detail).put(update).delete(remove))
         .route("/projects/:name/python-task", axum::routing::post(add_python_task))
         .route("/projects/:name/preflight", get(preflight_status))
+        .route("/projects/:name/tasks/:task/schedule", axum::routing::put(set_project_task_schedule))
 }
 
 async fn list(State(ctx): State<WebContext>) -> Json<Value> {
@@ -225,4 +226,47 @@ async fn preflight_status(State(ctx): State<WebContext>, Path(name): Path<String
     };
     let report = crate::core::task_preflight::check(project);
     Json(json!({"ok":true,"preflight":report}))
+}
+
+
+#[derive(Debug, Deserialize)]
+struct ScheduleToggleRequest {
+    enabled: bool,
+}
+
+/// Project-scoped toggle of an existing task's cron loop. Does not execute or
+/// cancel the task, change its command, or alter its input/output files.
+/// Manual runs use the existing scheduler and remain independent of this flag.
+async fn set_project_task_schedule(
+    State(ctx): State<WebContext>,
+    Path((project_name, task_name)): Path<(String, String)>,
+    Json(request): Json<ScheduleToggleRequest>,
+) -> Json<Value> {
+    let mut current = ctx.state.config.write().await;
+    let belongs = current.project.iter().any(|project| {
+        project.name == project_name && project.tasks.iter().any(|t| t == &task_name)
+    });
+    if !belongs {
+        return Json(json!({"ok":false,"error":"task does not belong to project"}));
+    }
+    let Some(task_index) = current.task.iter().position(|t| t.name == task_name) else {
+        return Json(json!({"ok":false,"error":"task not found"}));
+    };
+    if current.task[task_index].enabled == request.enabled {
+        return Json(json!({"ok":true,"enabled":request.enabled,"unchanged":true}));
+    }
+    let mut next = current.clone();
+    next.task[task_index].enabled = request.enabled;
+    // A schedule toggle must preserve all other task configuration.
+    if let Err(err) = config::validate(&next) {
+        return Json(json!({"ok":false,"error":err.to_string()}));
+    }
+    if let Err(err) = writer::save(&ctx.state.config_path, &next) {
+        return Json(json!({"ok":false,"error":err.to_string()}));
+    }
+    *current = next;
+    drop(current);
+    // Disabling Cron doesn't cancel an already-running manual/scheduled run.
+    ctx.scheduler.reload().await;
+    Json(json!({"ok":true,"enabled":request.enabled}))
 }
