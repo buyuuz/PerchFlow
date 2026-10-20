@@ -352,6 +352,23 @@ mod tests {
     }
 
     #[test]
+    fn unavailable_project_root_does_not_appear_as_mass_deletion() {
+        let dir = tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("results")).unwrap();
+        std::fs::write(dir.path().join("results").join("report.txt"), "MOCK_ONLY").unwrap();
+        let p = project(dir.path(), &[], &[], &["results"]);
+        let before = snapshot(&p);
+        assert!(before.complete);
+        let mut disconnected = p.clone();
+        disconnected.root = dir.path().join("DISCONNECTED_MOCK_DISK").to_string_lossy().into_owned();
+        let after = snapshot(&disconnected);
+        assert!(!after.complete);
+        let changes = diff("mock", "offline-1", &p, before, after);
+        assert!(changes.incomplete_scan);
+        assert!(!changes.changes.iter().any(|change| change.change == "removed"));
+    }
+
+    #[test]
     fn excludes_symlinks_and_traversal() {
         let dir = tempdir().unwrap();
         let p = project(dir.path(), &["../outside"], &[], &[]);
