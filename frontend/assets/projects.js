@@ -120,7 +120,7 @@ async function renderProjectDetail() {
     const row = el('div', 'pf-project-file-item');
     const left = el('div');
     const name = el('div', 'file-name');
-    name.append(el('span', 'pf-project-file-role', file.role === 'input' ? '输入' : '输出'));
+    name.append(el('span', 'pf-project-file-role', ({input:'输入',output:'输出',output_dir:'自动扫描目录'})[file.role] || '文件'));
     name.append(document.createTextNode(file.path));
     left.append(name);
     if (file.exists) {
@@ -145,6 +145,7 @@ function openProjectForm(projectName) {
   byId('project-root').value = project ? project.root : '';
   byId('project-inputs').value = project ? project.inputs.join('\n') : '';
   byId('project-outputs').value = project ? project.outputs.join('\n') : '';
+  byId('project-output-dirs').value = project ? (project.output_dirs || []).join('\n') : '';
   byId('project-form-error').hidden = true;
   const picker = byId('project-task-options');
   picker.replaceChildren();
@@ -177,10 +178,16 @@ async function saveProject(event) {
   const tasks = Array.from(byId('project-task-options').querySelectorAll('input:checked')).map(n => n.value);
   const payload = {
     name:name, root:root, tasks:tasks,
-    inputs:lines('project-inputs'), outputs:lines('project-outputs')
+    inputs:lines('project-inputs'), outputs:lines('project-outputs'),
+    output_dirs:lines('project-output-dirs')
   };
   if (!name || !root) {
     errorBox.textContent = '请填写项目名称和完整工作目录。';
+    errorBox.hidden = false;
+    return;
+  }
+  if (payload.output_dirs.length > 8) {
+    errorBox.textContent = '最多配置 8 个输出目录。';
     errorBox.hidden = false;
     return;
   }
@@ -238,12 +245,13 @@ async function showRunFiles(name, runId) {
     const data = await requestJson('/api/tasks/' + encodeURIComponent(name) + '/files/' + encodeURIComponent(runId));
     const record = data.record;
     target.replaceChildren();
-    target.append(el('p', 'pf-project-muted', '检查了 ' + record.scanned_paths + ' 个已登记路径；仅元数据，不包含文件正文。'));
+    target.append(el('p', 'pf-project-muted', '检查了 ' + record.scanned_paths + ' 条文件/目录元数据（含自动发现）；不包含文件正文。'));
+    if (record.incomplete_scan) target.append(el('p', 'pf-project-form-error', '扫描未完整完成（文件数量/目录深度或访问权限限制），此结果可能不包含所有变化。'));
     if (!record.changes.length) target.append(el('p', 'pf-project-muted', '没有检测到已登记文件的变化。'));
     for (const entry of record.changes) {
       const row = el('div', 'pf-project-file-item');
       const name = el('div', 'file-name');
-      name.append(el('span', 'pf-project-file-role', entry.role === 'input' ? '输入' : '输出'));
+      name.append(el('span', 'pf-project-file-role', entry.role === 'input' ? '输入' : entry.role === 'output_dir' ? '输出目录' : (entry.after?.discovered || entry.before?.discovered) ? '自动发现' : '输出'));
       name.append(document.createTextNode(entry.path));
       const label = {created:'新增',modified:'修改',removed:'删除'}[entry.change] || entry.change;
       const detail = el('span', 'pf-project-status', label);
