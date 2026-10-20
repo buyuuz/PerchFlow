@@ -19,6 +19,7 @@ PROJECT = {
     "name": PROJECT_NAME, "root": r"C:\CI\MOCK_PROJECT",
     "tasks": ["mock_job"], "inputs": ["accounts.txt"], "outputs": ["results.txt"],
     "output_dirs": ["reports"],
+    "preflight_inputs": True,
 }
 TASKS = [{"name":"mock_job", "cmd":"cmd", "args":["/c","echo MOCK_ONLY"],
           "cwd":PROJECT["root"], "schedule":"0 0 0 * * *",
@@ -38,6 +39,7 @@ CHANGES = {
     }]
 }
 CAPTURED = []
+LOG_READS = []
 
 def check_ci():
     assert os.name == "nt" and os.environ.get("GITHUB_ACTIONS") == "true"
@@ -71,13 +73,22 @@ class Handler(SimpleHTTPRequestHandler):
             if path=="/api/tasks": return self.api(200,{"tasks":TASKS})
             if path==f"/api/projects/{PROJECT_NAME}":
                 return self.api(200,{"ok":True,"project":PROJECT,"files":FILES})
+            if path==f"/api/projects/{PROJECT_NAME}/preflight":
+                return self.api(200,{"ok":True,"preflight":{
+                    "enabled":True,"checked":1,"ready":True,"unavailable":[],"reason":None
+                }})
             if path=="/api/tasks/mock_job/history":
                 return self.api(200,{"ok":True,"runs":[{
                     "run_id":"123-1-1","started_at":"2026-10-20T00:00:00Z",
-                    "status":"success","files_recorded":True
+                    "status":"success","files_recorded":True,"duration_ms":1234,"exit_code":0,
+                    "preflight":{"enabled":True,"ready":True,"checked":1,"unavailable":[]},
+                    "output_summary":{"created":1,"modified":0,"removed":0,"incomplete_scan":False}
                 }]})
             if path=="/api/tasks/mock_job/files/123-1-1":
                 return self.api(200,{"ok":True,"record":CHANGES})
+            if path=="/api/tasks/mock_job/log/123-1-1":
+                LOG_READS.append(path)
+                return self.api(200,{"ok":True,"content":"MOCK_LOG_ONLY","truncated":False})
             return self.api(404,{"ok":False,"error":"not found"})
         if path=="/projects":
             self.path="/projects.html"
@@ -118,14 +129,22 @@ def main():
             expect(desktop.locator("#project-current-name")).to_have_text(PROJECT_NAME)
             expect(desktop.locator("#project-job-count")).to_have_text("1")
             expect(desktop.locator("#project-file-count")).to_have_text("3")
+            expect(desktop.locator("#project-preflight-state")).to_contain_text("已就绪")
             desktop.locator("#project-edit").click()
             expect(desktop.locator("#project-output-dirs")).to_have_value("reports")
+            expect(desktop.locator("#project-preflight-inputs")).to_be_checked()
             desktop.locator("#project-cancel").click()
             desktop.get_by_role("button",name="执行记录").click()
             expect(desktop.locator("#project-runs")).to_be_visible()
             expect(desktop.locator("#project-run-changes")).to_contain_text("generated.xlsx")
             expect(desktop.locator("#project-run-changes")).to_contain_text("自动发现")
             expect(desktop.locator("#project-run-changes")).to_contain_text("新增")
+            expect(desktop.locator("#project-run-summary")).to_contain_text("新增 1")
+            expect(desktop.locator("#project-run-summary")).to_contain_text("输入预检：通过")
+            assert not LOG_READS, "logs must not be fetched automatically"
+            desktop.get_by_role("button", name="按需查看该次日志").click()
+            expect(desktop.locator("#project-run-log")).to_contain_text("MOCK_LOG_ONLY")
+            assert len(LOG_READS) == 1
             desktop.locator("#project-add-python").click()
             expect(desktop.locator("#project-python-modal")).to_be_visible()
             desktop.locator("#project-python-name").fill("mock_python")
@@ -149,6 +168,8 @@ def main():
             "desktop_ui":"PASS",
             "desktop_python_creation":"PASS (mock API, task disabled)",
             "run_scoped_file_changes":"PASS (mock API)",
+            "opt_in_preflight_display":"PASS (mock API)",
+            "run_summary_and_explicit_log":"PASS (mock API)",
             "mobile_ui":"PASS",
             "production_invoked":False
         },indent=2),encoding="utf-8")
