@@ -130,7 +130,7 @@ def service_exe(pid):
 def start(base, token, exe):
     result = run("sc.exe", "start", SERVICE, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
-    pid = wait(lambda: (i if (s, i := scm_state())[0] == "RUNNING" else None),
+    pid = wait(lambda: (info[1] if (info := scm_state())[0] == "RUNNING" and info[1] else None),
                "Windows service running")
     assert service_exe(pid).casefold() == str(exe).casefold(), "Unexpected SCM process! Refuse action."
     wait(lambda: api(base, token, "/api/tasks"), "service API online")
@@ -253,14 +253,14 @@ def test(exe, report):
             report.write_text(json.dumps({
                 "checks": checks,
                 "passed": len(checks),
-                "expected": 7,
+                "expected": 8,
                 "scope": "GitHub-hosted ephemeral Windows SCM only",
                 "Daily_Check_called": False,
                 "real_reboot_tested": False,
                 "browser_interactivity_tested": False,
             }, indent=2), encoding="utf-8")
     print(json.dumps(checks, indent=2))
-    assert len(checks) == 7, checks
+    assert len(checks) == 8, checks
 
 
 if __name__ == "__main__":
