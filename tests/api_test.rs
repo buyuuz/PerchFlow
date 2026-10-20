@@ -11,7 +11,7 @@ async fn spawn_server() -> (String, String, tempfile::TempDir) {
     let tmp = tempfile::tempdir().unwrap();
     let cfg = Config {
         server: ServerConfig { bind: "127.0.0.1:0".into(), token: "secret".into(), lang: "en".into() },
-        process: vec![], task: vec![],
+        process: vec![], task: vec![], project: vec![],
     };
     let config_path = tmp.path().join("perch.toml");
     perch::config::writer::save(&config_path, &cfg).unwrap();
