@@ -271,6 +271,7 @@ mod tests {
             tasks: vec![], inputs: inputs.iter().map(|s| (*s).into()).collect(),
             outputs: outputs.iter().map(|s| (*s).into()).collect(),
             output_dirs: output_dirs.iter().map(|s| (*s).into()).collect(),
+            preflight_inputs: false,
         }
     }
 
