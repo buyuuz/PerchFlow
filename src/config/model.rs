@@ -76,6 +76,20 @@ pub struct TaskDef {
 fn default_true() -> bool { true }
 fn default_task_timeout() -> u64 { 0 }
 
+/// A project groups existing scheduled tasks and references files in their original directory.
+/// No files are copied, opened, or executed when a project is saved.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectDef {
+    pub name: String,
+    pub root: String,
+    #[serde(default)]
+    pub tasks: Vec<String>,
+    #[serde(default)]
+    pub inputs: Vec<String>,
+    #[serde(default)]
+    pub outputs: Vec<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub server: ServerConfig,
@@ -83,11 +97,13 @@ pub struct Config {
     pub process: Vec<ProcessDef>,
     #[serde(default)]
     pub task: Vec<TaskDef>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub project: Vec<ProjectDef>,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { server: ServerConfig::default(), process: Vec::new(), task: Vec::new() }
+        Self { server: ServerConfig::default(), process: Vec::new(), task: Vec::new(), project: Vec::new() }
     }
 }
 
@@ -133,5 +149,6 @@ pub fn default_demo_config() -> Config {
             restart: RestartConfig::default(),
         }],
         task: Vec::new(),
+        project: Vec::new(),
     }
 }
