@@ -103,6 +103,10 @@
     en: {
       'nav.processes': 'Processes',
       'nav.tasks': 'Tasks',
+      'nav.projects': 'Projects',
+      'nav.projects_short': 'Projects',
+      'page.projects_title': 'Projects',
+      'page.projects_subtitle': 'Link tasks and input/output files without moving them',
       'nav.processes_short': 'Processes',
       'nav.tasks_short': 'Tasks',
       'button.add_process': 'Add Process',
