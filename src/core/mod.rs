@@ -7,4 +7,5 @@ pub mod jobobj;
 pub mod process;
 pub mod supervisor;
 pub mod scheduler;
+pub mod task_files;
 pub mod metrics;
