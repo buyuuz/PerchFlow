@@ -74,6 +74,7 @@ fn save_then_load_roundtrips() {
             cwd: None, env: HashMap::new(), autostart: true, restart: RestartConfig::default(),
         }],
         task: vec![],
+        project: vec![],
     };
     let f = tempfile::NamedTempFile::new().unwrap();
     let path = f.path().to_path_buf();
