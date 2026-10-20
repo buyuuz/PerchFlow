@@ -117,7 +117,7 @@ def main():
             desktop.goto(f"http://127.0.0.1:{server.server_port}/projects",wait_until="networkidle")
             expect(desktop.locator("#project-current-name")).to_have_text(PROJECT_NAME)
             expect(desktop.locator("#project-job-count")).to_have_text("1")
-            expect(desktop.locator("#project-file-count")).to_have_text("4")
+            expect(desktop.locator("#project-file-count")).to_have_text("3")
             desktop.locator("#project-edit").click()
             expect(desktop.locator("#project-output-dirs")).to_have_value("reports")
             desktop.locator("#project-cancel").click()
@@ -135,7 +135,7 @@ def main():
             desktop.locator("#project-python-form").locator('button[type="submit"]').click()
             expect(desktop.locator("#project-python-modal")).to_be_hidden()
             expect(desktop.locator("#project-job-count")).to_have_text("2")
-            expect(desktop.locator("#project-file-count")).to_have_text("3")
+            expect(desktop.locator("#project-file-count")).to_have_text("4")
             assert len(CAPTURED) == 1
             desktop.screenshot(path=str(target/"project-hub-desktop.png"),full_page=True)
             mobile=browser.new_page(viewport={"width":390,"height":844})
