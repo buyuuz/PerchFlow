@@ -118,6 +118,105 @@ async fn running_task_can_be_cancelled_without_blocking_manual_api() {
     assert_eq!(history["runs"][0]["status"], "cancelled");
 }
 
+
+async fn await_task_completion(
+    client: &reqwest::Client,
+    base: &str,
+    token: &str,
+    name: &str,
+) -> serde_json::Value {
+    for _ in 0..100 {
+        let detail: serde_json::Value = client
+            .get(format!("{base}/api/tasks/{name}"))
+            .bearer_auth(token)
+            .send().await.unwrap().json().await.unwrap();
+        if detail["status"] != "running" {
+            return detail;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    panic!("task {name} did not finish within ten seconds")
+}
+
+#[tokio::test]
+async fn finished_task_output_history_and_restart_recovery() {
+    let (base, token, dir) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "name": "output_check", "cmd": "cmd",
+        "args": ["/c", "echo PERCH_TASK_LOG_471"],
+        "schedule": "0 0 0 * * *", "enabled": false
+    });
+    let created: serde_json::Value = client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&body).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"], true);
+    let started: serde_json::Value = client.post(format!("{base}/api/tasks/output_check/run"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(started["ok"], true);
+    let run_id = started["run_id"].as_str().unwrap();
+
+    let done = await_task_completion(&client, &base, &token, "output_check").await;
+    assert_eq!(done["status"], "success");
+    assert_eq!(done["last_exit_code"], 0);
+    assert_eq!(done["run_id"], run_id);
+
+    // Task output is actually persisted and accessible only with API authentication.
+    let log_url = format!("{base}/api/tasks/output_check/log/{run_id}");
+    let unauthorized = client.get(&log_url).send().await.unwrap();
+    assert_eq!(unauthorized.status().as_u16(), 401);
+    let log: serde_json::Value = client.get(&log_url).bearer_auth(&token)
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(log["ok"], true);
+    assert!(log["content"].as_str().unwrap().contains("PERCH_TASK_LOG_471"));
+
+    let history: serde_json::Value = client.get(format!("{base}/api/tasks/output_check/history"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(history["runs"].as_array().unwrap().len(), 1);
+    assert_eq!(history["runs"][0]["status"], "success");
+    assert_eq!(history["runs"][0]["run_id"], run_id);
+
+    let cfg_path = dir.path().join("perch.toml");
+    let saved = perch::config::load(&cfg_path).unwrap();
+    let restored = AppState::new(saved, cfg_path);
+    let task = restored.tasks.read().await.get("output_check").cloned().unwrap();
+    let snapshot = task.read().await;
+    assert_eq!(snapshot.status, "success");
+    assert_eq!(snapshot.last_exit_code, Some(0));
+    assert_eq!(snapshot.run_id.as_deref(), Some(run_id));
+}
+
+#[tokio::test]
+async fn failed_exit_and_timeout_are_reported_as_distinct_states() {
+    let (base, token, _dir) = spawn_server().await;
+    let client = reqwest::Client::new();
+    for (name, command, timeout) in [
+        ("bad_exit", "exit /b 7", 0_u64),
+        ("time_limited", "ping -n 15 127.0.0.1", 1_u64),
+    ] {
+        let body = serde_json::json!({
+            "name": name, "cmd": "cmd", "args": ["/c", command],
+            "schedule": "0 0 0 * * *", "enabled": false, "timeout_secs": timeout
+        });
+        let created: serde_json::Value = client.post(format!("{base}/api/tasks"))
+            .bearer_auth(&token).json(&body).send().await.unwrap().json().await.unwrap();
+        assert_eq!(created["ok"], true);
+        let run: serde_json::Value = client.post(format!("{base}/api/tasks/{name}/run"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        assert_eq!(run["ok"], true);
+        let final_state = await_task_completion(&client, &base, &token, name).await;
+        if name == "bad_exit" {
+            assert_eq!(final_state["status"], "failed");
+            assert_eq!(final_state["last_exit_code"], 7);
+        } else {
+            assert_eq!(final_state["status"], "timeout");
+            assert!(final_state["last_exit_code"].is_null());
+        }
+        let history: serde_json::Value = client.get(format!("{base}/api/tasks/{name}/history"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        assert_eq!(history["runs"][0]["status"], final_state["status"]);
+    }
+}
+
 #[tokio::test]
 async fn recent_logs_empty_for_new_process() {
     let (base, token, _tmp) = spawn_server().await;

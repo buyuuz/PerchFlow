@@ -163,6 +163,10 @@ impl Scheduler {
             Err(e) if e.to_string().contains("cancelled") => ("cancelled", None),
             Err(_) => ("failed", None),
         };
+        // Publish the terminal status only after its durable history entry is written.
+        // Otherwise the UI can show "success" before /history is ready.
+        let record = serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"finished_at":finished,"status":status,"event":"finished","exit_code":code,"error":result.as_ref().err().map(|e| e.to_string())});
+        self.append_history(&log_dir, &record).await;
         if let Some(rt) = rt {
             let mut r = rt.write().await;
             r.status = status.into();
@@ -170,8 +174,6 @@ impl Scheduler {
             r.last_exit_code = code;
             r.finished_at = Some(finished);
         }
-        let record = serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"finished_at":finished,"status":status,"event":"finished","exit_code":code,"error":result.as_ref().err().map(|e| e.to_string())});
-        self.append_history(&log_dir, &record).await;
         match result {
             Ok(0) => Ok(()),
             Ok(code) => Err(PerchError::Process(format!("task {name} exited with code {code}"))),
