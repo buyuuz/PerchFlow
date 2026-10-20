@@ -61,3 +61,14 @@
 #project-run-log{margin:13px 0;border:1px solid rgba(255,255,255,.12);padding:12px;border-radius:9px;background:rgba(7,12,20,.4)}
 #project-run-log[hidden]{display:none!important}
 .pf-project-log-text{max-height:230px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;color:#c8d5ea;margin:8px 0}
+
+.pf-project-task-item{align-items:flex-start;flex-wrap:wrap}
+.pf-project-task-main{display:flex;flex-direction:column;gap:6px;min-width:165px;flex:1}
+.pf-project-task-main strong{font-size:13px;font-weight:650;color:#e1eaf9;overflow-wrap:anywhere}
+.pf-project-task-cron{font-size:11px;color:#92a6c4;overflow-wrap:anywhere}
+.pf-project-task-actions{align-items:center;justify-content:flex-end;row-gap:7px}
+.pf-project-task-actions .pf-project-primary,.pf-project-task-actions .pf-project-secondary,.pf-project-task-actions .pf-project-danger{font-size:11px;padding:6px 9px}
+.pf-project-task-actions button:disabled{opacity:.35;cursor:not-allowed}
+.pf-project-config-link{color:#a7c4ff;text-decoration:none;font-size:11px;white-space:nowrap}
+.pf-project-task-actions button:focus-visible,.pf-project-config-link:focus-visible{outline:2px solid #a8c2ff;outline-offset:2px}
+@media(max-width:800px){.pf-project-task-item{flex-direction:column;align-items:stretch}.pf-project-task-actions{justify-content:flex-start;flex-wrap:wrap}}
