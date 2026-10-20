@@ -95,6 +95,7 @@ async function renderProjectDetail() {
   byId('project-job-count').textContent = project.tasks.length;
   byId('project-file-count').textContent = files.length;
   byId('project-exists-count').textContent = files.filter(f => f.exists).length;
+  byId('project-runs').hidden = true;
   const jobs = byId('project-jobs');
   jobs.replaceChildren();
   if (!project.tasks.length) jobs.append(el('p', 'pf-project-muted', '暂无关联任务。可先在「定时任务」创建，再编辑项目进行关联。'));
@@ -104,7 +105,12 @@ async function renderProjectDetail() {
     link.href = '/tasks';
     const task = taskViews.find(t => t.name === name);
     const indicator = el('span', 'pf-project-status', task ? task.status + ' · ' + (task.enabled ? '已启用' : '未启用') : '未找到');
-    row.append(link, indicator);
+    const actions = el('div', 'pf-project-action-row');
+    const history = el('button', 'pf-project-secondary', '执行记录');
+    history.type = 'button';
+    history.addEventListener('click', () => { void showProjectRuns(name); });
+    actions.append(indicator, history);
+    row.append(link, actions);
     jobs.append(row);
   });
   const output = byId('project-files');
@@ -202,8 +208,106 @@ async function deleteProject() {
   } catch (error) { displayError(error); }
 }
 
+async function showProjectRuns(name) {
+  const panel = byId('project-runs');
+  const output = byId('project-runs-list');
+  byId('project-runs-title').textContent = name + ' · 最近执行';
+  panel.hidden = false;
+  output.replaceChildren(el('p', 'pf-project-muted', '正在加载执行记录…'));
+  byId('project-run-changes').replaceChildren();
+  try {
+    const response = await requestJson('/api/tasks/' + encodeURIComponent(name) + '/history');
+    output.replaceChildren();
+    const runs = (response.runs || []).slice(0, 12);
+    if (!runs.length) output.append(el('p', 'pf-project-muted', '暂无运行记录。'));
+    for (const run of runs) {
+      const button = el('button', 'pf-project-run-item',
+        (run.started_at || '—') + ' · ' + (run.status || '—') + ' · 文件变化');
+      button.type = 'button';
+      button.addEventListener('click', () => { void showRunFiles(name, run.run_id); });
+      output.append(button);
+    }
+    if (runs.length) await showRunFiles(name, runs[0].run_id);
+  } catch (error) { output.replaceChildren(el('p', 'pf-project-form-error', error.message || String(error))); }
+}
+
+async function showRunFiles(name, runId) {
+  const target = byId('project-run-changes');
+  target.replaceChildren(el('p', 'pf-project-muted', '正在读取文件变化…'));
+  try {
+    const data = await requestJson('/api/tasks/' + encodeURIComponent(name) + '/files/' + encodeURIComponent(runId));
+    const record = data.record;
+    target.replaceChildren();
+    target.append(el('p', 'pf-project-muted', '检查了 ' + record.scanned_paths + ' 个已登记路径；仅元数据，不包含文件正文。'));
+    if (!record.changes.length) target.append(el('p', 'pf-project-muted', '没有检测到已登记文件的变化。'));
+    for (const entry of record.changes) {
+      const row = el('div', 'pf-project-file-item');
+      const name = el('div', 'file-name');
+      name.append(el('span', 'pf-project-file-role', entry.role === 'input' ? '输入' : '输出'));
+      name.append(document.createTextNode(entry.path));
+      const label = {created:'新增',modified:'修改',removed:'删除'}[entry.change] || entry.change;
+      const detail = el('span', 'pf-project-status', label);
+      row.append(name, detail);
+      target.append(row);
+    }
+  } catch (error) {
+    target.replaceChildren(el('p', 'pf-project-muted', '该次执行没有可用的文件变化记录（例如旧记录或未关联项目）。'));
+  }
+}
+
+function openPythonForm() {
+  if (!currentProjectName) return;
+  byId('project-python-form').reset();
+  byId('project-python-cron').value = '0 0 0 * * *';
+  byId('project-python-timeout').value = '3600';
+  byId('project-python-error').hidden = true;
+  byId('project-python-modal').hidden = false;
+  byId('project-python-name').focus();
+}
+
+function closePythonForm() { byId('project-python-modal').hidden = true; }
+
+async function savePythonTask(event) {
+  event.preventDefault();
+  if (!currentProjectName) return;
+  const errorBox = byId('project-python-error');
+  errorBox.hidden = true;
+  const timeout = Number(byId('project-python-timeout').value);
+  if (!Number.isSafeInteger(timeout) || timeout < 0) {
+    errorBox.textContent = '运行超时时间必须是非负整数。';
+    errorBox.hidden = false;
+    return;
+  }
+  const body = {
+    name:byId('project-python-name').value.trim(),
+    python:byId('project-python-exe').value.trim(),
+    script:byId('project-python-script').value.trim(),
+    args:lines('project-python-args'),
+    schedule:byId('project-python-cron').value.trim(), timeout_secs:timeout
+  };
+  const button = byId('project-python-submit');
+  button.disabled = true;
+  try {
+    const result = await requestJson('/api/projects/' + encodeURIComponent(currentProjectName) + '/python-task', 'POST', body);
+    if (result.enabled !== false) throw new Error('安全检查失败：任务不应自动启用');
+    closePythonForm();
+    await loadProjects(currentProjectName);
+  } catch (error) {
+    errorBox.textContent = error.message || String(error);
+    errorBox.hidden = false;
+  } finally { button.disabled = false; }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   byId('project-new').addEventListener('click', () => openProjectForm(null));
+  byId('project-add-python').addEventListener('click', openPythonForm);
+  byId('project-python-form').addEventListener('submit', savePythonTask);
+  byId('project-python-close').addEventListener('click', closePythonForm);
+  byId('project-python-cancel').addEventListener('click', closePythonForm);
+  byId('project-python-modal').addEventListener('click', e => {
+    if (e.target === byId('project-python-modal')) closePythonForm();
+  });
+  byId('project-runs-close').addEventListener('click', () => { byId('project-runs').hidden = true; });
   byId('project-edit').addEventListener('click', () => openProjectForm(currentProjectName));
   byId('project-delete').addEventListener('click', deleteProject);
   byId('project-form').addEventListener('submit', saveProject);
@@ -214,6 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !byId('project-modal').hidden) closeProjectForm();
+    if (e.key === 'Escape' && !byId('project-python-modal').hidden) closePythonForm();
   });
   void loadProjects();
 });
