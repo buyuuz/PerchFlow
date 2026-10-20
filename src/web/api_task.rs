@@ -22,6 +22,7 @@ pub fn routes() -> Router<WebContext> {
 #[derive(Serialize)]
 pub struct TaskView {
     pub name: String,
+    pub project: Option<String>,
     pub schedule: String,
     pub cmd: String,
     pub args: Vec<String>,
@@ -45,7 +46,9 @@ async fn build_view(ctx: &WebContext, name: &str) -> Option<TaskView> {
         None => (None, None, "idle".into(), None, None, None),
     };
     Some(TaskView {
-        name: t.name.clone(), schedule: t.schedule.clone(), cmd: t.cmd.clone(),
+        name: t.name.clone(),
+        project: cfg.project.iter().find(|p| p.tasks.contains(&t.name)).map(|p| p.name.clone()),
+        schedule: t.schedule.clone(), cmd: t.cmd.clone(),
         args: t.args.clone(), cwd: t.cwd.clone(),
         enabled: t.enabled, last_run, last_exit_code, status, started_at, finished_at, run_id, timeout_secs: t.timeout_secs,
     })
@@ -96,6 +99,9 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(de
         return Json(json!({"ok":false,"error":"task is running; stop it before editing"}));
     }
     let new_name = def.name.clone();
+    if new_name != old_name && ctx.state.config.read().await.project.iter().any(|p| p.tasks.contains(&old_name)) {
+        return Json(json!({"ok":false,"error":"task belongs to a project; unlink it before renaming"}));
+    }
     {
         let mut cfg = ctx.state.config.write().await;
         if new_name != old_name && cfg.task.iter().any(|t| t.name == new_name) {
@@ -122,6 +128,9 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(de
 async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
     if ctx.scheduler.is_running(&name).await {
         return Json(json!({"ok":false,"error":"task is running; stop it before deleting"}));
+    }
+    if ctx.state.config.read().await.project.iter().any(|p| p.tasks.contains(&name)) {
+        return Json(json!({"ok":false,"error":"task belongs to a project; unlink it before deleting"}));
     }
     { ctx.state.config.write().await.task.retain(|t| t.name != name); }
     ctx.state.tasks.write().await.remove(&name);
