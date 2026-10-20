@@ -25,3 +25,13 @@ jobs:
         run: |
           node --check frontend/assets/tasks.js
           node dev/test_task_args.js
+      - name: Isolated Windows EXE mock simulation
+        run: python dev/simulate_task_runtime_binary.py --exe target/release/perch.exe
+      - name: Upload mock simulation summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perchflow-mock-only-verification
+          path: dev/reports/mock-runtime-ci.json
+          if-no-files-found: warn
+          retention-days: 14
