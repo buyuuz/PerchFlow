@@ -11,6 +11,10 @@
     zh: {
       'nav.processes': '进程',
       'nav.tasks': '定时任务',
+      'nav.projects': '项目',
+      'nav.projects_short': '项目',
+      'page.projects_title': '项目管理',
+      'page.projects_subtitle': '关联现有任务、输入和结果文件；文件保持原位置',
       'nav.processes_short': '进程',
       'nav.tasks_short': '任务',
       'button.add_process': '添加进程',
