@@ -55,6 +55,7 @@
               <code id="project-root-preview" class="pf-project-path"></code>
             </div>
             <div class="pf-project-action-row">
+              <button type="button" id="project-add-python" class="pf-project-primary">+ Python 任务</button>
               <button type="button" id="project-edit" class="pf-project-secondary">编辑</button>
               <button type="button" id="project-delete" class="pf-project-danger">删除项目</button>
             </div>
@@ -67,6 +68,11 @@
           <div class="pf-project-section">
             <div class="pf-project-section-title"><h3>关联执行任务</h3><a href="/tasks">前往任务管理 ↗</a></div>
             <div id="project-jobs"></div>
+            <div id="project-runs" class="pf-project-runs" hidden>
+              <div class="pf-project-section-title"><h3 id="project-runs-title">执行记录</h3><button type="button" class="pf-project-secondary" id="project-runs-close">收起</button></div>
+              <div id="project-runs-list"></div>
+              <div id="project-run-changes"></div>
+            </div>
           </div>
           <div class="pf-project-section">
             <div class="pf-project-section-title"><h3>输入与输出文件</h3><span>仅显示元数据，不读取内容</span></div>
@@ -101,6 +107,24 @@
       <div class="pf-project-form-footer">
         <button type="button" id="project-cancel" class="pf-project-secondary">取消</button>
         <button type="submit" id="project-save" class="pf-project-primary">保存项目</button>
+      </div>
+    </form>
+  </div>
+  <div id="project-python-modal" class="pf-project-overlay" hidden>
+    <form id="project-python-form" class="pf-project-form">
+      <div class="pf-project-form-head"><h2>创建 Python 执行任务</h2>
+        <button type="button" id="project-python-close" aria-label="关闭">×</button></div>
+      <p class="pf-project-muted">仅保存任务配置，默认停用。确认脚本及调度后，可在「定时任务」页面手动启用。</p>
+      <label>任务名称<input id="project-python-name" required maxlength="100" placeholder="firecrawl_mock"></label>
+      <label>Python 解释器绝对路径<input id="project-python-exe" required placeholder="D:\Scoop\apps\python312\current\python.exe"></label>
+      <label>主脚本（相对于项目目录）<input id="project-python-script" required placeholder="worker.py"></label>
+      <label>启动参数（每行一个参数）<textarea id="project-python-args" rows="2" placeholder="--limit&#10;10"></textarea></label>
+      <label>Cron 表达式（6 或 7 段，含秒）<input id="project-python-cron" required value="0 0 0 * * *"></label>
+      <label>最长运行秒数（0 = 不限制）<input id="project-python-timeout" type="number" required min="0" value="3600"></label>
+      <p id="project-python-error" class="pf-project-form-error" role="alert" hidden></p>
+      <div class="pf-project-form-footer">
+        <button type="button" id="project-python-cancel" class="pf-project-secondary">取消</button>
+        <button type="submit" id="project-python-submit" class="pf-project-primary">保存停用任务</button>
       </div>
     </form>
   </div>
