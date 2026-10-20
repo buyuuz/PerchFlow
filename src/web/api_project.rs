@@ -20,6 +20,7 @@ pub fn routes() -> Router<WebContext> {
         .route("/projects", get(list).post(create))
         .route("/projects/:name", get(detail).put(update).delete(remove))
         .route("/projects/:name/python-task", axum::routing::post(add_python_task))
+        .route("/projects/:name/preflight", get(preflight_status))
 }
 
 async fn list(State(ctx): State<WebContext>) -> Json<Value> {
@@ -212,4 +213,16 @@ async fn add_python_task(
     );
     // No scheduler.reload() here because the task is deliberately disabled.
     Json(json!({"ok":true,"task":body.name,"enabled":false}))
+}
+
+
+/// Read-only current readiness check. Does not launch the task or open file bodies.
+/// Uses the same bearer-token protection as other /api routes.
+async fn preflight_status(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<Value> {
+    let config = ctx.state.config.read().await;
+    let Some(project) = config.project.iter().find(|p| p.name == name) else {
+        return Json(json!({"ok":false,"error":"project not found"}));
+    };
+    let report = crate::core::task_preflight::check(project);
+    Json(json!({"ok":true,"preflight":report}))
 }
