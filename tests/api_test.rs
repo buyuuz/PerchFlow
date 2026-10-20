@@ -571,3 +571,122 @@ async fn project_rejects_unsafe_paths_missing_jobs_and_duplicate_membership() {
     let duplicate: serde_json::Value = duplicate;
     assert_eq!(duplicate["ok"],false);
 }
+
+
+#[tokio::test]
+async fn project_creates_only_disabled_python_task_and_links_script() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let project_dir = tmp.path().join("python-mock");
+    std::fs::create_dir_all(&project_dir).unwrap();
+    std::fs::write(project_dir.join("mock_worker.py"), "# MOCK_ONLY - never executed\n").unwrap();
+    let project = serde_json::json!({
+        "name":"Safe Python Project","root":project_dir.to_string_lossy(),
+        "inputs":[],"outputs":["mock_result.txt"],"tasks":[]
+    });
+    let result: serde_json::Value = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(result["ok"],true);
+
+    let python = std::env::current_exe().unwrap().to_string_lossy().into_owned();
+    let task = serde_json::json!({
+        "name":"mock_python_task","python":python,"script":"mock_worker.py",
+        "args":["--dry-run","value with spaces"],"schedule":"0 0 0 * * *",
+        "timeout_secs":30,"enabled":true
+    });
+    let no_auth = client.post(format!("{base}/api/projects/Safe%20Python%20Project/python-task"))
+        .json(&task).send().await.unwrap();
+    assert_eq!(no_auth.status(),401);
+    let saved:serde_json::Value = client.post(format!("{base}/api/projects/Safe%20Python%20Project/python-task"))
+        .bearer_auth(&token).json(&task).send().await.unwrap().json().await.unwrap();
+    assert_eq!(saved["ok"],true,"{}",saved);
+    assert_eq!(saved["enabled"],false,"user input must not enable new task");
+
+    let tasks:serde_json::Value = client.get(format!("{base}/api/tasks"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    let row=&tasks["tasks"][0];
+    assert_eq!(row["enabled"],false);
+    assert_eq!(row["project"],"Safe Python Project");
+    assert_eq!(row["cwd"],project_dir.to_string_lossy().as_ref());
+    assert_eq!(row["args"][0],project_dir.join("mock_worker.py").to_string_lossy().as_ref());
+    assert_eq!(row["args"][2],"value with spaces");
+
+    let detail:serde_json::Value = client.get(format!("{base}/api/projects/Safe%20Python%20Project"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(detail["project"]["tasks"][0],"mock_python_task");
+    assert_eq!(detail["project"]["inputs"][0],"mock_worker.py");
+    assert_eq!(detail["files"][0]["exists"],true);
+    assert!(!project_dir.join("mock_result.txt").exists(),"save must not execute script");
+
+    let invalid = serde_json::json!({
+        "name":"evil","python":python,"script":"../outside.py",
+        "schedule":"0 0 0 * * *"
+    });
+    let denied:serde_json::Value = client.post(format!("{base}/api/projects/Safe%20Python%20Project/python-task"))
+        .bearer_auth(&token).json(&invalid).send().await.unwrap().json().await.unwrap();
+    assert_eq!(denied["ok"],false);
+    let missing = serde_json::json!({
+        "name":"missing","python":python,"script":"missing.py",
+        "schedule":"0 0 0 * * *"
+    });
+    let denied:serde_json::Value = client.post(format!("{base}/api/projects/Safe%20Python%20Project/python-task"))
+        .bearer_auth(&token).json(&missing).send().await.unwrap().json().await.unwrap();
+    assert_eq!(denied["ok"],false);
+    assert_eq!(perch::config::load(&tmp.path().join("perch.toml")).unwrap().task.len(),1);
+}
+
+#[tokio::test]
+async fn task_file_changes_recorded_per_run_without_contents() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let root = tmp.path().join("mock-run-files");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join("accounts.txt"), "SECRET_DUMMY_ACCOUNT").unwrap();
+    let task = serde_json::json!({
+        "name":"write_mock","cmd":"cmd","args":["/c","echo MOCK_ONLY>results.txt"],
+        "cwd":root.to_string_lossy(),"schedule":"0 0 0 * * *","enabled":false
+    });
+    let created:serde_json::Value = client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&task).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"],true);
+    let project = serde_json::json!({
+        "name":"File Tracking","root":root.to_string_lossy(),
+        "tasks":["write_mock"],"inputs":["accounts.txt"],"outputs":["results.txt"]
+    });
+    let saved:serde_json::Value = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(saved["ok"],true);
+
+    let started:serde_json::Value = client.post(format!("{base}/api/tasks/write_mock/run"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(started["ok"],true);
+    let run_id=started["run_id"].as_str().unwrap();
+    let mut done=false;
+    for _ in 0..65 {
+        let detail:serde_json::Value = client.get(format!("{base}/api/tasks/write_mock"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        if detail["status"]=="success" {done=true;break;}
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(done,"mock file writing task did not finish");
+    let url=format!("{base}/api/tasks/write_mock/files/{run_id}");
+    let unauth=client.get(&url).send().await.unwrap();
+    assert_eq!(unauth.status(),401);
+    let body=client.get(&url).bearer_auth(&token)
+        .send().await.unwrap().text().await.unwrap();
+    assert!(!body.contains("SECRET_DUMMY_ACCOUNT"));
+    assert!(!body.contains("MOCK_ONLY"));
+    let result:serde_json::Value=serde_json::from_str(&body).unwrap();
+    assert_eq!(result["ok"],true,"{}",result);
+    assert_eq!(result["record"]["project"],"File Tracking");
+    assert_eq!(result["record"]["run_id"],run_id);
+    assert_eq!(result["record"]["scanned_paths"],2);
+    let changed=result["record"]["changes"].as_array().unwrap();
+    assert_eq!(changed.len(),1,"{}",result);
+    assert_eq!(changed[0]["path"],"results.txt");
+    assert_eq!(changed[0]["change"],"created");
+    assert_eq!(changed[0]["role"],"output");
+    let history:serde_json::Value=client.get(format!("{base}/api/tasks/write_mock/history"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(history["runs"][0]["files_recorded"],true);
+}
