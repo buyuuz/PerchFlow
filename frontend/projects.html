@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PerchFlow · 项目管理</title>
+  <link rel="stylesheet" href="/assets/fonts.css">
+  <link rel="stylesheet" href="/assets/tailwind.css">
+  <link rel="stylesheet" href="/assets/branding.css">
+  <link rel="stylesheet" href="/assets/projects.css">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+</head>
+<body class="bg-background text-on-background min-h-screen">
+  <header class="pf-project-header">
+    <a href="/processes" class="pf-project-brand">
+      <img src="/assets/logo.png" width="28" height="28" alt="" aria-hidden="true">
+      <span>Perch<span class="text-on-surface">Flow</span></span>
+    </a>
+    <nav class="pf-project-nav" aria-label="主导航">
+      <a href="/processes" data-i18n="nav.processes">进程</a>
+      <a href="/tasks" data-i18n="nav.tasks">定时任务</a>
+      <a href="/projects" aria-current="page" data-i18n="nav.projects">项目</a>
+    </nav>
+    <span class="pf-project-tag">PROJECT HUB</span>
+  </header>
+  <main class="pf-project-main">
+    <div class="pf-project-titlebar">
+      <div>
+        <h1 data-i18n="page.projects_title">项目管理</h1>
+        <p data-i18n="page.projects_subtitle">关联现有任务、输入和结果文件；文件保持原位置</p>
+      </div>
+      <button type="button" id="project-new" class="pf-project-primary">+ 新建项目</button>
+    </div>
+    <p id="project-notice" class="pf-project-notice" role="status" hidden></p>
+    <div class="pf-project-layout">
+      <section class="pf-project-list-column">
+        <div class="pf-project-column-title">
+          <h2>我的项目</h2><span id="project-count" aria-live="polite">0</span>
+        </div>
+        <div id="project-list" class="pf-project-list" aria-live="polite">
+          <p class="pf-project-muted">正在加载…</p>
+        </div>
+      </section>
+      <section class="pf-project-detail-column">
+        <div id="project-empty" class="pf-project-empty">
+          <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+          <h2>选择一个项目查看详情</h2>
+          <p>首次使用时点击「新建项目」，填写项目目录并关联已有的任务。</p>
+        </div>
+        <div id="project-detail" hidden>
+          <div class="pf-project-detail-head">
+            <div>
+              <p class="pf-project-eyebrow">PROJECT OVERVIEW</p>
+              <h2 id="project-current-name"></h2>
+              <code id="project-root-preview" class="pf-project-path"></code>
+            </div>
+            <div class="pf-project-action-row">
+              <button type="button" id="project-edit" class="pf-project-secondary">编辑</button>
+              <button type="button" id="project-delete" class="pf-project-danger">删除项目</button>
+            </div>
+          </div>
+          <div class="pf-project-counters">
+            <div><strong id="project-job-count">0</strong><span>关联任务</span></div>
+            <div><strong id="project-file-count">0</strong><span>关联文件</span></div>
+            <div><strong id="project-exists-count">0</strong><span>文件存在</span></div>
+          </div>
+          <div class="pf-project-section">
+            <div class="pf-project-section-title"><h3>关联执行任务</h3><a href="/tasks">前往任务管理 ↗</a></div>
+            <div id="project-jobs"></div>
+          </div>
+          <div class="pf-project-section">
+            <div class="pf-project-section-title"><h3>输入与输出文件</h3><span>仅显示元数据，不读取内容</span></div>
+            <div id="project-files"></div>
+          </div>
+          <p class="pf-project-muted pf-project-warning">删除项目只会移除管理关联，不会删除 Python 脚本、任务、日志或 TXT / Excel 文件。</p>
+        </div>
+      </section>
+    </div>
+  </main>
+  <div id="project-modal" class="pf-project-overlay" hidden>
+    <form id="project-form" class="pf-project-form">
+      <div class="pf-project-form-head">
+        <h2 id="project-form-title">新建项目</h2>
+        <button id="project-close" type="button" aria-label="关闭">×</button>
+      </div>
+      <label>项目名称<input name="name" id="project-name" required maxlength="100" placeholder="例如：Firecrawl 自动化"></label>
+      <label>项目工作目录<input name="root" id="project-root" required placeholder="D:\Projects\Example"></label>
+      <fieldset>
+        <legend>关联现有任务</legend>
+        <p class="pf-project-muted">一个项目可关联多条任务。任务的 Python 命令、工作目录和 Cron 在「定时任务」页面配置。</p>
+        <div id="project-task-options" class="pf-project-task-options"></div>
+      </fieldset>
+      <label>输入 / 依赖文件（相对项目目录，每行一个）
+        <textarea id="project-inputs" rows="3" placeholder="accounts.txt&#10;config.json"></textarea>
+      </label>
+      <label>输出文件（相对项目目录，每行一个）
+        <textarea id="project-outputs" rows="3" placeholder="results.txt&#10;failed.txt"></textarea>
+      </label>
+      <p class="pf-project-muted">不会复制、读取或自动修改关联文件。请勿填写包含 .. 的越界路径。</p>
+      <p id="project-form-error" class="pf-project-form-error" role="alert" hidden></p>
+      <div class="pf-project-form-footer">
+        <button type="button" id="project-cancel" class="pf-project-secondary">取消</button>
+        <button type="submit" id="project-save" class="pf-project-primary">保存项目</button>
+      </div>
+    </form>
+  </div>
+  <script src="/assets/i18n.js"></script>
+  <script src="/assets/app.js"></script>
+  <script src="/assets/projects.js"></script>
+</body>
+</html>
