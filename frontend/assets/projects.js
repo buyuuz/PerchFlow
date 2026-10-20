@@ -211,6 +211,8 @@ async function operateProjectTask(name, action) {
     } else {
       result = await requestJson(url + (action === 'run' ? '/run' : '/stop'), 'POST');
     }
+    // Release the pending-action lock before rerendering the task buttons.
+    busyTasks.delete(name);
     if (currentProjectName === projectName) {
       await refreshProjectState(action === 'schedule' ? null : name);
       if (action === 'run' && result.run_id) {
