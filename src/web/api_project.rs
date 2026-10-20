@@ -2,7 +2,9 @@
 //! A project is metadata: an original working directory, existing task links,
 //! and relative input/output file references. Deleting a project never deletes
 //! task definitions, Python scripts, files or run logs.
-use crate::config::{self, model::ProjectDef, writer};
+use crate::config::{self, model::{ProjectDef, TaskDef}, writer};
+use serde::Deserialize;
+use std::str::FromStr;
 use crate::web::WebContext;
 use axum::{
     extract::{Path, State},
@@ -17,6 +19,7 @@ pub fn routes() -> Router<WebContext> {
     Router::new()
         .route("/projects", get(list).post(create))
         .route("/projects/:name", get(detail).put(update).delete(remove))
+        .route("/projects/:name/python-task", axum::routing::post(add_python_task))
 }
 
 async fn list(State(ctx): State<WebContext>) -> Json<Value> {
@@ -117,4 +120,95 @@ fn persist_checked(
     }
     *current = next;
     Json(json!({"ok":true}))
+}
+
+
+#[derive(Debug, Deserialize)]
+struct PythonTaskRequest {
+    name: String,
+    python: String,
+    script: String,
+    #[serde(default)]
+    args: Vec<String>,
+    schedule: String,
+    #[serde(default)]
+    timeout_secs: u64,
+}
+
+/// Create a *disabled* scheduled Python task belonging to the given project.
+/// This only writes metadata to perch.toml, it NEVER launches the command.
+async fn add_python_task(
+    State(ctx): State<WebContext>,
+    Path(name): Path<String>,
+    Json(body): Json<PythonTaskRequest>,
+) -> Json<Value> {
+    if body.name.trim().is_empty() || body.name.len() > 100 {
+        return Json(json!({"ok":false,"error":"task name must be 1-100 characters"}));
+    }
+    if body.python.trim().is_empty() || !FsPath::new(&body.python).is_absolute() {
+        return Json(json!({"ok":false,"error":"Python interpreter needs an absolute path"}));
+    }
+    if !config::safe_relative_path(&body.script) || !body.script.to_ascii_lowercase().ends_with(".py") {
+        return Json(json!({"ok":false,"error":"script must be a relative .py path inside the project"}));
+    }
+    if body.args.len() > 100 || body.args.iter().any(|arg| arg.len() > 2048) {
+        return Json(json!({"ok":false,"error":"too many or oversized arguments"}));
+    }
+    if cron::Schedule::from_str(&body.schedule).is_err() {
+        return Json(json!({"ok":false,"error":"invalid cron schedule"}));
+    }
+
+    let mut config = ctx.state.config.write().await;
+    let Some(index) = config.project.iter().position(|p| p.name == name) else {
+        return Json(json!({"ok":false,"error":"project not found"}));
+    };
+    if config.task.iter().any(|task| task.name == body.name) {
+        return Json(json!({"ok":false,"error":"task name already exists"}));
+    }
+    let project_root = FsPath::new(&config.project[index].root);
+    let script = project_root.join(&body.script);
+    // Validate the exact script, including symlinked parent directories. No reading or execution.
+    let Some(canonical_root) = project_root.canonicalize().ok() else {
+        return Json(json!({"ok":false,"error":"project directory is not currently available"}));
+    };
+    let Ok(info) = std::fs::symlink_metadata(&script) else {
+        return Json(json!({"ok":false,"error":"Python script does not exist"}));
+    };
+    if !info.is_file() || info.file_type().is_symlink() ||
+        !script.canonicalize().is_ok_and(|real| real.starts_with(&canonical_root)) {
+        return Json(json!({"ok":false,"error":"script must be a regular file inside project directory"}));
+    }
+    let Some(script_string) = script.to_str().map(str::to_owned) else {
+        return Json(json!({"ok":false,"error":"script path cannot be encoded"}));
+    };
+    let mut args = vec![script_string];
+    args.extend(body.args);
+    let mut next = config.clone();
+    next.task.push(TaskDef {
+        name: body.name.clone(), cmd: body.python, args,
+        cwd: Some(next.project[index].root.clone()), schedule: body.schedule,
+        timeout_secs: body.timeout_secs, enabled: false,
+    });
+    next.project[index].tasks.push(body.name.clone());
+    if !next.project[index].inputs.contains(&body.script) {
+        next.project[index].inputs.push(body.script);
+    }
+    if let Err(err) = config::validate(&next) {
+        return Json(json!({"ok":false,"error":err.to_string()}));
+    }
+    if let Err(err) = writer::save(&ctx.state.config_path, &next) {
+        return Json(json!({"ok":false,"error":err.to_string()}));
+    }
+    *config = next;
+    drop(config);
+    ctx.state.tasks.write().await.insert(
+        body.name.clone(), std::sync::Arc::new(tokio::sync::RwLock::new(
+            crate::core::state::TaskRuntime {
+                last_run:None, last_exit_code:None, status:"idle".into(),
+                started_at:None, finished_at:None, run_id:None,
+            }
+        )),
+    );
+    // No scheduler.reload() here because the task is deliberately disabled.
+    Json(json!({"ok":true,"task":body.name,"enabled":false}))
 }
