@@ -690,3 +690,95 @@ async fn task_file_changes_recorded_per_run_without_contents() {
         .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
     assert_eq!(history["runs"][0]["files_recorded"],true);
 }
+
+
+#[tokio::test]
+async fn output_directory_auto_discovers_new_files_for_real_mock_run() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let root = tmp.path().join("auto-output-mock");
+    std::fs::create_dir_all(&root).unwrap();
+    let task = serde_json::json!({
+        "name":"produce_mock","cmd":"cmd",
+        "args":["/c","mkdir reports && echo MOCK_ARTIFACT>reports\\generated.xlsx"],
+        "cwd":root.to_string_lossy(),"schedule":"0 0 0 * * *","enabled":false
+    });
+    let created:serde_json::Value = client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&task).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"],true);
+    let project = serde_json::json!({
+        "name":"Mock Files","root":root.to_string_lossy(),
+        "tasks":["produce_mock"],"inputs":[],"outputs":[],
+        "output_dirs":["reports"]
+    });
+    let created:serde_json::Value = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"],true,"{}",created);
+    let details:serde_json::Value = client.get(format!("{base}/api/projects/Mock%20Files"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(details["project"]["output_dirs"][0],"reports");
+    assert_eq!(details["files"][0]["role"],"output_dir");
+    assert_eq!(details["files"][0]["exists"],false);
+
+    let launched:serde_json::Value = client.post(format!("{base}/api/tasks/produce_mock/run"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(launched["ok"],true);
+    let run_id=launched["run_id"].as_str().unwrap();
+    let mut succeeded=false;
+    for _ in 0..75 {
+        let view:serde_json::Value = client.get(format!("{base}/api/tasks/produce_mock"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        if view["status"]=="success" {succeeded=true;break;}
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(succeeded,"mock output task timed out");
+    let text=client.get(format!("{base}/api/tasks/produce_mock/files/{run_id}"))
+        .bearer_auth(&token).send().await.unwrap().text().await.unwrap();
+    assert!(!text.contains("MOCK_ARTIFACT"),"must not leak generated file contents");
+    let result:serde_json::Value=serde_json::from_str(&text).unwrap();
+    assert_eq!(result["ok"],true,"{}",result);
+    assert_eq!(result["record"]["incomplete_scan"],false);
+    let changes=result["record"]["changes"].as_array().unwrap();
+    assert!(changes.iter().any(|entry| entry["path"]=="reports\\generated.xlsx"
+        && entry["change"]=="created" && entry["after"]["discovered"]==true),
+        "expected generated output file with discovered=true: {}",result);
+    assert!(changes.iter().any(|entry| entry["path"]=="reports"
+        && entry["role"]=="output_dir" && entry["change"]=="created"));
+}
+
+#[tokio::test]
+async fn output_directory_rejects_traversal_and_excess_directories() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    for dirs in [
+        serde_json::json!(["../secrets"]),
+        serde_json::json!(["reports/../../outside"]),
+        serde_json::json!(["a","b","c","d","e","f","g","h","i"])
+    ] {
+        let payload=serde_json::json!({
+            "name":"invalid","root":tmp.path().to_string_lossy(),
+            "tasks":[],"inputs":[],"outputs":[],"output_dirs":dirs
+        });
+        let result:serde_json::Value=client.post(format!("{base}/api/projects"))
+            .bearer_auth(&token).json(&payload).send().await.unwrap().json().await.unwrap();
+        assert_eq!(result["ok"],false,"{}",result);
+    }
+    let loaded=perch::config::load(&tmp.path().join("perch.toml")).unwrap();
+    assert!(loaded.project.is_empty());
+}
+
+#[test]
+fn old_toml_project_without_output_dirs_loads_with_empty_directory_list() {
+    let tmp=tempfile::tempdir().unwrap();
+    let project = serde_json::json!({
+        "name":"Legacy","root":tmp.path().to_string_lossy(),
+        "tasks":[],"inputs":["accounts.txt"],"outputs":["keys.txt"]
+    });
+    let decoded:ProjectDef=serde_json::from_value(project).unwrap();
+    assert!(decoded.output_dirs.is_empty());
+    let mut cfg=Config::default();
+    cfg.project.push(decoded);
+    let toml=toml::to_string(&cfg).unwrap();
+    let parsed:Config=toml::from_str(&toml).unwrap();
+    assert!(parsed.project[0].output_dirs.is_empty());
+}
