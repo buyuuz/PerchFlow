@@ -371,6 +371,30 @@ async function submitTaskModal() {
   const timeout_secs = Number(document.getElementById('task-timeout').value);
   if (!Number.isSafeInteger(timeout_secs) || timeout_secs < 0) { errEl.textContent = '超时秒数必须是非负整数'; errEl.classList.remove('hidden'); return; }
   const body = {name,cmd,args,cwd,schedule,enabled,timeout_secs};
+  if (cwd) {
+    try {
+      const checked = await api('/api/processes/validate-cwd', {
+        method:'POST', body:JSON.stringify({cwd}),
+      });
+      const validation = await checked.json();
+      if (!validation.ok) {
+        const messages = {
+          cwd_not_absolute:'工作目录必须是绝对路径',
+          cwd_not_found:'工作目录不存在',
+          cwd_not_directory:'所选路径不是文件夹',
+          cwd_inaccessible:'无法访问工作目录',
+          cwd_too_long:'工作目录路径过长',
+        };
+        errEl.textContent = messages[validation.error] || validation.error || '工作目录验证失败';
+        errEl.classList.remove('hidden');
+        return;
+      }
+    } catch (error) {
+      errEl.textContent = error.message || String(error);
+      errEl.classList.remove('hidden');
+      return;
+    }
+  }
   const path = editingName ? `/api/tasks/${encodeURIComponent(editingName)}` : '/api/tasks';
   const method = editingName ? 'PUT' : 'POST';
   try {

@@ -209,14 +209,13 @@ impl Scheduler {
         #[cfg(windows)]
         let _job = {
             match crate::core::jobobj::JobObject::create() {
-                Ok(job) => {
-                    if let Some(handle) = child.raw_handle() {
-                        if let Err(e) = job.assign(handle) {
-                            warn!("task '{}' job assignment failed: {e}", task.name);
-                        }
-                    }
-                    Some(job)
-                }
+                Ok(job) => match child.raw_handle() {
+                    Some(handle) => match job.assign(handle) {
+                        Ok(()) => Some(job),
+                        Err(e) => { warn!("task '{}' job assignment failed: {e}", task.name); None }
+                    },
+                    None => None,
+                },
                 Err(e) => { warn!("task '{}' job creation failed: {e}", task.name); None }
             }
         };
@@ -230,7 +229,17 @@ impl Scheduler {
         };
         if result.is_err() {
             #[cfg(windows)]
-            if let Some(job) = &_job { job.terminate(); }
+            {
+                if let Some(job) = &_job {
+                    job.terminate();
+                } else if let Some(pid) = child.id() {
+                    // Job assignment can fail if the process is already in another Windows job.
+                    // Fall back to killing its whole process tree rather than only cmd.exe.
+                    let _ = tokio::process::Command::new("taskkill")
+                        .arg("/PID").arg(pid.to_string()).args(["/T", "/F"])
+                        .output().await;
+                }
+            }
             let _ = child.start_kill();
             let _ = child.wait().await;
         }

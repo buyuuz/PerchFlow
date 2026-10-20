@@ -148,6 +148,13 @@ async fn history(State(ctx): State<WebContext>, Path(name): Path<String>) -> Jso
     if ctx.state.config.read().await.task.iter().all(|t| t.name != name) {
         return Json(json!({"ok":false,"error":"not found"}));
     }
+    let current_run_id = match ctx.state.tasks.read().await.get(&name).cloned() {
+        Some(task) => {
+            let rt = task.read().await;
+            if rt.status == "running" { rt.run_id.clone() } else { None }
+        }
+        None => None,
+    };
     let base = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs").join("history.jsonl");
     use std::io::BufRead;
     let mut entries: std::collections::VecDeque<serde_json::Value> = std::collections::VecDeque::new();
@@ -165,7 +172,8 @@ async fn history(State(ctx): State<WebContext>, Path(name): Path<String>) -> Jso
     let runs: Vec<_> = entries.into_iter().rev()
         .filter(|r| r.get("run_id").and_then(|v| v.as_str()).is_some_and(|id| ids.insert(id.to_owned())))
         .take(100).map(|mut r| {
-            if r.get("status").and_then(|v| v.as_str()) == Some("running") {
+            if r.get("status").and_then(|v| v.as_str()) == Some("running")
+                && r.get("run_id").and_then(|v| v.as_str()) != current_run_id.as_deref() {
                 r["status"] = serde_json::Value::String("interrupted".into());
             }
             r
