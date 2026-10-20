@@ -95,7 +95,8 @@ pub fn snapshot(project: &ProjectDef) -> Snapshot {
     let root = Path::new(&project.root);
     let canonical_root = root.canonicalize().ok();
     let mut entries: BTreeMap<(String, String), FileState> = BTreeMap::new();
-    let mut complete = true;
+    // A disconnected project drive must never masquerade as file deletions.
+    let mut complete = canonical_root.is_some() || project.output_dirs.is_empty();
     let registered = project.inputs.iter().map(|name| ("input", name))
         .chain(project.outputs.iter().map(|name| ("output", name)));
     for (role, relative) in registered.take(MAX_TRACKED_PATHS) {
