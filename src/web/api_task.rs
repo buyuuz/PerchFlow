@@ -17,6 +17,7 @@ pub fn routes() -> Router<WebContext> {
         .route("/tasks/:name/stop", post(stop_task))
         .route("/tasks/:name/history", get(history))
         .route("/tasks/:name/log/:run_id", get(log))
+        .route("/tasks/:name/files/:run_id", get(files))
 }
 
 #[derive(Serialize)]
