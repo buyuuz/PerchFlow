@@ -96,6 +96,18 @@ async function renderProjectDetail() {
   byId('project-file-count').textContent = files.length;
   byId('project-exists-count').textContent = files.filter(f => f.exists).length;
   byId('project-runs').hidden = true;
+  const readiness = byId('project-preflight-state');
+  readiness.textContent = '正在检查输入依赖…';
+  try {
+    const check = await requestJson('/api/projects/' + encodeURIComponent(selected) + '/preflight');
+    if (currentProjectName !== selected) return;
+    const report = check.preflight;
+    readiness.textContent = !report.enabled ? '输入预检：未开启（旧任务行为保持不变）' :
+      report.ready ? '输入预检：已就绪 · 已检查 ' + report.checked + ' 项' :
+      '输入预检：未就绪 · ' + (report.reason || ('不可用 ' + report.unavailable.length + ' 项')) +
+      (report.unavailable.length ? ' · ' + report.unavailable.slice(0, 4).join('、') : '');
+    readiness.classList.toggle('pf-project-not-ready', report.enabled && !report.ready);
+  } catch (_) { readiness.textContent = '输入预检状态暂不可用'; }
   const jobs = byId('project-jobs');
   jobs.replaceChildren();
   if (!project.tasks.length) jobs.append(el('p', 'pf-project-muted', '暂无关联任务。可先在「定时任务」创建，再编辑项目进行关联。'));
@@ -146,6 +158,7 @@ function openProjectForm(projectName) {
   byId('project-inputs').value = project ? project.inputs.join('\n') : '';
   byId('project-outputs').value = project ? project.outputs.join('\n') : '';
   byId('project-output-dirs').value = project ? (project.output_dirs || []).join('\n') : '';
+  byId('project-preflight-inputs').checked = Boolean(project && project.preflight_inputs);
   byId('project-form-error').hidden = true;
   const picker = byId('project-task-options');
   picker.replaceChildren();
@@ -179,7 +192,8 @@ async function saveProject(event) {
   const payload = {
     name:name, root:root, tasks:tasks,
     inputs:lines('project-inputs'), outputs:lines('project-outputs'),
-    output_dirs:lines('project-output-dirs')
+    output_dirs:lines('project-output-dirs'),
+    preflight_inputs:byId('project-preflight-inputs').checked
   };
   if (!name || !root) {
     errorBox.textContent = '请填写项目名称和完整工作目录。';
@@ -222,6 +236,9 @@ async function showProjectRuns(name) {
   panel.hidden = false;
   output.replaceChildren(el('p', 'pf-project-muted', '正在加载执行记录…'));
   byId('project-run-changes').replaceChildren();
+  byId('project-run-summary').replaceChildren();
+  byId('project-run-log').replaceChildren();
+  byId('project-run-log').hidden = true;
   try {
     const response = await requestJson('/api/tasks/' + encodeURIComponent(name) + '/history');
     output.replaceChildren();
@@ -229,13 +246,51 @@ async function showProjectRuns(name) {
     if (!runs.length) output.append(el('p', 'pf-project-muted', '暂无运行记录。'));
     for (const run of runs) {
       const button = el('button', 'pf-project-run-item',
-        (run.started_at || '—') + ' · ' + (run.status || '—') + ' · 文件变化');
+        (run.started_at || '—') + ' · ' + (run.status || '—') + ' · 执行摘要');
       button.type = 'button';
-      button.addEventListener('click', () => { void showRunFiles(name, run.run_id); });
+      button.addEventListener('click', () => { void showRunSummary(name, run); });
       output.append(button);
     }
-    if (runs.length) await showRunFiles(name, runs[0].run_id);
+    if (runs.length) await showRunSummary(name, runs[0]);
   } catch (error) { output.replaceChildren(el('p', 'pf-project-form-error', error.message || String(error))); }
+}
+
+async function showRunSummary(name, run) {
+  const target = byId('project-run-summary');
+  const log = byId('project-run-log');
+  log.hidden = true;
+  log.replaceChildren();
+  target.replaceChildren();
+  const display = {success:'成功',failed:'失败',blocked:'预检阻止',timeout:'超时',cancelled:'已取消',interrupted:'异常中断',running:'执行中'};
+  const status = display[run.status] || run.status || '未知';
+  target.append(el('p', 'pf-project-run-metric', '执行状态：' + status +
+    ' · 耗时：' + (run.duration_ms == null ? '—' : (run.duration_ms / 1000).toFixed(2) + ' 秒') +
+    ' · 退出码：' + (run.exit_code == null ? '—' : run.exit_code)));
+  if (run.preflight?.enabled) {
+    const info = run.preflight;
+    target.append(el('p', info.ready ? 'pf-project-muted' : 'pf-project-form-error',
+      info.ready ? '输入预检：通过（' + info.checked + ' 项）' :
+      '输入预检：阻止执行 · 不可用文件：' + (info.unavailable || []).join('、') + (info.reason ? ' (' + info.reason + ')' : '')));
+  }
+  if (run.output_summary) {
+    const s = run.output_summary;
+    target.append(el('p', 'pf-project-run-metric', '本次产出变化：新增 ' + s.created + ' · 修改 ' + s.modified + ' · 删除 ' + s.removed));
+    if (s.incomplete_scan) target.append(el('p', 'pf-project-form-error', '扫描不完整，结果仅供参考。'));
+  }
+  const logButton = el('button', 'pf-project-secondary', '按需查看该次日志');
+  logButton.type = 'button';
+  logButton.addEventListener('click', async () => {
+    log.hidden = false;
+    log.replaceChildren(el('p', 'pf-project-muted', '正在读取日志…'));
+    try {
+      const result = await requestJson('/api/tasks/' + encodeURIComponent(name) + '/log/' + encodeURIComponent(run.run_id));
+      log.replaceChildren(el('p', 'pf-project-muted', '提示：脚本日志可能包含其自行打印的敏感内容。'));
+      log.append(el('pre', 'pf-project-log-text', result.content || '（空日志）'));
+      if (result.truncated) log.prepend(el('p', 'pf-project-muted', '只显示最后 128 KiB 日志。'));
+    } catch (error) { log.replaceChildren(el('p', 'pf-project-muted', '该次执行没有可用日志。')); }
+  });
+  target.append(logButton);
+  await showRunFiles(name, run.run_id);
 }
 
 async function showRunFiles(name, runId) {
