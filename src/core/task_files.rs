@@ -3,7 +3,7 @@
 //! root, copies credentials, or recursively scans arbitrary directories.
 use crate::config::{self, model::ProjectDef};
 use serde::{Deserialize, Serialize};
-use std::{path::Path, time::{SystemTime, UNIX_EPOCH}};
+use std::{path::Path, time::UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FileState {
@@ -94,7 +94,8 @@ pub fn store(log_dir: &Path, changes: &RunFileChanges) -> std::io::Result<()> {
         .collect();
     let filename = format!("{safe}-{}.files.json", changes.run_id);
     let target = log_dir.join(filename);
-    let data = serde_json::to_vec(changes)?;
+    let data = serde_json::to_vec(changes)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     // Create new so an existing record is never silently overwritten.
     // The task completion history is written only after this operation.
     let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(target)?;
