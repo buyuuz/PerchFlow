@@ -472,3 +472,102 @@ async fn cwd_update_preserves_env_restart_and_chinese_alias() {
     let final_cfg = perch::config::load(&cfg_file.path().join("perch.toml")).unwrap();
     assert!(final_cfg.process[0].cwd.is_none());
 }
+
+
+#[tokio::test]
+async fn projects_link_existing_tasks_and_show_metadata_without_file_contents() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let root = tmp.path().join("mock-project");
+    std::fs::create_dir(&root).unwrap();
+    std::fs::write(root.join("accounts.txt"), "DUMMY_PRIVATE_TEST_CONTENT").unwrap();
+    std::fs::write(root.join("results.txt"), "MOCK_ONLY").unwrap();
+    let job = serde_json::json!({
+        "name":"mock_job","cmd":"cmd","args":["/c","echo","MOCK_ONLY"],
+        "cwd":root.to_string_lossy(),"schedule":"0 0 0 * * *","enabled":false
+    });
+    let response: serde_json::Value = client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&job).send().await.unwrap().json().await.unwrap();
+    assert_eq!(response["ok"],true);
+
+    let project = serde_json::json!({
+        "name":"Mock Python Project","root":root.to_string_lossy(),
+        "tasks":["mock_job"],"inputs":["accounts.txt"],"outputs":["results.txt","not-yet-created.txt"]
+    });
+    let no_auth = client.get(format!("{base}/api/projects/Mock%20Python%20Project")).send().await.unwrap();
+    assert_eq!(no_auth.status(),401);
+    let response: serde_json::Value = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(response["ok"],true,response.to_string());
+
+    let view = client.get(format!("{base}/api/projects/Mock%20Python%20Project"))
+        .bearer_auth(&token).send().await.unwrap().text().await.unwrap();
+    assert!(!view.contains("DUMMY_PRIVATE_TEST_CONTENT"));
+    assert!(!view.contains("MOCK_ONLY"),"file contents must not be returned");
+    let data: serde_json::Value = serde_json::from_str(&view).unwrap();
+    assert_eq!(data["project"]["tasks"][0],"mock_job");
+    assert_eq!(data["files"][0]["exists"],true);
+    assert_eq!(data["files"][0]["role"],"input");
+    assert_eq!(data["files"][0]["size_bytes"],26);
+    assert_eq!(data["files"][1]["exists"],true);
+    assert_eq!(data["files"][2]["exists"],false);
+
+    let jobs: serde_json::Value = client.get(format!("{base}/api/tasks"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(jobs["tasks"][0]["project"],"Mock Python Project");
+
+    let attempted_delete: serde_json::Value = client.delete(format!("{base}/api/tasks/mock_job"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(attempted_delete["ok"],false);
+
+    let rename = serde_json::json!({
+        "name":"changed","cmd":"cmd","schedule":"0 0 0 * * *","enabled":false
+    });
+    let denied_rename: serde_json::Value = client.put(format!("{base}/api/tasks/mock_job"))
+        .bearer_auth(&token).json(&rename).send().await.unwrap().json().await.unwrap();
+    assert_eq!(denied_rename["ok"],false);
+
+    let persisted = perch::config::load(&tmp.path().join("perch.toml")).unwrap();
+    assert_eq!(persisted.project.len(),1);
+    assert_eq!(persisted.project[0].name,"Mock Python Project");
+
+    // Deleting project never removes scripts, existing jobs or result files.
+    let deletion: serde_json::Value = client.delete(format!("{base}/api/projects/Mock%20Python%20Project"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(deletion["ok"],true);
+    assert!(root.join("results.txt").exists());
+    let jobs: serde_json::Value = client.get(format!("{base}/api/tasks"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(jobs["tasks"][0]["name"],"mock_job");
+    assert!(jobs["tasks"][0]["project"].is_null());
+}
+
+#[tokio::test]
+async fn project_rejects_unsafe_paths_missing_jobs_and_duplicate_membership() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let root = tmp.path().to_string_lossy().to_string();
+    let bad = serde_json::json!({
+        "name":"bad","root":root,"tasks":[],"inputs":["../secret.txt"],"outputs":[]
+    });
+    let result: serde_json::Value = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&bad).send().await.unwrap().json().await.unwrap();
+    assert_eq!(result["ok"],false,result.to_string());
+    let missing_job = serde_json::json!({
+        "name":"bad","root":root,"tasks":["not-a-task"],"inputs":[],"outputs":[]
+    });
+    let result: serde_json::Value = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&missing_job).send().await.unwrap().json().await.unwrap();
+    assert_eq!(result["ok"],false);
+
+    let project = serde_json::json!({
+        "name":"Valid","root":root,"tasks":[],"inputs":["input.txt"],"outputs":[]
+    });
+    let result: serde_json::Value = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(result["ok"],true);
+    let duplicate = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    let duplicate: serde_json::Value = duplicate;
+    assert_eq!(duplicate["ok"],false);
+}
