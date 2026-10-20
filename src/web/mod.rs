@@ -1,6 +1,7 @@
 pub mod api_lang;
 pub mod api_logs;
 pub mod api_process;
+pub mod api_project;
 pub mod api_task;
 pub mod assets;
 pub mod auth;
@@ -27,6 +28,7 @@ pub fn build_router(ctx: WebContext) -> Router {
     let api = Router::new()
         .merge(api_process::routes())
         .merge(api_task::routes())
+        .merge(api_project::routes())
         .merge(api_logs::routes())
         .merge(api_lang::routes())
         .route_layer(middleware::from_fn_with_state(ctx.clone(), auth::require_token))
