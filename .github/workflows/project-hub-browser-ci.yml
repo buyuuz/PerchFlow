@@ -5,6 +5,7 @@ on:
     branches:
       - feature/project-hub-v2
       - feature/project-hub-v3
+      - feature/project-hub-v4
     paths:
       - 'frontend/**'
       - 'dev/verify_project_hub_browser.py'
