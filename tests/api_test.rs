@@ -782,3 +782,130 @@ fn old_toml_project_without_output_dirs_loads_with_empty_directory_list() {
     let parsed:Config=toml::from_str(&toml).unwrap();
     assert!(parsed.project[0].output_dirs.is_empty());
 }
+
+
+#[tokio::test]
+async fn opt_in_preflight_blocks_missing_inputs_and_later_run_summarizes_output() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let root = tmp.path().join("mock-preflight");
+    std::fs::create_dir_all(&root).unwrap();
+    let task = serde_json::json!({
+        "name":"preflight_mock","cmd":"cmd",
+        "args":["/c","echo MOCK_ONLY_OUTPUT>finished.txt"],
+        "cwd":root.to_string_lossy(),"schedule":"0 0 0 * * *","enabled":false
+    });
+    let created:serde_json::Value = client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&task).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"], true);
+    let project = serde_json::json!({
+        "name":"Mock Preflight","root":root.to_string_lossy(),
+        "tasks":["preflight_mock"],"inputs":["accounts.txt"],"outputs":["finished.txt"],
+        "output_dirs":[],"preflight_inputs":true
+    });
+    let saved:serde_json::Value = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(saved["ok"],true,"{}",saved);
+    let check_url=format!("{base}/api/projects/Mock%20Preflight/preflight");
+    assert_eq!(client.get(&check_url).send().await.unwrap().status(),401);
+    let check:serde_json::Value = client.get(&check_url).bearer_auth(&token)
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(check["preflight"]["enabled"],true);
+    assert_eq!(check["preflight"]["ready"],false);
+    assert_eq!(check["preflight"]["unavailable"][0],"accounts.txt");
+
+    let run:serde_json::Value=client.post(format!("{base}/api/tasks/preflight_mock/run"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(run["ok"],true);
+    let blocked_id=run["run_id"].as_str().unwrap();
+    let mut blocked=false;
+    for _ in 0..50 {
+        let view:serde_json::Value=client.get(format!("{base}/api/tasks/preflight_mock"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        if view["status"]=="blocked" { blocked=true; break; }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(blocked,"preflight should block the task without launching cmd");
+    assert!(!root.join("finished.txt").exists(),"mock process must not be spawned");
+    let history:serde_json::Value=client.get(format!("{base}/api/tasks/preflight_mock/history"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    let row=&history["runs"][0];
+    assert_eq!(row["run_id"],blocked_id);
+    assert_eq!(row["status"],"blocked");
+    assert_eq!(row["files_recorded"],false);
+    assert_eq!(row["preflight"]["ready"],false);
+    assert_eq!(row["preflight"]["unavailable"][0],"accounts.txt");
+    assert!(row["duration_ms"].as_i64().is_some());
+
+    std::fs::write(root.join("accounts.txt"),"DUMMY_ACCOUNT_NEVER_PRINT").unwrap();
+    let ready:serde_json::Value=client.get(&check_url).bearer_auth(&token)
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(ready["preflight"]["ready"],true);
+    tokio::time::sleep(std::time::Duration::from_millis(120)).await;
+    let second:serde_json::Value=client.post(format!("{base}/api/tasks/preflight_mock/run"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(second["ok"],true,"{}",second);
+    let success_id=second["run_id"].as_str().unwrap();
+    assert_ne!(blocked_id,success_id);
+    let mut success=false;
+    for _ in 0..70 {
+        let view:serde_json::Value=client.get(format!("{base}/api/tasks/preflight_mock"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        if view["status"]=="success" { success=true; break; }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(success,"mock task should run after dependency is provided");
+    assert!(root.join("finished.txt").exists());
+    let history:serde_json::Value=client.get(format!("{base}/api/tasks/preflight_mock/history"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    let row=&history["runs"][0];
+    assert_eq!(row["run_id"],success_id);
+    assert_eq!(row["status"],"success");
+    assert_eq!(row["preflight"]["ready"],true);
+    assert_eq!(row["preflight"]["checked"],1);
+    assert_eq!(row["output_summary"]["created"],1);
+    assert_eq!(row["output_summary"]["modified"],0);
+    assert_eq!(row["output_summary"]["incomplete_scan"],false);
+    assert_eq!(row["files_recorded"],true);
+    assert!(row["duration_ms"].as_i64().is_some());
+    assert!(!history.to_string().contains("DUMMY_ACCOUNT_NEVER_PRINT"));
+    assert!(!history.to_string().contains("MOCK_ONLY_OUTPUT"));
+}
+
+#[tokio::test]
+async fn legacy_project_default_off_does_not_block_missing_input() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let root=tmp.path().join("legacy-preflight-off");
+    std::fs::create_dir_all(&root).unwrap();
+    let task=serde_json::json!({
+        "name":"legacy_preflight","cmd":"cmd","args":["/c","echo SAFE>did-run.txt"],
+        "cwd":root.to_string_lossy(),"schedule":"0 0 0 * * *","enabled":false
+    });
+    let created:serde_json::Value=client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&task).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"],true);
+    let project=serde_json::json!({
+        "name":"Legacy No Check","root":root.to_string_lossy(),
+        "tasks":["legacy_preflight"],"inputs":["never-existed.txt"],"outputs":["did-run.txt"]
+    });
+    let created:serde_json::Value=client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"],true);
+    let status:serde_json::Value=client.get(format!("{base}/api/projects/Legacy%20No%20Check/preflight"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(status["preflight"]["enabled"],false);
+    assert_eq!(status["preflight"]["ready"],true);
+    let run:serde_json::Value=client.post(format!("{base}/api/tasks/legacy_preflight/run"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(run["ok"],true);
+    let mut success=false;
+    for _ in 0..60 {
+        let view:serde_json::Value=client.get(format!("{base}/api/tasks/legacy_preflight"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        if view["status"]=="success" {success=true;break;}
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(success);
+    assert!(root.join("did-run.txt").exists());
+}
