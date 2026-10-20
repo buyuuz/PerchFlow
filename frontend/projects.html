@@ -55,6 +55,7 @@
               <code id="project-root-preview" class="pf-project-path"></code>
             </div>
             <div class="pf-project-action-row">
+              <button type="button" id="project-refresh" class="pf-project-secondary">刷新状态</button>
               <button type="button" id="project-add-python" class="pf-project-primary">+ Python 任务</button>
               <button type="button" id="project-edit" class="pf-project-secondary">编辑</button>
               <button type="button" id="project-delete" class="pf-project-danger">删除项目</button>
@@ -67,10 +68,12 @@
             <div><strong id="project-exists-count">0</strong><span>文件存在</span></div>
           </div>
           <div class="pf-project-section">
-            <div class="pf-project-section-title"><h3>关联执行任务</h3><a href="/tasks">前往任务管理 ↗</a></div>
+            <div class="pf-project-section-title"><h3>关联执行任务</h3><span>手动运行、停止与 Cron 调度分别控制</span></div>
             <div id="project-jobs"></div>
             <div id="project-runs" class="pf-project-runs" hidden>
-              <div class="pf-project-section-title"><h3 id="project-runs-title">执行记录</h3><button type="button" class="pf-project-secondary" id="project-runs-close">收起</button></div>
+              <div class="pf-project-section-title"><h3 id="project-runs-title">执行记录</h3>
+                <div class="pf-project-action-row"><button type="button" class="pf-project-secondary" id="project-runs-refresh">刷新执行详情</button><button type="button" class="pf-project-secondary" id="project-runs-close">收起</button></div>
+              </div>
               <div id="project-runs-list"></div>
               <div id="project-run-summary"></div>
               <div id="project-run-changes"></div>
