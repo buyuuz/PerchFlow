@@ -909,3 +909,128 @@ async fn legacy_project_default_off_does_not_block_missing_input() {
     assert!(success);
     assert!(root.join("did-run.txt").exists());
 }
+
+
+#[tokio::test]
+async fn project_scoped_cron_toggle_changes_only_enabled_and_never_runs_task() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let root = tmp.path().join("scoped-schedule-mock");
+    std::fs::create_dir_all(&root).unwrap();
+    let def = serde_json::json!({
+        "name":"mock_project_task","cmd":"cmd",
+        "args":["/c","echo MOCK_RUN>unexpected.txt"],
+        "cwd":root.to_string_lossy(),"schedule":"0 0 0 * * *",
+        "timeout_secs":15,"enabled":false
+    });
+    let result:serde_json::Value=client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&def).send().await.unwrap().json().await.unwrap();
+    assert_eq!(result["ok"],true);
+    let project=serde_json::json!({
+        "name":"Safe Project","root":root.to_string_lossy(),"tasks":["mock_project_task"],
+        "inputs":[],"outputs":["unexpected.txt"],"output_dirs":[],"preflight_inputs":false
+    });
+    let result:serde_json::Value=client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(result["ok"],true);
+    let url=format!("{base}/api/projects/Safe%20Project/tasks/mock_project_task/schedule");
+    assert_eq!(client.put(&url).json(&serde_json::json!({"enabled":true}))
+        .send().await.unwrap().status(),401,"unauthenticated toggles must be rejected");
+    let denied:serde_json::Value=client.put(format!(
+        "{base}/api/projects/Other%20Project/tasks/mock_project_task/schedule"
+    )).bearer_auth(&token).json(&serde_json::json!({"enabled":true}))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(denied["ok"],false,"{}",denied);
+    let denied:serde_json::Value=client.put(format!(
+        "{base}/api/projects/Safe%20Project/tasks/other-task/schedule"
+    )).bearer_auth(&token).json(&serde_json::json!({"enabled":true}))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(denied["ok"],false);
+
+    let enabled:serde_json::Value=client.put(&url).bearer_auth(&token)
+        .json(&serde_json::json!({"enabled":true}))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(enabled["ok"],true,"{}",enabled);
+    assert_eq!(enabled["enabled"],true);
+    let cfg=perch::config::load(&tmp.path().join("perch.toml")).unwrap();
+    assert_eq!(cfg.task.len(),1);
+    assert!(cfg.task[0].enabled);
+    assert_eq!(cfg.task[0].cmd,"cmd");
+    assert_eq!(cfg.task[0].args,vec!["/c","echo MOCK_RUN>unexpected.txt"]);
+    assert_eq!(cfg.task[0].timeout_secs,15);
+    assert!(!root.join("unexpected.txt").exists(),"enabling schedule should not run immediately");
+    let unchanged:serde_json::Value=client.put(&url).bearer_auth(&token)
+        .json(&serde_json::json!({"enabled":true}))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(unchanged["unchanged"],true);
+    let disabled:serde_json::Value=client.put(&url).bearer_auth(&token)
+        .json(&serde_json::json!({"enabled":false}))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(disabled["ok"],true);
+    let cfg=perch::config::load(&tmp.path().join("perch.toml")).unwrap();
+    assert!(!cfg.task[0].enabled);
+    assert!(!root.join("unexpected.txt").exists());
+}
+
+#[tokio::test]
+async fn project_task_manual_run_and_stop_use_original_scheduler_even_with_cron_disabled() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let root=tmp.path().join("mock-stoppable-task");
+    std::fs::create_dir_all(&root).unwrap();
+    let def=serde_json::json!({
+        "name":"long_mock","cmd":"powershell.exe",
+        "args":["-NoProfile","-NonInteractive","-Command","Start-Sleep -Seconds 20"],
+        "cwd":root.to_string_lossy(),"schedule":"0 0 0 * * *",
+        "timeout_secs":30,"enabled":false
+    });
+    let result:serde_json::Value=client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&def).send().await.unwrap().json().await.unwrap();
+    assert_eq!(result["ok"],true);
+    let project=serde_json::json!({
+        "name":"Manual Mock Project","root":root.to_string_lossy(),"tasks":["long_mock"],
+        "inputs":[],"outputs":[],"output_dirs":[]
+    });
+    let result:serde_json::Value=client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(result["ok"],true);
+    let started:serde_json::Value=client.post(format!("{base}/api/tasks/long_mock/run"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(started["ok"],true,"{}",started);
+    let run_id=started["run_id"].as_str().unwrap().to_owned();
+    let status:serde_json::Value=client.get(format!("{base}/api/tasks/long_mock"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(status["enabled"],false,"manual run must not enable Cron");
+
+    // A schedule toggle changes future triggers only, not the running process.
+    let schedule_url=format!("{base}/api/projects/Manual%20Mock%20Project/tasks/long_mock/schedule");
+    let toggled:serde_json::Value=client.put(&schedule_url).bearer_auth(&token)
+        .json(&serde_json::json!({"enabled":true}))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(toggled["ok"],true);
+    let paused:serde_json::Value=client.put(&schedule_url).bearer_auth(&token)
+        .json(&serde_json::json!({"enabled":false}))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(paused["ok"],true);
+    let still_running:serde_json::Value=client.get(format!("{base}/api/tasks/long_mock"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(still_running["status"],"running","pausing Cron must not stop active run");
+
+    let stopped:serde_json::Value=client.post(format!("{base}/api/tasks/long_mock/stop"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(stopped["ok"],true,"{}",stopped);
+    assert_eq!(stopped["run_id"],run_id);
+    let mut done=false;
+    for _ in 0..120 {
+        let status:serde_json::Value=client.get(format!("{base}/api/tasks/long_mock"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        if status["status"]=="cancelled" {done=true;break;}
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert!(done,"isolated mock process should be cancelled");
+    let history:serde_json::Value=client.get(format!("{base}/api/tasks/long_mock/history"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(history["runs"][0]["run_id"],run_id);
+    assert_eq!(history["runs"][0]["status"],"cancelled");
+    assert!(!perch::config::load(&tmp.path().join("perch.toml")).unwrap().task[0].enabled);
+}
