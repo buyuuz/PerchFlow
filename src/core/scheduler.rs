@@ -153,8 +153,22 @@ impl Scheduler {
         let started = Utc::now();
         let rt = self.state.tasks.read().await.get(name).cloned();
         let log_dir = self.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs");
+        let project = {
+            let cfg = self.state.config.read().await;
+            cfg.project.iter().find(|p| p.tasks.iter().any(|name| name == &task.name)).cloned()
+        };
+        let files_before = project.as_ref().map(crate::core::task_files::snapshot);
         self.append_history(&log_dir, &serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"status":"running","event":"started"})).await;
         let result = self.execute_child(task, &log_dir, run_id, cancel).await;
+        let mut files_recorded = false;
+        if let (Some(project), Some(before)) = (project.as_ref(), files_before) {
+            let after = crate::core::task_files::snapshot(project);
+            let changes = crate::core::task_files::diff(name, run_id, project, before, after);
+            match crate::core::task_files::store(&log_dir, &changes) {
+                Ok(()) => files_recorded = true,
+                Err(e) => warn!("task '{}' file metadata snapshot failed: {e}", name),
+            }
+        }
         let finished = Utc::now();
         let (status, code) = match &result {
             Ok(code) if *code == 0 => ("success", Some(*code)),
@@ -165,7 +179,7 @@ impl Scheduler {
         };
         // Publish the terminal status only after its durable history entry is written.
         // Otherwise the UI can show "success" before /history is ready.
-        let record = serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"finished_at":finished,"status":status,"event":"finished","exit_code":code,"error":result.as_ref().err().map(|e| e.to_string())});
+        let record = serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"finished_at":finished,"status":status,"event":"finished","exit_code":code,"files_recorded":files_recorded,"error":result.as_ref().err().map(|e| e.to_string())});
         self.append_history(&log_dir, &record).await;
         if let Some(rt) = rt {
             let mut r = rt.write().await;
