@@ -46,6 +46,8 @@ async function loadProjects(selectName) {
     if (!projects.some(p => p.name === currentProjectName)) {
       currentProjectName = projects.length ? projects[0].name : null;
     }
+    const selectedProject = projects.find(p => p.name === currentProjectName);
+    if (!selectedProject || !selectedProject.tasks.includes(lastHistoryTask)) lastHistoryTask = null;
     renderProjectList();
     await renderProjectDetail();
   } catch (error) { displayError(error); }
