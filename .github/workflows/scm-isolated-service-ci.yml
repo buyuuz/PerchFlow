@@ -1,0 +1,42 @@
+name: Windows SCM isolated service test
+
+on:
+  push:
+    branches:
+      - feature/task-runtime-reliability
+    paths:
+      - 'dev/simulate_windows_scm_service.py'
+      - '.github/workflows/scm-isolated-service-ci.yml'
+      - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scm-isolation:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact test commit
+        uses: actions/checkout@v4
+      - name: Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Build disposable Windows EXE
+        run: cargo build --release
+      - name: Check simulation script syntax
+        run: python -m py_compile dev/simulate_windows_scm_service.py
+      - name: Run isolated Windows SCM lifecycle simulation
+        env:
+          PERCH_SCM_MOCK_OPT_IN: '1'
+        run: python dev/simulate_windows_scm_service.py target/release/perch.exe dev/reports/scm-isolation.json
+      - name: Upload isolation test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perchflow-scm-isolation-report
+          path: dev/reports/scm-isolation.json
+          if-no-files-found: warn
+          retention-days: 14
