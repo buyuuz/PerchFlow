@@ -6,6 +6,7 @@ on:
       - feature/task-runtime-reliability
       - feature/project-hub-v2
       - feature/project-hub-v3
+      - feature/project-hub-v4
     paths:
       - 'dev/simulate_windows_scm_service.py'
       - '.github/workflows/scm-isolated-service-ci.yml'
