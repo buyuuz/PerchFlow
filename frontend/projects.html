@@ -60,6 +60,7 @@
               <button type="button" id="project-delete" class="pf-project-danger">删除项目</button>
             </div>
           </div>
+          <div id="project-preflight-state" class="pf-project-preflight" role="status"></div>
           <div class="pf-project-counters">
             <div><strong id="project-job-count">0</strong><span>关联任务</span></div>
             <div><strong id="project-file-count">0</strong><span>关联文件</span></div>
@@ -71,7 +72,9 @@
             <div id="project-runs" class="pf-project-runs" hidden>
               <div class="pf-project-section-title"><h3 id="project-runs-title">执行记录</h3><button type="button" class="pf-project-secondary" id="project-runs-close">收起</button></div>
               <div id="project-runs-list"></div>
+              <div id="project-run-summary"></div>
               <div id="project-run-changes"></div>
+              <div id="project-run-log" hidden></div>
             </div>
           </div>
           <div class="pf-project-section">
@@ -99,6 +102,8 @@
       <label>输入 / 依赖文件（相对项目目录，每行一个）
         <textarea id="project-inputs" rows="3" placeholder="accounts.txt&#10;config.json"></textarea>
       </label>
+      <label class="pf-project-checkline"><input type="checkbox" id="project-preflight-inputs">运行前检查以上输入文件（缺失时阻止启动脚本）</label>
+      <p class="pf-project-muted">默认关闭以保持旧任务兼容；开启后输入清单中每一项都必须是项目目录内可读取元数据的普通文件。</p>
       <label>输出文件（相对项目目录，每行一个）
         <textarea id="project-outputs" rows="3" placeholder="results.txt&#10;failed.txt"></textarea>
       </label>
