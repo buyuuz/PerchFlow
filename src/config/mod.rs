@@ -69,9 +69,18 @@ pub fn validate(cfg: &Config) -> Result<()> {
                 return Err(PerchError::Config(format!("task {} cannot belong to multiple projects", name)));
             }
         }
-        for path in project.inputs.iter().chain(project.outputs.iter()) {
-            if !safe_relative_path(path) {
-                return Err(PerchError::Config(format!("unsafe file path in project {}", project.name)));
+        if project.output_dirs.len() > 8 {
+            return Err(PerchError::Config(format!("project {} has more than 8 output directories", project.name)));
+        }
+        for path in project.inputs.iter().chain(project.outputs.iter()).chain(project.output_dirs.iter()) {
+            if path.len() > 512 || !safe_relative_path(path) {
+                return Err(PerchError::Config(format!("unsafe or oversized path in project {}", project.name)));
+            }
+        }
+        let mut dir_set = HashSet::new();
+        for dir in &project.output_dirs {
+            if !dir_set.insert(dir.to_lowercase()) {
+                return Err(PerchError::Config(format!("duplicate output directory in project {}", project.name)));
             }
         }
     }
