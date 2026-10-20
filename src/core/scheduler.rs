@@ -295,6 +295,7 @@ mod tests {
             server: ServerConfig { bind: "127.0.0.1:0".into(), token: "t".into(), lang: "en".into() },
             process: vec![],
             task: tasks,
+            project: vec![],
         };
         AppState::new(cfg, PathBuf::from("perch.toml"))
     }
