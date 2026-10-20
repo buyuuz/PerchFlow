@@ -173,8 +173,16 @@
 <input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-cmd" placeholder="/opt/scripts/backup.sh" type="text"/>
 </div>
 <div class="flex flex-col gap-2">
-<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.args">参数 (空格分隔)</label>
+<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.args">参数（支持引号包裹空格）</label>
 <input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-args" placeholder="--full" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">工作目录（可选）</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-cwd" placeholder="D:\\Projects\\Daily_Check" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">最长运行秒数（0 = 不限制）</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-timeout" type="number" min="0" value="3600"/>
 </div>
 <div class="flex flex-col gap-2">
 <label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.cron">Cron 表达式</label>

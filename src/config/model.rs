@@ -67,11 +67,14 @@ pub struct TaskDef {
     #[serde(default)]
     pub cwd: Option<String>,
     pub schedule: String,
+    #[serde(default = "default_task_timeout")]
+    pub timeout_secs: u64,
     #[serde(default = "default_true")]
     pub enabled: bool,
 }
 
 fn default_true() -> bool { true }
+fn default_task_timeout() -> u64 { 3600 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {

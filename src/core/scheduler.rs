@@ -4,8 +4,9 @@ use crate::core::state::SharedState;
 use crate::error::{PerchError, Result};
 use chrono::{Local, Utc};
 use cron::Schedule;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::process::Stdio;
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
@@ -14,11 +15,12 @@ use tracing::{info, warn};
 pub struct Scheduler {
     state: SharedState,
     stops: Mutex<HashMap<String, Arc<Notify>>>,
+    running: Mutex<HashSet<String>>,
 }
 
 impl Scheduler {
     pub fn new(state: SharedState) -> Arc<Self> {
-        Arc::new(Self { state, stops: Mutex::new(HashMap::new()) })
+        Arc::new(Self { state, stops: Mutex::new(HashMap::new()), running: Mutex::new(HashSet::new()) })
     }
 
     async fn find_task(&self, name: &str) -> Result<TaskDef> {
@@ -76,7 +78,7 @@ impl Scheduler {
                 _ = tokio::time::sleep(dur) => {
                     info!("task '{}' triggered", task.name);
                     match self.run_once(&task.name).await {
-                        Ok(()) => info!("task '{}' completed", task.name),
+                        Ok(()) => info!("task '{}' finished", task.name),
                         Err(e) => warn!("task '{}' failed: {e}", task.name),
                     }
                 }
@@ -87,17 +89,91 @@ impl Scheduler {
 
     pub async fn run_once(&self, name: &str) -> Result<()> {
         let task = self.find_task(name).await?;
-        let mut cmd = build_command_for_task(&task);
-        let mut child = cmd.spawn()
-            .map_err(|e| PerchError::Process(format!("spawn task {name}: {e}")))?;
-        let status = child.wait().await
-            .map_err(|e| PerchError::Process(format!("wait task {name}: {e}")))?;
-        if let Some(rt) = self.state.tasks.read().await.get(name).cloned() {
-            let mut r = rt.write().await;
-            r.last_run = Some(Utc::now());
-            r.last_exit_code = status.code();
+        {
+            let mut running = self.running.lock().await;
+            if !running.insert(name.to_owned()) {
+                return Err(PerchError::Process(format!("task {name} is already running")));
+            }
         }
-        Ok(())
+        let result = self.execute(&task).await;
+        self.running.lock().await.remove(name);
+        result
+    }
+
+    async fn execute(&self, task: &TaskDef) -> Result<()> {
+        let name = &task.name;
+        let run_id = format!("{}-{}", Utc::now().timestamp_millis(), std::process::id());
+        let started = Utc::now();
+        let rt = self.state.tasks.read().await.get(name).cloned();
+        if let Some(rt) = &rt {
+            let mut r = rt.write().await;
+            r.status = "running".into();
+            r.started_at = Some(started);
+            r.finished_at = None;
+            r.run_id = Some(run_id.clone());
+        }
+        let log_dir = self.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs");
+        let result = self.execute_child(task, &log_dir, &run_id).await;
+        let finished = Utc::now();
+        let (status, code) = match &result {
+            Ok(code) if *code == 0 => ("success", Some(*code)),
+            Ok(code) => ("failed", Some(*code)),
+            Err(e) if e.to_string().contains("timed out") => ("timeout", None),
+            Err(_) => ("failed", None),
+        };
+        if let Some(rt) = rt {
+            let mut r = rt.write().await;
+            r.status = status.into();
+            r.last_run = Some(started);
+            r.last_exit_code = code;
+            r.finished_at = Some(finished);
+        }
+        let history = log_dir.join("history.jsonl");
+        let record = serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"finished_at":finished,"status":status,"exit_code":code,"error":result.as_ref().err().map(|e| e.to_string())});
+        if let Ok(line) = serde_json::to_string(&record) {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(history) {
+                let _ = writeln!(f, "{line}");
+            }
+        }
+        match result {
+            Ok(0) => Ok(()),
+            Ok(code) => Err(PerchError::Process(format!("task {name} exited with code {code}"))),
+            Err(e) => Err(e),
+        }
+    }
+
+    async fn execute_child(&self, task: &TaskDef, log_dir: &std::path::Path, run_id: &str) -> Result<i32> {
+        std::fs::create_dir_all(log_dir).map_err(|e| PerchError::Process(format!("create task log directory: {e}")))?;
+        let safe_name: String = task.name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+        let log_file = log_dir.join(format!("{safe_name}-{run_id}.log"));
+        let stdout = std::fs::File::create(&log_file).map_err(|e| PerchError::Process(format!("task log file: {e}")))?;
+        let stderr = stdout.try_clone().map_err(|e| PerchError::Process(format!("task log clone: {e}")))?;
+        let mut cmd = build_command_for_task(task);
+        cmd.stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr)).kill_on_drop(true);
+        let mut child = cmd.spawn().map_err(|e| PerchError::Process(format!("spawn task {}: {e}", task.name)))?;
+        #[cfg(windows)]
+        let _job = {
+            match crate::core::jobobj::JobObject::create() {
+                Ok(job) => {
+                    if let Some(handle) = child.raw_handle() {
+                        if let Err(e) = job.assign(handle) {
+                            warn!("task '{}' job assignment failed: {e}", task.name);
+                        }
+                    }
+                    Some(job)
+                }
+                Err(e) => { warn!("task '{}' job creation failed: {e}", task.name); None }
+            }
+        };
+        let wait = async { child.wait().await.map_err(|e| PerchError::Process(format!("wait task {}: {e}", task.name))) };
+        let status = if task.timeout_secs == 0 {
+            wait.await?
+        } else {
+            tokio::time::timeout(std::time::Duration::from_secs(task.timeout_secs), wait).await
+                .map_err(|_| PerchError::Process(format!("task {} timed out after {} seconds", task.name, task.timeout_secs)))??
+        };
+        Ok(status.code().unwrap_or(-1))
     }
 
     pub async fn shutdown(&self) {
@@ -117,7 +193,6 @@ fn build_command_for_task(task: &TaskDef) -> tokio::process::Command {
         restart: Default::default(),
     };
     let mut cmd = build_command(&def);
-    cmd.stdout(Stdio::null()).stderr(Stdio::null());
     cmd
 }
 
@@ -135,6 +210,7 @@ mod tests {
             args: vec!["/c".into(), "exit 0".into()],
             cwd: None,
             schedule: "0 0 0 * * *".into(),
+            timeout_secs: 3600,
             enabled,
         }
     }

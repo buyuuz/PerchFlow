@@ -14,6 +14,8 @@ pub fn routes() -> Router<WebContext> {
         .route("/tasks", get(list).post(create))
         .route("/tasks/:name", get(detail).put(update).delete(remove))
         .route("/tasks/:name/run", post(run_now))
+        .route("/tasks/:name/history", get(history))
+        .route("/tasks/:name/log/:run_id", get(log))
 }
 
 #[derive(Serialize)]
@@ -26,20 +28,25 @@ pub struct TaskView {
     pub enabled: bool,
     pub last_run: Option<String>,
     pub last_exit_code: Option<i32>,
+    pub status: String,
+    pub started_at: Option<String>,
+    pub finished_at: Option<String>,
+    pub run_id: Option<String>,
+    pub timeout_secs: u64,
 }
 
 async fn build_view(ctx: &WebContext, name: &str) -> Option<TaskView> {
     let cfg = ctx.state.config.read().await;
     let t = cfg.task.iter().find(|t| t.name == name)?;
     let rt = ctx.state.tasks.read().await.get(name).cloned();
-    let (last_run, last_exit_code) = match rt {
-        Some(r) => { let g = r.read().await; (g.last_run.map(|d| d.to_rfc3339()), g.last_exit_code) }
-        None => (None, None),
+    let (last_run, last_exit_code, status, started_at, finished_at, run_id) = match rt {
+        Some(r) => { let g = r.read().await; (g.last_run.map(|d| d.to_rfc3339()), g.last_exit_code, g.status.clone(), g.started_at.map(|d| d.to_rfc3339()), g.finished_at.map(|d| d.to_rfc3339()), g.run_id.clone()) }
+        None => (None, None, "idle".into(), None, None, None),
     };
     Some(TaskView {
         name: t.name.clone(), schedule: t.schedule.clone(), cmd: t.cmd.clone(),
         args: t.args.clone(), cwd: t.cwd.clone(),
-        enabled: t.enabled, last_run, last_exit_code,
+        enabled: t.enabled, last_run, last_exit_code, status, started_at, finished_at, run_id, timeout_secs: t.timeout_secs,
     })
 }
 
@@ -71,7 +78,7 @@ async fn create(State(ctx): State<WebContext>, Json(def): Json<TaskDef>) -> Json
     ctx.state.tasks.write().await.insert(
         def.name.clone(),
         std::sync::Arc::new(tokio::sync::RwLock::new(
-            crate::core::state::TaskRuntime { last_run: None, last_exit_code: None },
+            crate::core::state::TaskRuntime { last_run: None, last_exit_code: None, status: "idle".into(), started_at: None, finished_at: None, run_id: None },
         )),
     );
     let r = persist(&ctx).await;
@@ -125,6 +132,33 @@ async fn run_now(State(ctx): State<WebContext>, Path(name): Path<String>) -> Jso
         Err(e) => tracing::warn!("task '{}' failed (manual): {e}", task_name),
     }
     op_result(r)
+}
+
+async fn history(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
+    if ctx.state.config.read().await.task.iter().all(|t| t.name != name) {
+        return Json(json!({"ok":false,"error":"not found"}));
+    }
+    let base = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs").join("history.jsonl");
+    let entries: Vec<serde_json::Value> = std::fs::read_to_string(base).unwrap_or_default().lines()
+        .filter_map(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+        .filter(|r| r.get("task").and_then(|t| t.as_str()) == Some(name.as_str()))
+        .collect();
+    Json(json!({"ok":true,"runs":entries.into_iter().rev().take(100).collect::<Vec<_>>()}))
+}
+
+async fn log(State(ctx): State<WebContext>, Path((name, run_id)): Path<(String, String)>) -> Json<serde_json::Value> {
+    if ctx.state.config.read().await.task.iter().all(|t| t.name != name) {
+        return Json(json!({"ok":false,"error":"not found"}));
+    }
+    if !run_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return Json(json!({"ok":false,"error":"invalid run id"}));
+    }
+    let safe: String = name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+    let path = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs").join(format!("{safe}-{run_id}.log"));
+    match std::fs::read_to_string(path) {
+        Ok(content) => Json(json!({"ok":true,"content":content})),
+        Err(_) => Json(json!({"ok":false,"error":"log not found"})),
+    }
 }
 
 async fn persist(ctx: &WebContext) -> crate::error::Result<()> {

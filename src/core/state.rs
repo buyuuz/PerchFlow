@@ -46,6 +46,10 @@ impl ProcRuntime {
 pub struct TaskRuntime {
     pub last_run: Option<DateTime<Utc>>,
     pub last_exit_code: Option<i32>,
+    pub status: String,
+    pub started_at: Option<DateTime<Utc>>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub run_id: Option<String>,
 }
 
 pub struct AppState {
@@ -65,7 +69,7 @@ impl AppState {
         }
         let mut tasks = HashMap::new();
         for t in &config.task {
-            tasks.insert(t.name.clone(), Arc::new(RwLock::new(TaskRuntime { last_run: None, last_exit_code: None })));
+            tasks.insert(t.name.clone(), Arc::new(RwLock::new(TaskRuntime { last_run: None, last_exit_code: None, status: "idle".into(), started_at: None, finished_at: None, run_id: None })));
         }
         Arc::new(AppState {
             config: RwLock::new(config),

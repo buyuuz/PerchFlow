@@ -57,8 +57,8 @@ function renderTaskRow(task) {
   const checked = selectedTasks.has(task.name);
   const lastTime = formatTaskTime(task.last_run);
   const lastFull = task.last_run ? new Date(task.last_run).toLocaleString() : taskText('never');
-  const resultKey = task.last_exit_code == null ? 'never' : Number(task.last_exit_code) === 0 ? 'success' : 'failed';
-  const resultIcon = {never:'remove', success:'check_circle', failed:'error'}[resultKey];
+  const resultKey = task.status === 'running' ? 'running' : task.status === 'timeout' ? 'failed' : task.last_exit_code == null ? 'never' : Number(task.last_exit_code) === 0 ? 'success' : 'failed';
+  const resultIcon = {never:'remove', success:'check_circle', failed:'error', running:'progress_activity'}[resultKey];
   return `
 <tr data-task-name="${name}" class="${checked ? 'pf-is-selected' : ''}">
   <td><input type="checkbox" class="pf-task-select" data-name="${name}" aria-label="${name}" ${checked ? 'checked' : ''}></td>
@@ -79,6 +79,7 @@ function renderTaskRow(task) {
   <td><span class="pf-task-result pf-task-result--${resultKey}" title="${task.last_exit_code == null ? taskEscape(taskText('never')) : 'Exit code: ' + taskEscape(task.last_exit_code)}"><span class="material-symbols-outlined" aria-hidden="true">${resultIcon}</span>${taskText(resultKey)}</span></td>
   <td><div class="pf-actions">
     ${taskAction(task, 'run', 'play_arrow', taskText('run'), 'pf-task-action-run')}
+    ${taskAction(task, 'history', 'history', '查看历史')}
     ${taskAction(task, 'toggle', on ? 'toggle_on' : 'toggle_off', taskText(on ? 'disable' : 'enable'), 'pf-task-action-toggle')}
     ${taskAction(task, 'edit', 'edit', taskText('edit'))}
     ${taskAction(task, 'delete', 'delete', taskText('remove'), 'pf-action--delete')}
@@ -199,6 +200,15 @@ async function runNow(name) {
   catch (error) { taskError(error); }
 }
 
+async function showTaskHistory(name) {
+  try {
+    const data = await apiJson(`/api/tasks/${encodeURIComponent(name)}/history`);
+    if (!data.ok) throw new Error(data.error || 'History unavailable');
+    const lines = (data.runs || []).slice(0, 20).map(r => `${r.started_at} | ${r.status} | exit=${r.exit_code ?? '-'} | ${r.run_id}`);
+    alert(lines.length ? lines.join('\n') : '尚无执行历史');
+  } catch (error) { taskError(error); }
+}
+
 async function deleteTask(name) {
   if (!confirm(t('confirm.delete_task'))) return;
   try { await executeTaskOperation(`/api/tasks/${name}`, {method:'DELETE'}); }
@@ -210,7 +220,7 @@ async function toggleEnabled(name, enabled) {
   if (!existing) return;
   const body = {
     name: existing.name, cmd: existing.cmd, args: existing.args || [],
-    cwd: existing.cwd, schedule: existing.schedule, enabled,
+    cwd: existing.cwd, schedule: existing.schedule, enabled, timeout_secs: existing.timeout_secs ?? 3600,
   };
   try {
     await executeTaskOperation(`/api/tasks/${name}`, {method:'PUT',body:JSON.stringify(body)});
@@ -240,6 +250,23 @@ async function copyTaskCommand(name, button) {
   } catch (error) { taskError(error); }
 }
 
+function parseTaskArgs(raw) {
+  const result = [];
+  let current = '', quote = null, active = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === '"' || ch === "'") {
+      if (quote === ch) { quote = null; } else if (!quote) { quote = ch; } else { current += ch; }
+      active = true;
+    } else if (/\s/.test(ch) && !quote) {
+      if (active) { result.push(current); current = ''; active = false; }
+    } else { current += ch; active = true; }
+  }
+  if (quote) throw new Error('参数引号没有闭合');
+  if (active) result.push(current);
+  return result;
+}
+
 function openTaskModal() {
   editingName = null;
   document.getElementById('task-modal-title').textContent = t('modal.add_task');
@@ -247,6 +274,8 @@ function openTaskModal() {
   document.getElementById('task-name').disabled = false;
   document.getElementById('task-cmd').value = '';
   document.getElementById('task-args').value = '';
+  document.getElementById('task-cwd').value = '';
+  document.getElementById('task-timeout').value = '3600';
   document.getElementById('task-schedule').value = '';
   document.getElementById('task-enabled').checked = true;
   document.getElementById('task-err').classList.add('hidden');
@@ -262,7 +291,9 @@ function editTask(name) {
   document.getElementById('task-name').value = task.name;
   document.getElementById('task-name').disabled = false;
   document.getElementById('task-cmd').value = task.cmd;
-  document.getElementById('task-args').value = (task.args || []).join(' ');
+  document.getElementById('task-args').value = (task.args || []).map(v => /\\s|"/.test(v) ? JSON.stringify(v) : v).join(' ');
+  document.getElementById('task-cwd').value = task.cwd || '';
+  document.getElementById('task-timeout').value = task.timeout_secs ?? 3600;
   document.getElementById('task-schedule').value = task.schedule;
   document.getElementById('task-enabled').checked = task.enabled;
   document.getElementById('task-err').classList.add('hidden');
@@ -282,7 +313,9 @@ function closeTaskModal() {
 async function submitTaskModal() {
   const name = document.getElementById('task-name').value.trim();
   const cmd = document.getElementById('task-cmd').value.trim();
-  const args = document.getElementById('task-args').value.trim().split(/\s+/).filter(Boolean);
+  let args;
+  try { args = parseTaskArgs(document.getElementById('task-args').value); }
+  catch (error) { const err = document.getElementById('task-err'); err.textContent = error.message; err.classList.remove('hidden'); return; }
   const schedule = document.getElementById('task-schedule').value.trim();
   const enabled = document.getElementById('task-enabled').checked;
   const errEl = document.getElementById('task-err');
@@ -291,8 +324,10 @@ async function submitTaskModal() {
     errEl.classList.remove('hidden');
     return;
   }
-  const cwd = editingName ? cachedTasks.find(task => task.name === editingName)?.cwd : undefined;
-  const body = {name,cmd,args,cwd,schedule,enabled};
+  const cwd = document.getElementById('task-cwd').value.trim() || null;
+  const timeout_secs = Number(document.getElementById('task-timeout').value);
+  if (!Number.isSafeInteger(timeout_secs) || timeout_secs < 0) { errEl.textContent = '超时秒数必须是非负整数'; errEl.classList.remove('hidden'); return; }
+  const body = {name,cmd,args,cwd,schedule,enabled,timeout_secs};
   const path = editingName ? `/api/tasks/${encodeURIComponent(editingName)}` : '/api/tasks';
   const method = editingName ? 'PUT' : 'POST';
   try {
@@ -336,6 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const action = button.dataset.taskAction;
       if (action === 'run') void runNow(encoded);
       else if (action === 'toggle') void toggleEnabled(encoded, button.getAttribute('aria-pressed') !== 'true');
+      else if (action === 'history') void showTaskHistory(name);
       else if (action === 'edit') editTask(encoded);
       else if (action === 'delete') void deleteTask(encoded);
       else if (action === 'copy') void copyTaskCommand(name, button);
