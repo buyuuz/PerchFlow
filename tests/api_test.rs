@@ -498,7 +498,7 @@ async fn projects_link_existing_tasks_and_show_metadata_without_file_contents() 
     assert_eq!(no_auth.status(),401);
     let response: serde_json::Value = client.post(format!("{base}/api/projects"))
         .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
-    assert_eq!(response["ok"],true,response.to_string());
+    assert_eq!(response["ok"],true,"{}",response);
 
     let view = client.get(format!("{base}/api/projects/Mock%20Python%20Project"))
         .bearer_auth(&token).send().await.unwrap().text().await.unwrap();
@@ -552,7 +552,7 @@ async fn project_rejects_unsafe_paths_missing_jobs_and_duplicate_membership() {
     });
     let result: serde_json::Value = client.post(format!("{base}/api/projects"))
         .bearer_auth(&token).json(&bad).send().await.unwrap().json().await.unwrap();
-    assert_eq!(result["ok"],false,result.to_string());
+    assert_eq!(result["ok"],false,"{}",result);
     let missing_job = serde_json::json!({
         "name":"bad","root":root,"tasks":["not-a-task"],"inputs":[],"outputs":[]
     });
