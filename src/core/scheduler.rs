@@ -157,29 +157,59 @@ impl Scheduler {
             let cfg = self.state.config.read().await;
             cfg.project.iter().find(|p| p.tasks.iter().any(|name| name == &task.name)).cloned()
         };
-        let files_before = project.as_ref().map(crate::core::task_files::snapshot);
+        let preflight = project.as_ref().map(crate::core::task_preflight::check);
+        let blocked = preflight.as_ref().is_some_and(|report| !report.ready);
+        let files_before = if blocked { None } else { project.as_ref().map(crate::core::task_files::snapshot) };
         self.append_history(&log_dir, &serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"status":"running","event":"started"})).await;
-        let result = self.execute_child(task, &log_dir, run_id, cancel).await;
+        let result = if blocked {
+            // Never start the Python/command process when required files are missing.
+            Err(PerchError::Process("preflight blocked: required input unavailable".into()))
+        } else if cancel.is_cancelled() {
+            Err(PerchError::Process(format!("task {name} cancelled")))
+        } else {
+            self.execute_child(task, &log_dir, run_id, cancel).await
+        };
         let mut files_recorded = false;
+        let mut output_summary: Option<serde_json::Value> = None;
         if let (Some(project), Some(before)) = (project.as_ref(), files_before) {
             let after = crate::core::task_files::snapshot(project);
             let changes = crate::core::task_files::diff(name, run_id, project, before, after);
+            let output_changes: Vec<_> = changes.changes.iter().filter(|change| change.role == "output").collect();
+            output_summary = Some(serde_json::json!({
+                "created": output_changes.iter().filter(|c| c.change == "created").count(),
+                "modified": output_changes.iter().filter(|c| c.change == "modified").count(),
+                "removed": output_changes.iter().filter(|c| c.change == "removed").count(),
+                "incomplete_scan": changes.incomplete_scan,
+                "observed_paths": changes.scanned_paths,
+            }));
             match crate::core::task_files::store(&log_dir, &changes) {
                 Ok(()) => files_recorded = true,
-                Err(e) => warn!("task '{}' file metadata snapshot failed: {e}", name),
+                Err(e) => {
+                    output_summary = None;
+                    warn!("task '{}' file metadata snapshot failed: {e}", name);
+                },
             }
         }
         let finished = Utc::now();
-        let (status, code) = match &result {
+        let (status, code) = if blocked {
+            ("blocked", None)
+        } else { match &result {
             Ok(code) if *code == 0 => ("success", Some(*code)),
             Ok(code) => ("failed", Some(*code)),
             Err(e) if e.to_string().contains("timed out") => ("timeout", None),
             Err(e) if e.to_string().contains("cancelled") => ("cancelled", None),
             Err(_) => ("failed", None),
-        };
+        }};
         // Publish the terminal status only after its durable history entry is written.
         // Otherwise the UI can show "success" before /history is ready.
-        let record = serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"finished_at":finished,"status":status,"event":"finished","exit_code":code,"files_recorded":files_recorded,"error":result.as_ref().err().map(|e| e.to_string())});
+        let duration_ms = (finished - started).num_milliseconds().max(0);
+        let record = serde_json::json!({
+            "task":name,"run_id":run_id,"started_at":started,"finished_at":finished,
+            "duration_ms":duration_ms,"status":status,"event":"finished",
+            "exit_code":code,"files_recorded":files_recorded,
+            "output_summary":output_summary,"preflight":preflight,
+            "error":result.as_ref().err().map(|e| e.to_string())
+        });
         self.append_history(&log_dir, &record).await;
         if let Some(rt) = rt {
             let mut r = rt.write().await;
