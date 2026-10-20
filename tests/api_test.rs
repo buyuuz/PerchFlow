@@ -79,6 +79,46 @@ async fn create_task_and_run_now() {
 }
 
 #[tokio::test]
+async fn running_task_can_be_cancelled_without_blocking_manual_api() {
+    let (base, token, _tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "name": "slow", "cmd": "cmd", "args": ["/c", "ping -n 15 127.0.0.1"],
+        "schedule": "0 0 0 * * *", "enabled": false, "timeout_secs": 0
+    });
+    let created: serde_json::Value = client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&body).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"], true);
+
+    let run: serde_json::Value = client.post(format!("{base}/api/tasks/slow/run"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(run["ok"], true);
+    assert!(run["run_id"].as_str().is_some());
+
+    let duplicate: serde_json::Value = client.post(format!("{base}/api/tasks/slow/run"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(duplicate["ok"], false, "duplicate starts must be blocked");
+
+    let stopped: serde_json::Value = client.post(format!("{base}/api/tasks/slow/stop"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(stopped["ok"], true);
+    let mut final_state = serde_json::Value::Null;
+    for _ in 0..50 {
+        let detail: serde_json::Value = client.get(format!("{base}/api/tasks/slow"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        if detail["status"] != "running" {
+            final_state = detail;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert_eq!(final_state["status"], "cancelled");
+    let history: serde_json::Value = client.get(format!("{base}/api/tasks/slow/history"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(history["runs"][0]["status"], "cancelled");
+}
+
+#[tokio::test]
 async fn recent_logs_empty_for_new_process() {
     let (base, token, _tmp) = spawn_server().await;
     let client = reqwest::Client::new();

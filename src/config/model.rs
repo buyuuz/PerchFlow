@@ -74,7 +74,7 @@ pub struct TaskDef {
 }
 
 fn default_true() -> bool { true }
-fn default_task_timeout() -> u64 { 3600 }
+fn default_task_timeout() -> u64 { 0 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {

@@ -199,6 +199,18 @@
 </div>
 </div>
 </div>
+<!-- Task history and bounded output viewer -->
+<div id="task-history-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+  <div class="glass-card w-full max-w-3xl rounded-xl p-5 flex flex-col gap-3" style="max-height:85vh">
+    <div class="flex items-center justify-between gap-3">
+      <h2 id="task-history-title" class="font-headline-md text-headline-md text-on-surface">执行历史</h2>
+      <button type="button" onclick="closeTaskHistory()" class="px-3 py-2 rounded border border-white/10" aria-label="关闭历史记录">关闭</button>
+    </div>
+    <div id="task-history-list" class="overflow-y-auto flex flex-col gap-2" style="min-height:90px;max-height:200px"></div>
+    <label class="text-on-surface-variant text-sm" for="task-run-log">本次运行输出（末尾最多 128 KiB）</label>
+    <pre id="task-run-log" class="overflow-auto rounded bg-black/30 border border-white/10 p-3 text-xs whitespace-pre-wrap break-all" style="min-height:120px;max-height:40vh">选择一条记录查看日志</pre>
+  </div>
+</div>
 <!-- Mobile Bottom Nav -->
 <nav class="fixed bottom-0 left-0 w-full z-50 flex items-center bg-surface/60 backdrop-blur-xl border-t border-white/10 h-14 box-content pb-[env(safe-area-inset-bottom)] md:hidden">
 <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/processes">

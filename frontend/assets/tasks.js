@@ -57,8 +57,8 @@ function renderTaskRow(task) {
   const checked = selectedTasks.has(task.name);
   const lastTime = formatTaskTime(task.last_run);
   const lastFull = task.last_run ? new Date(task.last_run).toLocaleString() : taskText('never');
-  const resultKey = task.status === 'running' ? 'running' : task.status === 'timeout' ? 'failed' : task.last_exit_code == null ? 'never' : Number(task.last_exit_code) === 0 ? 'success' : 'failed';
-  const resultIcon = {never:'remove', success:'check_circle', failed:'error', running:'progress_activity'}[resultKey];
+  const resultKey = ['running','cancelled','interrupted','timeout'].includes(task.status) ? task.status : task.last_exit_code == null ? 'never' : Number(task.last_exit_code) === 0 ? 'success' : 'failed';
+  const resultIcon = {never:'remove', success:'check_circle', failed:'error', running:'progress_activity',timeout:'timer_off',cancelled:'block',interrupted:'warning'}[resultKey];
   return `
 <tr data-task-name="${name}" class="${checked ? 'pf-is-selected' : ''}">
   <td><input type="checkbox" class="pf-task-select" data-name="${name}" aria-label="${name}" ${checked ? 'checked' : ''}></td>
@@ -76,10 +76,11 @@ function renderTaskRow(task) {
     ${taskAction(task, 'copy', 'content_copy', taskText('copy'))}
   </div></td>
   <td class="pf-task-last-run" title="${taskEscape(lastFull)}">${taskEscape(lastTime)}</td>
-  <td><span class="pf-task-result pf-task-result--${resultKey}" title="${task.last_exit_code == null ? taskEscape(taskText('never')) : 'Exit code: ' + taskEscape(task.last_exit_code)}"><span class="material-symbols-outlined" aria-hidden="true">${resultIcon}</span>${taskText(resultKey)}</span></td>
+  <td><span class="pf-task-result pf-task-result--${resultKey}" title="${taskEscape(resultKey === 'running' ? '运行中' : resultKey === 'cancelled' ? '已取消' : resultKey === 'timeout' ? '已超时' : resultKey === 'interrupted' ? '已中断' : task.last_exit_code == null ? taskText('never') : 'Exit code: ' + task.last_exit_code)}"><span class="material-symbols-outlined" aria-hidden="true">${resultIcon}</span>${({running:'运行中',timeout:'超时',cancelled:'已取消',interrupted:'已中断'})[resultKey] || taskText(resultKey)}</span></td>
   <td><div class="pf-actions">
     ${taskAction(task, 'run', 'play_arrow', taskText('run'), 'pf-task-action-run')}
     ${taskAction(task, 'history', 'history', '查看历史')}
+    ${task.status === 'running' ? taskAction(task, 'stop', 'stop_circle', '停止运行', 'pf-action--delete') : ''}
     ${taskAction(task, 'toggle', on ? 'toggle_on' : 'toggle_off', taskText(on ? 'disable' : 'enable'), 'pf-task-action-toggle')}
     ${taskAction(task, 'edit', 'edit', taskText('edit'))}
     ${taskAction(task, 'delete', 'delete', taskText('remove'), 'pf-action--delete')}
@@ -204,9 +205,48 @@ async function showTaskHistory(name) {
   try {
     const data = await apiJson(`/api/tasks/${encodeURIComponent(name)}/history`);
     if (!data.ok) throw new Error(data.error || 'History unavailable');
-    const lines = (data.runs || []).slice(0, 20).map(r => `${r.started_at} | ${r.status} | exit=${r.exit_code ?? '-'} | ${r.run_id}`);
-    alert(lines.length ? lines.join('\n') : '尚无执行历史');
+    const modal = document.getElementById('task-history-modal');
+    const list = document.getElementById('task-history-list');
+    const log = document.getElementById('task-run-log');
+    document.getElementById('task-history-title').textContent = name + ' · 执行历史';
+    list.replaceChildren();
+    log.textContent = '选择一条记录查看日志';
+    const runs = (data.runs || []).slice(0, 30);
+    if (!runs.length) list.textContent = '尚无执行历史';
+    for (const run of runs) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'text-left border border-white/10 rounded p-2 text-sm hover:bg-white/10';
+      b.textContent = `${run.started_at || '-'} · ${run.status} · Exit ${run.exit_code ?? '-'}`;
+      b.onclick = () => { void showTaskLog(name, run.run_id); };
+      list.appendChild(b);
+    }
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    if (runs.length) void showTaskLog(name, runs[0].run_id);
   } catch (error) { taskError(error); }
+}
+
+async function showTaskLog(name, runId) {
+  const log = document.getElementById('task-run-log');
+  log.textContent = '正在读取日志...';
+  try {
+    const data = await apiJson(`/api/tasks/${encodeURIComponent(name)}/log/${encodeURIComponent(runId)}`);
+    if (!data.ok) throw new Error(data.error || 'No log');
+    log.textContent = (data.truncated ? '[输出过长，已截取末尾内容]\\n' : '') + (data.content || '（没有输出）');
+  } catch (error) { log.textContent = error.message || String(error); }
+}
+
+function closeTaskHistory() {
+  const modal = document.getElementById('task-history-modal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+async function stopTask(name) {
+  if (!confirm('确认停止正在运行的任务？')) return;
+  try { await executeTaskOperation(`/api/tasks/${encodeURIComponent(name)}/stop`, {method:'POST'}); }
+  catch (error) { taskError(error); }
 }
 
 async function deleteTask(name) {
@@ -220,7 +260,7 @@ async function toggleEnabled(name, enabled) {
   if (!existing) return;
   const body = {
     name: existing.name, cmd: existing.cmd, args: existing.args || [],
-    cwd: existing.cwd, schedule: existing.schedule, enabled, timeout_secs: existing.timeout_secs ?? 3600,
+    cwd: existing.cwd, schedule: existing.schedule, enabled, timeout_secs: existing.timeout_secs ?? 0,
   };
   try {
     await executeTaskOperation(`/api/tasks/${name}`, {method:'PUT',body:JSON.stringify(body)});
@@ -255,7 +295,10 @@ function parseTaskArgs(raw) {
   let current = '', quote = null, active = false;
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
-    if (ch === '"' || ch === "'") {
+    if (ch === '\\' && quote === '"' && (raw[i+1] === '\\' || raw[i+1] === '"')) {
+      current += raw[++i];
+      active = true;
+    } else if (ch === '"' || ch === "'") {
       if (quote === ch) { quote = null; } else if (!quote) { quote = ch; } else { current += ch; }
       active = true;
     } else if (/\s/.test(ch) && !quote) {
@@ -291,9 +334,9 @@ function editTask(name) {
   document.getElementById('task-name').value = task.name;
   document.getElementById('task-name').disabled = false;
   document.getElementById('task-cmd').value = task.cmd;
-  document.getElementById('task-args').value = (task.args || []).map(v => /\\s|"/.test(v) ? JSON.stringify(v) : v).join(' ');
+  document.getElementById('task-args').value = (task.args || []).map(v => /\s|"/.test(v) ? JSON.stringify(v) : v).join(' ');
   document.getElementById('task-cwd').value = task.cwd || '';
-  document.getElementById('task-timeout').value = task.timeout_secs ?? 3600;
+  document.getElementById('task-timeout').value = task.timeout_secs ?? 0;
   document.getElementById('task-schedule').value = task.schedule;
   document.getElementById('task-enabled').checked = task.enabled;
   document.getElementById('task-err').classList.add('hidden');
@@ -372,6 +415,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (action === 'run') void runNow(encoded);
       else if (action === 'toggle') void toggleEnabled(encoded, button.getAttribute('aria-pressed') !== 'true');
       else if (action === 'history') void showTaskHistory(name);
+      else if (action === 'stop') void stopTask(name);
       else if (action === 'edit') editTask(encoded);
       else if (action === 'delete') void deleteTask(encoded);
       else if (action === 'copy') void copyTaskCommand(name, button);

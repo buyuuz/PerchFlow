@@ -4,23 +4,32 @@ use crate::core::state::SharedState;
 use crate::error::{PerchError, Result};
 use chrono::{Local, Utc};
 use cron::Schedule;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::process::Stdio;
-use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use tokio_util::sync::CancellationToken;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::{Mutex, Notify};
 use tracing::{info, warn};
 
+struct RunningTask {
+    run_id: String,
+    cancel: CancellationToken,
+}
+
+static RUN_SEQUENCE: AtomicU64 = AtomicU64::new(1);
+
 pub struct Scheduler {
     state: SharedState,
     stops: Mutex<HashMap<String, Arc<Notify>>>,
-    running: Mutex<HashSet<String>>,
+    running: Mutex<HashMap<String, RunningTask>>,
+    history_lock: Mutex<()>,
 }
 
 impl Scheduler {
     pub fn new(state: SharedState) -> Arc<Self> {
-        Arc::new(Self { state, stops: Mutex::new(HashMap::new()), running: Mutex::new(HashSet::new()) })
+        Arc::new(Self { state, stops: Mutex::new(HashMap::new()), running: Mutex::new(HashMap::new()), history_lock: Mutex::new(()) })
     }
 
     async fn find_task(&self, name: &str) -> Result<TaskDef> {
@@ -87,38 +96,71 @@ impl Scheduler {
         }
     }
 
-    pub async fn run_once(&self, name: &str) -> Result<()> {
+    async fn claim(&self, name: &str) -> Result<(TaskDef, String, CancellationToken)> {
         let task = self.find_task(name).await?;
+        let run_id = format!("{}-{}-{}", Utc::now().timestamp_millis(), std::process::id(), RUN_SEQUENCE.fetch_add(1, Ordering::Relaxed));
+        let cancel = CancellationToken::new();
         {
             let mut running = self.running.lock().await;
-            if !running.insert(name.to_owned()) {
+            if running.contains_key(name) {
                 return Err(PerchError::Process(format!("task {name} is already running")));
             }
+            running.insert(name.to_owned(), RunningTask { run_id: run_id.clone(), cancel: cancel.clone() });
         }
-        let result = self.execute(&task).await;
+        if let Some(rt) = self.state.tasks.read().await.get(name).cloned() {
+            let mut r = rt.write().await;
+            r.status = "running".into();
+            r.started_at = Some(Utc::now());
+            r.finished_at = None;
+            r.run_id = Some(run_id.clone());
+        }
+        Ok((task, run_id, cancel))
+    }
+
+    pub async fn run_once(&self, name: &str) -> Result<()> {
+        let (task, run_id, cancel) = self.claim(name).await?;
+        let result = self.execute(&task, &run_id, cancel).await;
         self.running.lock().await.remove(name);
         result
     }
 
-    async fn execute(&self, task: &TaskDef) -> Result<()> {
+    pub async fn start_now(self: &Arc<Self>, name: &str) -> Result<String> {
+        let (task, run_id, cancel) = self.claim(name).await?;
+        let scheduler = Arc::clone(self);
+        let id = run_id.clone();
+        tokio::spawn(async move {
+            if let Err(e) = scheduler.execute(&task, &id, cancel).await {
+                warn!("manual task '{}' failed: {e}", task.name);
+            }
+            scheduler.running.lock().await.remove(&task.name);
+        });
+        Ok(run_id)
+    }
+
+    pub async fn cancel_task(&self, name: &str) -> Result<String> {
+        let running = self.running.lock().await;
+        let task = running.get(name).ok_or_else(|| PerchError::Process(format!("task {name} is not running")))?;
+        task.cancel.cancel();
+        Ok(task.run_id.clone())
+    }
+
+    pub async fn is_running(&self, name: &str) -> bool {
+        self.running.lock().await.contains_key(name)
+    }
+
+    async fn execute(&self, task: &TaskDef, run_id: &str, cancel: CancellationToken) -> Result<()> {
         let name = &task.name;
-        let run_id = format!("{}-{}", Utc::now().timestamp_millis(), std::process::id());
         let started = Utc::now();
         let rt = self.state.tasks.read().await.get(name).cloned();
-        if let Some(rt) = &rt {
-            let mut r = rt.write().await;
-            r.status = "running".into();
-            r.started_at = Some(started);
-            r.finished_at = None;
-            r.run_id = Some(run_id.clone());
-        }
         let log_dir = self.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs");
-        let result = self.execute_child(task, &log_dir, &run_id).await;
+        self.append_history(&log_dir, &serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"status":"running","event":"started"})).await;
+        let result = self.execute_child(task, &log_dir, run_id, cancel).await;
         let finished = Utc::now();
         let (status, code) = match &result {
             Ok(code) if *code == 0 => ("success", Some(*code)),
             Ok(code) => ("failed", Some(*code)),
             Err(e) if e.to_string().contains("timed out") => ("timeout", None),
+            Err(e) if e.to_string().contains("cancelled") => ("cancelled", None),
             Err(_) => ("failed", None),
         };
         if let Some(rt) = rt {
@@ -128,14 +170,8 @@ impl Scheduler {
             r.last_exit_code = code;
             r.finished_at = Some(finished);
         }
-        let history = log_dir.join("history.jsonl");
-        let record = serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"finished_at":finished,"status":status,"exit_code":code,"error":result.as_ref().err().map(|e| e.to_string())});
-        if let Ok(line) = serde_json::to_string(&record) {
-            use std::io::Write;
-            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(history) {
-                let _ = writeln!(f, "{line}");
-            }
-        }
+        let record = serde_json::json!({"task":name,"run_id":run_id,"started_at":started,"finished_at":finished,"status":status,"event":"finished","exit_code":code,"error":result.as_ref().err().map(|e| e.to_string())});
+        self.append_history(&log_dir, &record).await;
         match result {
             Ok(0) => Ok(()),
             Ok(code) => Err(PerchError::Process(format!("task {name} exited with code {code}"))),
@@ -143,7 +179,25 @@ impl Scheduler {
         }
     }
 
-    async fn execute_child(&self, task: &TaskDef, log_dir: &std::path::Path, run_id: &str) -> Result<i32> {
+    async fn append_history(&self, log_dir: &std::path::Path, record: &serde_json::Value) {
+        let _lock = self.history_lock.lock().await;
+        if let Err(e) = std::fs::create_dir_all(log_dir) {
+            warn!("task history directory failed: {e}");
+            return;
+        }
+        use std::io::Write;
+        let file = std::fs::OpenOptions::new().create(true).append(true).open(log_dir.join("history.jsonl"));
+        match file {
+            Ok(mut f) => {
+                if let Err(e) = writeln!(f, "{record}") {
+                    warn!("task history write failed: {e}");
+                }
+            }
+            Err(e) => warn!("task history open failed: {e}"),
+        }
+    }
+
+    async fn execute_child(&self, task: &TaskDef, log_dir: &std::path::Path, run_id: &str, cancel: CancellationToken) -> Result<i32> {
         std::fs::create_dir_all(log_dir).map_err(|e| PerchError::Process(format!("create task log directory: {e}")))?;
         let safe_name: String = task.name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
         let log_file = log_dir.join(format!("{safe_name}-{run_id}.log"));
@@ -166,14 +220,21 @@ impl Scheduler {
                 Err(e) => { warn!("task '{}' job creation failed: {e}", task.name); None }
             }
         };
-        let wait = async { child.wait().await.map_err(|e| PerchError::Process(format!("wait task {}: {e}", task.name))) };
-        let status = if task.timeout_secs == 0 {
-            wait.await?
-        } else {
-            tokio::time::timeout(std::time::Duration::from_secs(task.timeout_secs), wait).await
-                .map_err(|_| PerchError::Process(format!("task {} timed out after {} seconds", task.name, task.timeout_secs)))??
+        let result: Result<i32> = tokio::select! {
+            status = child.wait() => status
+                .map(|s| s.code().unwrap_or(-1))
+                .map_err(|e| PerchError::Process(format!("wait task {}: {e}", task.name))),
+            _ = cancel.cancelled() => Err(PerchError::Process(format!("task {} cancelled", task.name))),
+            _ = tokio::time::sleep(std::time::Duration::from_secs(task.timeout_secs)), if task.timeout_secs > 0 =>
+                Err(PerchError::Process(format!("task {} timed out after {} seconds", task.name, task.timeout_secs))),
         };
-        Ok(status.code().unwrap_or(-1))
+        if result.is_err() {
+            #[cfg(windows)]
+            if let Some(job) = &_job { job.terminate(); }
+            let _ = child.start_kill();
+            let _ = child.wait().await;
+        }
+        result
     }
 
     pub async fn shutdown(&self) {
@@ -182,6 +243,9 @@ impl Scheduler {
             n.notify_waiters();
         }
         stops.clear();
+        for task in self.running.lock().await.values() {
+            task.cancel.cancel();
+        }
     }
 }
 

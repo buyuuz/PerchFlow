@@ -14,6 +14,7 @@ pub fn routes() -> Router<WebContext> {
         .route("/tasks", get(list).post(create))
         .route("/tasks/:name", get(detail).put(update).delete(remove))
         .route("/tasks/:name/run", post(run_now))
+        .route("/tasks/:name/stop", post(stop_task))
         .route("/tasks/:name/history", get(history))
         .route("/tasks/:name/log/:run_id", get(log))
 }
@@ -91,6 +92,9 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(de
         return Json(json!({ "ok": false, "error": "bad cron" }));
     }
     let old_name = name;
+    if ctx.scheduler.is_running(&old_name).await {
+        return Json(json!({"ok":false,"error":"task is running; stop it before editing"}));
+    }
     let new_name = def.name.clone();
     {
         let mut cfg = ctx.state.config.write().await;
@@ -116,6 +120,9 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(de
 }
 
 async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
+    if ctx.scheduler.is_running(&name).await {
+        return Json(json!({"ok":false,"error":"task is running; stop it before deleting"}));
+    }
     { ctx.state.config.write().await.task.retain(|t| t.name != name); }
     ctx.state.tasks.write().await.remove(&name);
     let r = persist(&ctx).await;
@@ -124,14 +131,17 @@ async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json
 }
 
 async fn run_now(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
-    let task_name = name.clone();
-    tracing::info!("task '{}' triggered (manual)", task_name);
-    let r = ctx.scheduler.run_once(&name).await;
-    match &r {
-        Ok(()) => tracing::info!("task '{}' completed (manual)", task_name),
-        Err(e) => tracing::warn!("task '{}' failed (manual): {e}", task_name),
+    match ctx.scheduler.start_now(&name).await {
+        Ok(run_id) => Json(json!({"ok":true,"run_id":run_id})),
+        Err(e) => Json(json!({"ok":false,"error":e.to_string()})),
     }
-    op_result(r)
+}
+
+async fn stop_task(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
+    match ctx.scheduler.cancel_task(&name).await {
+        Ok(run_id) => Json(json!({"ok":true,"run_id":run_id})),
+        Err(e) => Json(json!({"ok":false,"error":e.to_string()})),
+    }
 }
 
 async fn history(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
@@ -139,11 +149,28 @@ async fn history(State(ctx): State<WebContext>, Path(name): Path<String>) -> Jso
         return Json(json!({"ok":false,"error":"not found"}));
     }
     let base = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs").join("history.jsonl");
-    let entries: Vec<serde_json::Value> = std::fs::read_to_string(base).unwrap_or_default().lines()
-        .filter_map(|s| serde_json::from_str::<serde_json::Value>(s).ok())
-        .filter(|r| r.get("task").and_then(|t| t.as_str()) == Some(name.as_str()))
-        .collect();
-    Json(json!({"ok":true,"runs":entries.into_iter().rev().take(100).collect::<Vec<_>>()}))
+    use std::io::BufRead;
+    let mut entries: std::collections::VecDeque<serde_json::Value> = std::collections::VecDeque::new();
+    if let Ok(file) = std::fs::File::open(base) {
+        for line in std::io::BufReader::new(file).lines().map_while(Result::ok) {
+            if let Ok(record) = serde_json::from_str::<serde_json::Value>(&line) {
+                if record.get("task").and_then(|t| t.as_str()) == Some(name.as_str()) {
+                    entries.push_back(record);
+                    if entries.len() > 300 { entries.pop_front(); }
+                }
+            }
+        }
+    }
+    let mut ids = std::collections::HashSet::new();
+    let runs: Vec<_> = entries.into_iter().rev()
+        .filter(|r| r.get("run_id").and_then(|v| v.as_str()).is_some_and(|id| ids.insert(id.to_owned())))
+        .take(100).map(|mut r| {
+            if r.get("status").and_then(|v| v.as_str()) == Some("running") {
+                r["status"] = serde_json::Value::String("interrupted".into());
+            }
+            r
+        }).collect();
+    Json(json!({"ok":true,"runs":runs}))
 }
 
 async fn log(State(ctx): State<WebContext>, Path((name, run_id)): Path<(String, String)>) -> Json<serde_json::Value> {
@@ -155,8 +182,20 @@ async fn log(State(ctx): State<WebContext>, Path((name, run_id)): Path<(String, 
     }
     let safe: String = name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
     let path = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs").join(format!("{safe}-{run_id}.log"));
-    match std::fs::read_to_string(path) {
-        Ok(content) => Json(json!({"ok":true,"content":content})),
+    use std::io::{Read, Seek, SeekFrom};
+    match std::fs::File::open(path) {
+        Ok(mut file) => {
+            let length = file.metadata().map(|m| m.len()).unwrap_or(0);
+            let start = length.saturating_sub(131_072);
+            if file.seek(SeekFrom::Start(start)).is_err() {
+                return Json(json!({"ok":false,"error":"log seek failed"}));
+            }
+            let mut buffer = Vec::new();
+            match file.take(131_072).read_to_end(&mut buffer) {
+                Ok(_) => Json(json!({"ok":true,"content":String::from_utf8_lossy(&buffer),"truncated":start>0})),
+                Err(_) => Json(json!({"ok":false,"error":"log read failed"})),
+            }
+        }
         Err(_) => Json(json!({"ok":false,"error":"log not found"})),
     }
 }
