@@ -18,6 +18,7 @@ PROJECT_NAME = "Mock Project"
 PROJECT = {
     "name": PROJECT_NAME, "root": r"C:\CI\MOCK_PROJECT",
     "tasks": ["mock_job"], "inputs": ["accounts.txt"], "outputs": ["results.txt"],
+    "output_dirs": ["reports"],
 }
 TASKS = [{"name":"mock_job", "cmd":"cmd", "args":["/c","echo MOCK_ONLY"],
           "cwd":PROJECT["root"], "schedule":"0 0 0 * * *",
@@ -25,13 +26,15 @@ TASKS = [{"name":"mock_job", "cmd":"cmd", "args":["/c","echo MOCK_ONLY"],
 FILES = [
     {"role":"input","path":"accounts.txt","exists":True,"size_bytes":25,"modified_unix":1792500000},
     {"role":"output","path":"results.txt","exists":True,"size_bytes":15,"modified_unix":1792500000},
+    {"role":"output_dir","path":"reports","exists":True,"is_directory":True,"size_bytes":None,"modified_unix":1792500000},
 ]
 CHANGES = {
     "project":PROJECT_NAME,"task":"mock_job","run_id":"123-1-1",
-    "scanned_paths":2,
+    "scanned_paths":3,
+    "incomplete_scan":False,
     "changes":[{
-        "role":"output","path":"results.txt","change":"created",
-        "before":{"exists":False},"after":{"exists":True,"size_bytes":15}
+        "role":"output","path":"reports\\generated.xlsx","change":"created",
+        "before":{"exists":False},"after":{"exists":True,"size_bytes":15,"discovered":True}
     }]
 }
 CAPTURED = []
@@ -114,10 +117,14 @@ def main():
             desktop.goto(f"http://127.0.0.1:{server.server_port}/projects",wait_until="networkidle")
             expect(desktop.locator("#project-current-name")).to_have_text(PROJECT_NAME)
             expect(desktop.locator("#project-job-count")).to_have_text("1")
-            expect(desktop.locator("#project-file-count")).to_have_text("2")
+            expect(desktop.locator("#project-file-count")).to_have_text("4")
+            desktop.locator("#project-edit").click()
+            expect(desktop.locator("#project-output-dirs")).to_have_value("reports")
+            desktop.locator("#project-cancel").click()
             desktop.get_by_role("button",name="执行记录").click()
             expect(desktop.locator("#project-runs")).to_be_visible()
-            expect(desktop.locator("#project-run-changes")).to_contain_text("results.txt")
+            expect(desktop.locator("#project-run-changes")).to_contain_text("generated.xlsx")
+            expect(desktop.locator("#project-run-changes")).to_contain_text("自动发现")
             expect(desktop.locator("#project-run-changes")).to_contain_text("新增")
             desktop.locator("#project-add-python").click()
             expect(desktop.locator("#project-python-modal")).to_be_visible()
