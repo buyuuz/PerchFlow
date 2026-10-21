@@ -8,6 +8,7 @@ on:
       - feature/project-hub-v3
       - feature/project-hub-v4
       - feature/project-hub-v5
+      - feature/project-hub-acceptance
     paths:
       - 'dev/simulate_windows_scm_service.py'
       - '.github/workflows/scm-isolated-service-ci.yml'
