@@ -4,6 +4,7 @@ No real Python scripts, network services or Windows file opening are used.
 """
 import json
 import os
+import re
 import threading
 import time
 from http.server import ThreadingHTTPServer
@@ -25,6 +26,13 @@ class Handler(mock.Handler):
         if path == "/task-detail":
             self.path = "/task-detail.html"
             return super().do_GET()
+        if path == "/api/tasks":
+            if not self.authenticate(): return
+            result=dict(mock.TASKS[0])
+            result.update({"status":"running" if STATUS["running"] else "success",
+                           "pid":4444 if STATUS["running"] else None,
+                           "run_id":RUN_ID})
+            return self.api(200,{"tasks":[result]})
         if path == "/api/tasks/mock_job":
             if not self.authenticate(): return
             result = dict(mock.TASKS[0])
@@ -91,7 +99,7 @@ def main():
             checks["pf001_status_sync_without_manual_refresh"]="PASS"
 
             page.locator(".pf-project-detail-link").click()
-            expect(page).to_have_url(lambda url: "/task-detail" in url)
+            expect(page).to_have_url(re.compile(r"/task-detail\?"))
             expect(page.locator("#task-name")).to_contain_text("mock_job")
             expect(page.locator("#task-pid")).to_have_text("—")
             expect(page.locator("#task-python")).to_contain_text("cmd")
