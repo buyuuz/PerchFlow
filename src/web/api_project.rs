@@ -20,6 +20,8 @@ pub fn routes() -> Router<WebContext> {
         .route("/projects", get(list).post(create))
         .route("/projects/:name", get(detail).put(update).delete(remove))
         .route("/projects/:name/python-task", axum::routing::post(add_python_task))
+        .route("/projects/:name/tasks/:task/files", get(task_file_candidates))
+        .route("/projects/:name/tasks/:task/open-file", axum::routing::post(open_task_file))
         .route("/projects/:name/preflight", get(preflight_status))
         .route("/projects/:name/tasks/:task/schedule", axum::routing::put(set_project_task_schedule))
 }
@@ -71,6 +73,79 @@ fn file_statuses(project: &ProjectDef) -> Vec<Value> {
             }
             result
         }).collect()
+}
+
+/// Explicitly requested bounded candidate analysis of a registered Python
+/// entrypoint. The response contains only document paths/metadata; no source
+/// code, workbook contents, or TXT contents are sent to the browser.
+async fn task_file_candidates(
+    State(ctx): State<WebContext>,
+    Path((project_name, task_name)): Path<(String, String)>,
+) -> Json<Value> {
+    let cfg = ctx.state.config.read().await;
+    let Some(project) = cfg.project.iter().find(|p| p.name == project_name &&
+        p.tasks.contains(&task_name)) else {
+        return Json(json!({"ok":false,"error":"project/task not found"}));
+    };
+    let Some(task) = cfg.task.iter().find(|t| t.name == task_name) else {
+        return Json(json!({"ok":false,"error":"task not found"}));
+    };
+    Json(json!({"ok":true,"files":crate::core::script_files::discover(project, task),
+        "partial":true,"message":"Static Python string candidates only; dynamic paths may be missing."}))
+}
+
+#[derive(Deserialize)]
+struct OpenFileRequest { path: String, confirmed: bool }
+
+/// Open an individually-confirmed local document using the existing Windows
+/// association. Recompute the server-side candidate list to prevent the API
+/// from becoming an arbitrary file launcher; never accept executables/UNC.
+async fn open_task_file(
+    State(ctx): State<WebContext>,
+    Path((project_name, task_name)): Path<(String, String)>,
+    Json(req): Json<OpenFileRequest>,
+) -> Json<Value> {
+    if !req.confirmed {
+        return Json(json!({"ok":false,"error":"explicit confirmation required"}));
+    }
+    let cfg = ctx.state.config.read().await;
+    let local = cfg.server.bind.parse::<std::net::SocketAddr>()
+        .is_ok_and(|addr| addr.ip().is_loopback());
+    if !local {
+        return Json(json!({"ok":false,"error":"file opening is only available on loopback server"}));
+    }
+    let Some(project) = cfg.project.iter().find(|p| p.name == project_name &&
+        p.tasks.contains(&task_name)) else {
+        return Json(json!({"ok":false,"error":"project/task not found"}));
+    };
+    let Some(task) = cfg.task.iter().find(|t| t.name == task_name) else {
+        return Json(json!({"ok":false,"error":"task not found"}));
+    };
+    let files = crate::core::script_files::discover(project, task);
+    let allowed = files.iter().any(|f| f.resolved_path == req.path && f.exists);
+    drop(cfg);
+    if !allowed {
+        return Json(json!({"ok":false,"error":"document must be a known, existing candidate"}));
+    }
+    #[cfg(windows)]
+    {
+        // The -Command string is constant; user path is passed as an env var,
+        // not interpolated into a PowerShell expression (no command injection).
+        match std::process::Command::new("powershell.exe")
+            .args(["-NoProfile","-NonInteractive","-Command",
+                "Start-Process -FilePath $env:PERCHFLOW_OPEN_DOCUMENT"])
+            .env("PERCHFLOW_OPEN_DOCUMENT", &req.path)
+            .creation_flags(std::os::windows::process::CommandExt::CREATE_NO_WINDOW)
+            .spawn() {
+                Ok(_) => Json(json!({"ok":true,"requested":true,
+                    "warning":"The document opens in the PerchFlow process desktop session."})),
+                Err(e) => Json(json!({"ok":false,"error":format!("open request failed: {e}")})),
+            }
+    }
+    #[cfg(not(windows))]
+    {
+        Json(json!({"ok":false,"error":"local file opening is Windows-only"}))
+    }
 }
 
 async fn create(State(ctx): State<WebContext>, Json(project): Json<ProjectDef>) -> Json<Value> {
