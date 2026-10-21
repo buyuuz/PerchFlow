@@ -242,10 +242,10 @@ def test_pipeline(exe, output_file):
                 instance = None
     finally:
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        report["result"] = "PASS" if len(checks) == 10 else "PARTIAL"
+        report["result"] = "PASS" if len(checks) == 11 else "PARTIAL"
         output_file.write_text(json.dumps(report, indent=2, ensure_ascii=False),
                                encoding="utf-8")
-    ensure(len(checks) == 10, f"Incomplete Python integration: {checks}")
+    ensure(len(checks) == 11, f"Incomplete Python integration: {checks}")
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
 
