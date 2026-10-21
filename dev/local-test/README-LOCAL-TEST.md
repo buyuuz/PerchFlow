@@ -1,11 +1,11 @@
 # PerchFlow Project Hub — PF-005～PF-009 界面验收测试版
 
-这个测试包来自 `feature/project-hub-pf010-pf011` 的 Windows 64 位开发候选版，包含此前 Project Hub 功能、项目页重构以及 Cron 与脚本管理的解耦。**不是正式升级包，不要替换生产 PerchFlow。**
+这个测试包来自 `feature/project-hub-pf012-pf017` 的 Windows 64 位开发候选版，包含此前 Project Hub 功能、项目页重构以及 Cron 与脚本管理的解耦。**不是正式升级包，不要替换生产 PerchFlow。**
 
 ## 最简单的使用方法
 
-1. 下载 GitHub Actions 中名为 `perchflow-pf010-pf011-windows-ui-test` 的构建产物，解压外层 ZIP，再解压其中的 `PerchFlow-PF010-PF011-UI-Test-Win64.zip`。
-2. 将 `PerchFlow-PF010-PF011-UI-Test-Win64` 整个文件夹放到新位置，例如 `D:\\Downloads\\PerchFlow-RC-Test`，**不要**解压到原来的 PerchFlow 安装目录。
+1. 下载 GitHub Actions 中名为 `perchflow-pf012-pf017-windows-ui-test` 的构建产物，解压外层 ZIP，再解压其中的 `PerchFlow-PF012-PF017-UI-Test-Win64.zip`。
+2. 将 `PerchFlow-PF012-PF017-UI-Test-Win64` 整个文件夹放到新位置，例如 `D:\\Downloads\\PerchFlow-RC-Test`，**不要**解压到原来的 PerchFlow 安装目录。
 3. 双击 **Start-Test.cmd**。第一次启动会生成独立 `perch.toml`、随机回环端口与随机登录令牌；也会在浏览器中打开该本地地址。
 4. 在启动窗口复制显示的登录令牌，登录网页，然后打开 **项目 / Projects** 页面。
 5. 查看已创建的 `RC Sandbox Demo` 项目。如果能检测到 Python，将自动出现 `rc_mock_python` 任务，**完全没有 Cron 定时计划**。先点击“运行一次”进行本地安全测试；在「定时任务」页面应当看不到这个示例脚本。
@@ -61,7 +61,7 @@
 
 **Windows 服务与可视化浏览器是否已测试？** CI 对临时 Windows 服务和后台 Python 模拟已通过，但你自己电脑上的系统权限、Python 环境、GUI 浏览器/RPA 仍需单独测试；本包不会自动安装服务。
 
-**版本来源**：`buyuuz/PerchFlow`，独立分支 `feature/project-hub-pf010-pf011`。候选版代码尚未合并正式 `main`。
+**版本来源**：`buyuuz/PerchFlow`，独立分支 `feature/project-hub-pf012-pf017`。候选版代码尚未合并正式 `main`。
 
 ## 需要反馈什么
 
@@ -91,3 +91,11 @@
 - PF-011: Script log panel reuses the Process Detail terminal HTML/CSS classes and existing process-detail.css without reusing process-specific API calls. The Python log endpoint and click-to-read security behavior are unchanged.
 - PF-011: Terminal has colorized log lines, clear view, last 100/500/1000 lines and a live polling switch.
 - The left script log area no longer duplicates Run History and Linked Files tabs.
+
+## PF-012..017 UI improvements
+
+- Opening a discovered file from Script Detail is one click; successful opens no longer show a session warning. Server-side known-file allowlist and loopback-only restrictions remain.
+- The latest run log loads automatically if a history record exists. Clicking a historical run immediately loads that run's log. No history causes no log fetch.
+- Script Settings opens a local dialog (interpreter/script path/working directory/one argument per line/timeout); edits use a project-scoped API that preserves task identity, Cron enabled/schedule, and history.
+- The Script Info edit link, exit-code/CPU/memory fields, and the three-dots shortcut in project script rows were removed. Existing task data remain unchanged.
+- The compact single-viewport Script Detail, terminal log styling and per-panel scrolling remain in place.

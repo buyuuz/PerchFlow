@@ -169,3 +169,42 @@ body:has(.pf-taskdetail-main){background:#0e1519}
  .pf-taskdetail-log .pf-log-toolbar {flex-wrap:wrap;align-items:flex-start}
  .pf-taskdetail-log .pf-terminal-window {min-height:290px}
 }
+
+
+/* PF-015: script-only settings dialog. It doesn't edit Cron fields. */
+.pf-taskdetail-settings-dialog {
+  box-sizing:border-box;
+  position:fixed;
+  inset:0;
+  width:min(560px,calc(100vw - 32px));
+  max-height:min(92dvh,740px);
+  margin:auto;
+  padding:0;
+  border:1px solid rgba(137,180,198,.35);
+  border-radius:13px;
+  background:#15232e;
+  color:#e4f0f6;
+  box-shadow:0 24px 90px rgba(0,0,0,.65);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  font-family:inherit;
+}
+.pf-taskdetail-settings-dialog:not([open]){display:none}
+.pf-taskdetail-settings-dialog::backdrop{background:rgba(3,10,16,.68);backdrop-filter:blur(4px)}
+.pf-taskdetail-settings-form{display:flex;flex-direction:column;min-width:0}
+.pf-taskdetail-settings-header{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:19px 21px 14px;background:#15232e;border-bottom:1px solid rgba(145,182,200,.15)}
+.pf-taskdetail-settings-header h2{margin:0;font-size:17px;line-height:1.4;font-weight:700}
+.pf-taskdetail-settings-header p{margin:4px 0 0;color:#90adbd;font-size:11px}
+.pf-taskdetail-settings-close{width:28px;height:28px;flex:0 0 28px;border:0;background:transparent;color:#b5cbd6;border-radius:6px;font-size:23px;cursor:pointer}
+.pf-taskdetail-settings-close:hover{color:#fff;background:rgba(255,255,255,.09)}
+.pf-taskdetail-settings-fields{display:flex;flex-direction:column;gap:13px;padding:18px 21px 12px}
+.pf-taskdetail-settings-fields label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#b3cbd8}
+.pf-taskdetail-settings-fields input,.pf-taskdetail-settings-fields textarea{box-sizing:border-box;width:100%;min-height:36px;padding:9px 10px;border-radius:8px;border:1px solid rgba(134,171,190,.3);background:#0e1923;color:#e4f2f8;outline:none;font:12px/1.5 "JetBrains Mono",Consolas,monospace}
+.pf-taskdetail-settings-fields input:focus,.pf-taskdetail-settings-fields textarea:focus{border-color:#37d0e8;box-shadow:0 0 0 2px rgba(55,208,232,.12)}
+.pf-taskdetail-settings-fields textarea{min-height:72px;resize:vertical}
+.pf-taskdetail-settings-fields p{margin:0;color:#87a6b8;font-size:11px;line-height:1.5}
+.pf-taskdetail-settings-error{margin:0 21px 8px;padding:9px 11px;background:rgba(176,50,75,.14);border:1px solid rgba(244,118,142,.25);border-radius:7px;color:#ffaeb9;font-size:12px}
+.pf-taskdetail-settings-error[hidden]{display:none}
+.pf-taskdetail-settings-footer{position:sticky;bottom:0;display:flex;align-items:center;justify-content:flex-end;gap:9px;padding:13px 21px 18px;border-top:1px solid rgba(145,182,200,.15);background:#15232e}
+.pf-taskdetail-settings-footer .pf-taskdetail-btn{min-width:76px}
+@media(max-height:700px){.pf-taskdetail-settings-header{padding-top:13px}.pf-taskdetail-settings-fields{gap:9px;padding-top:12px}.pf-taskdetail-settings-footer{padding:9px 21px 12px}}

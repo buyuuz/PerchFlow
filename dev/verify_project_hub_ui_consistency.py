@@ -114,11 +114,10 @@ def main():
             page.screenshot(path=str(DEST/"project-detail-1600.png"),full_page=True)
           if width==1366 and height==768:
             page.screenshot(path=str(DEST/"project-detail-1366.png"),full_page=True)
-          # Only explicit user interaction may read an output log.
-          previously_read=len(mock_detail.LOG_READS)
-          page.locator("#task-log-show").click()
+          # PF013: the latest run automatically reads its log on detail entry.
           expect(page.locator("#task-log-content")).to_contain_text("FAKE_START",timeout=5000)
-          assert len(mock_detail.LOG_READS)>previously_read
+          assert len(mock_detail.LOG_READS)>0
+          assert page.locator("#task-log-show").count()==0
           # The Python output uses process terminal colors; no HTML injection.
           page.locator("#task-log-lines").select_option("100")
           page.evaluate("""() => {
@@ -172,5 +171,5 @@ def main():
         browser.close()
     finally:
       server.shutdown()
-    print("PF005-PF011 EDGE UI PASS")
+    print("PF005-PF017 EDGE UI PASS")
 if __name__=="__main__":main()

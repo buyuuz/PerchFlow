@@ -10,7 +10,8 @@ const en = {
   '手动执行':'Manual run','手动 + 定时':'Manual + scheduled',
   '定时已启用':'Schedule active','Cron 已暂停':'Cron paused','未设置定时':'No schedule',
   '尚未执行':'Not run','查看更多 →':'View more →','收起':'Collapse',
-  '等待查看日志…':'Click View log to read output…',
+  '等待查看日志…':'Waiting for log output…',
+  '暂无执行日志':'No run logs yet',
   '等待脚本输出…':'Waiting for script output…',
   '日志不存在、尚未生成，或已按三次保留规则清理。':'Log missing, not created, or removed under 3-run retention.',
   '正在加载…':'Loading…','没有执行记录':'No run history',
@@ -21,9 +22,7 @@ const en = {
   '任务已经结束，状态已同步。':'Task already finished; status synchronized.',
   '点击确定会在 PerchFlow 所在电脑上执行真实 Python 脚本。继续？':'This will execute the real Python script on the PerchFlow computer. Continue?',
   '停止当前运行的 Python 脚本？':'Stop the running Python script?',
-  '将在运行 PerchFlow 的 Windows 电脑上用默认程序打开该文件。确认？':'Open this document on the PerchFlow Windows computer using its associated application?',
   '检测到的路径只是代码静态候选，并非确定的实际文件依赖。':'Static code candidate; not a verified runtime dependency.',
-  '仅支持本机 Windows 交互桌面；服务模式可能无法显示应用窗口。':'Available only in an interactive Windows session; service mode may not show windows.',
 };
 function tx(value) { return typeof getLang === 'function' && getLang() === 'en' ? (en[value] || value) : value; }
 function node(id) { return document.getElementById(id); }
@@ -55,6 +54,7 @@ let fileLoading=false;
 let checkedOwnership=false;
 let actionBusy=false;
 let activeLogRequest=0;
+let settingsSaving=false;
 
 function message(text) {
   const label=node('task-message');
@@ -81,8 +81,6 @@ function renderTask(task) {
   node('task-status').textContent=tx(active?'运行中':'空闲');
   node('task-pid').textContent=active && task.pid!=null ? task.pid : '—';
   if(active) node('task-uptime').textContent=duration(task.uptime_secs);
-  node('task-cpu').textContent=active?(Number(task.cpu_percent)||0).toFixed(1)+'%':'—';
-  node('task-memory').textContent=active?(Number(task.mem_bytes||0)/1048576).toFixed(1)+' MB':'—';
   node('task-schedule').textContent=tx(task.schedule?'手动 + 定时':'手动执行');
   node('task-schedule-hint').textContent=task.schedule?(task.enabled?tx('定时已启用'):tx('Cron 已暂停')):tx('未设置定时');
   node('task-python').textContent=task.cmd||'—';
@@ -91,8 +89,8 @@ function renderTask(task) {
   for(const key of ['task-python','task-cwd','task-args']) {
     node(key).title=node(key).textContent;
   }
-  node('task-exit').textContent=task.last_exit_code==null?'—':task.last_exit_code;
   node('task-schedule-remove').hidden=!task.schedule;
+  node('task-settings').disabled=active||settingsSaving;
   node('task-run').disabled=active||actionBusy;
   node('task-stop').disabled=!active||actionBusy;
 }function logLineCount(value) {
@@ -115,7 +113,7 @@ function logReset() {
   lastLogId=null;
   const view=node('task-log-content');
   view.replaceChildren();
-  view.dataset.empty=tx('\u7b49\u5f85\u67e5\u770b\u65e5\u5fd7\u2026');
+  view.dataset.empty=tx('暂无执行日志');
   view.scrollTop=0;
   node('task-log-count').textContent=logLineCount(0);
 }
@@ -158,6 +156,9 @@ function renderHistory(runs) {
     node('task-last-result').textContent=tx('尚未执行');
     node('task-last-time').textContent='—';
     if(latestTask?.status!=='running')node('task-uptime').textContent='—';
+    selectedId=null;
+    logOpted=false;
+    logReset();
     return;
   }
   const latest=runs[0];
@@ -185,22 +186,25 @@ function renderHistory(runs) {
     item.title=tx(run.log_available?'已保留日志':'旧日志可能已清理');
     item.addEventListener('click',()=>{
       followLatest=false;
-      selectedId=run.run_id;
-      logOpted=false;
-      node('task-log-show').disabled=false;
-      logReset();
+      if(selectedId!==run.run_id) {
+        selectedId=run.run_id;
+        logReset();
+      }
+      logOpted=true;
       renderHistory(historyRuns);
-      document.getElementById('task-log-panel').scrollIntoView({block:'nearest',behavior:'smooth'});
+      void readLog();
     });
     list.append(item);
   }
 }function pickLatest(runs) {
   if(!runs.length)return;
-  const wanted=followLatest||!selectedId?runs[0].run_id:selectedId;
+  const retained=runs.some(item=>item.run_id===selectedId);
+  const wanted=followLatest||!retained?runs[0].run_id:selectedId;
   if(wanted!==selectedId) {
     selectedId=wanted;
-    // A new run must ALWAYS start at an empty log view.
+    // Every execution gets an independent log view; never show the prior run.
     logReset();
+    logOpted=true;
   }
 }
 async function readLog() {
@@ -239,7 +243,8 @@ async function poll() {
     const runs=Array.isArray(history.runs)?history.runs:[];
     pickLatest(runs);
     renderHistory(runs);
-    if(logOpted && node('task-log-auto').checked) await readLog();
+    if(logOpted && selectedId &&
+       (node('task-log-auto').checked || lastLogId!==selectedId)) await readLog();
   }catch(error){message(error.message);}
   finally{polling=false;}
 }
@@ -256,6 +261,7 @@ async function act(action) {
       followLatest=true;
       selectedId=result.run_id;
       logReset();
+      logOpted=true;
     }
     await poll();
   }catch(error){message(error.message);}
@@ -284,17 +290,61 @@ async function loadFiles() {
       const open=make('button','pf-taskdetail-btn',tx('打开文件'));
       open.type='button';open.disabled=!file.exists;
       open.addEventListener('click',async()=>{
-        if(!window.confirm(tx('将在运行 PerchFlow 的 Windows 电脑上用默认程序打开该文件。确认？')))return;
         try {
-          const response=await get(apiFiles+'/open-file',{method:'POST',
+          // The file-open button is the user's explicit confirmation.
+          // The backend still enforces loopback access and the discovered-file allowlist.
+          await get(apiFiles+'/open-file',{method:'POST',
             body:JSON.stringify({path:file.resolved_path,confirmed:true})});
-          if(response.requested)message('仅支持本机 Windows 交互桌面；服务模式可能无法显示应用窗口。');
         }catch(err){message(err.message);}
       });
       row.append(left,open);list.append(row);
     }
   }catch(error){list.replaceChildren(make('p','pf-taskdetail-notice',error.message));}
   finally{fileLoading=false;}
+}
+function showScriptSettings() {
+  if(!checkedOwnership || !latestTask || latestTask.status==='running')return;
+  const task=latestTask;
+  const script=(task.args||[]).find(value=>String(value).toLowerCase().endsWith('.py'))||'';
+  node('task-settings-subtitle').textContent=taskName;
+  node('task-settings-python').value=task.cmd||'';
+  node('task-settings-script').value=script;
+  node('task-settings-cwd').value=task.cwd||'';
+  node('task-settings-args').value=(task.args||[]).slice(1).join('\n');
+  node('task-settings-timeout').value=String(task.timeout_secs??0);
+  node('task-settings-error').hidden=true;
+  node('task-settings-dialog').showModal();
+}
+async function saveScriptSettings(event) {
+  event.preventDefault();
+  if(settingsSaving || !checkedOwnership || !latestTask)return;
+  const dialog=node('task-settings-dialog');
+  const timeout=Number(node('task-settings-timeout').value);
+  if(!Number.isSafeInteger(timeout)||timeout<0){
+    node('task-settings-error').textContent=tx('执行超时必须是非负整数。');
+    node('task-settings-error').hidden=false;return;
+  }
+  const request={
+    cmd:node('task-settings-python').value.trim(),
+    script:node('task-settings-script').value.trim(),
+    cwd:node('task-settings-cwd').value.trim(),
+    args:node('task-settings-args').value.split(/\r?\n/).filter(x=>x.length>0),
+    timeout_secs:timeout
+  };
+  settingsSaving=true;
+  node('task-settings-save').disabled=true;
+  try {
+    await get(apiFiles+'/settings',{method:'PUT',body:JSON.stringify(request)});
+    dialog.close();
+    await poll();
+    await loadFiles();
+  }catch(error){
+    node('task-settings-error').textContent=error.message;
+    node('task-settings-error').hidden=false;
+  }finally{
+    settingsSaving=false;
+    node('task-settings-save').disabled=false;
+  }
 }
 document.addEventListener('DOMContentLoaded',()=>{
   localizeStatic();
@@ -304,6 +354,13 @@ document.addEventListener('DOMContentLoaded',()=>{
     renderHistory(historyRuns);
     updateLogLiveButton();
     if(logOpted)renderScriptLog(shownLog);
+  });
+  node('task-settings').addEventListener('click',showScriptSettings);
+  node('task-settings-form').addEventListener('submit',saveScriptSettings);
+  node('task-settings-close').addEventListener('click',()=>node('task-settings-dialog').close());
+  node('task-settings-cancel').addEventListener('click',()=>node('task-settings-dialog').close());
+  node('task-settings-dialog').addEventListener('click',event=>{
+    if(event.target===node('task-settings-dialog'))node('task-settings-dialog').close();
   });
   const more=node('task-more'), menu=node('task-more-menu');
   more.addEventListener('click',()=>{
@@ -362,10 +419,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(logOpted && lastLogId===selectedId)renderScriptLog(shownLog);
   });
   updateLogLiveButton();
-  node('task-log-show').addEventListener('click',()=>{
-    logOpted=true;
-    void readLog();
-  });
   node('task-files-refresh').addEventListener('click',()=>{void loadFiles();});
   if(!taskName || !projectName) {message('Missing task or project name');return;}
   void poll();

@@ -1203,3 +1203,69 @@ async fn project_script_schedule_lifecycle_preserves_manual_task_and_history() {
     assert_eq!(history["runs"][0]["run_id"], "historical-safe-1");    let saved = perch::config::load(&tmp.path().join("perch.toml")).unwrap();
     assert!(saved.task[0].schedule.is_empty());
 }
+
+#[tokio::test]
+async fn script_settings_update_preserves_cron_and_script_identity() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let root = tmp.path().join("mock-scripts");
+    std::fs::create_dir_all(&root).unwrap();
+    let original = root.join("original.py");
+    let updated = root.join("updated.py");
+    std::fs::write(&original, "print('mock')").unwrap();
+    std::fs::write(&updated, "print('updated mock')").unwrap();
+    let fake_python = std::env::current_exe().unwrap().to_string_lossy().into_owned();
+    let job = serde_json::json!({
+        "name":"script1","cmd":fake_python,
+        "args":[original.to_string_lossy(), "--original"],
+        "cwd":root.to_string_lossy(),
+        "schedule":"0 0 0 * * *","enabled":true,"timeout_secs":90
+    });
+    let added: serde_json::Value = client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&job).send().await.unwrap().json().await.unwrap();
+    assert_eq!(added["ok"],true);
+    let project = serde_json::json!({
+        "name":"Safe Mock","root":root.to_string_lossy(),"tasks":["script1"]
+    });
+    let project_resp: serde_json::Value = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(project_resp["ok"],true);
+    let url=format!("{base}/api/projects/Safe%20Mock/tasks/script1/settings");
+    let request=serde_json::json!({
+        "cmd":fake_python, "script":updated.to_string_lossy(),
+        "cwd":root.to_string_lossy(),"args":["--new","two words"],"timeout_secs":130
+    });
+    let unauth=client.put(&url).json(&request).send().await.unwrap();
+    assert_eq!(unauth.status(),401);
+    let response: serde_json::Value=client.put(&url).bearer_auth(&token)
+        .json(&request).send().await.unwrap().json().await.unwrap();
+    assert_eq!(response["ok"],true,"{response}");
+    let state: serde_json::Value=client.get(format!("{base}/api/tasks/script1"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(state["schedule"],"0 0 0 * * *");
+    assert_eq!(state["enabled"],true);
+    assert_eq!(state["project"],"Safe Mock");
+    assert_eq!(state["args"][0],updated.to_string_lossy().as_ref());
+    assert_eq!(state["args"][1],"--new");
+    assert_eq!(state["args"][2],"two words");
+    assert_eq!(state["timeout_secs"],130);
+    let invalid: serde_json::Value=client.put(&url).bearer_auth(&token)
+        .json(&serde_json::json!({
+            "cmd":fake_python,"script":"..\\outside.py",
+            "cwd":root.to_string_lossy(),"args":[],"timeout_secs":12
+        })).send().await.unwrap().json().await.unwrap();
+    assert_eq!(invalid["ok"],false);
+    let extra: serde_json::Value=client.put(&url).bearer_auth(&token)
+        .json(&serde_json::json!({
+            "cmd":fake_python,"script":updated.to_string_lossy(),
+            "cwd":root.to_string_lossy(),"args":[],"timeout_secs":12,
+            "enabled":false,"schedule":""
+        })).send().await.unwrap().json().await.unwrap();
+    assert_eq!(extra["ok"],false,"cron fields may not be edited here");
+    let stored=perch::config::load(&tmp.path().join("perch.toml")).unwrap();
+    assert_eq!(stored.task[0].name,"script1");
+    assert_eq!(stored.task[0].schedule,"0 0 0 * * *");
+    assert!(stored.task[0].enabled);
+    assert_eq!(stored.task[0].timeout_secs,130);
+    assert_eq!(stored.project[0].tasks,vec!["script1".to_string()]);
+}

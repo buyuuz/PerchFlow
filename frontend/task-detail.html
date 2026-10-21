@@ -57,7 +57,7 @@
       <div class="pf-taskdetail-actions">
         <button id="task-run" class="pf-taskdetail-btn primary" type="button"><span class="material-symbols-outlined" aria-hidden="true">play_arrow</span><span data-pf-en="Run once">运行一次</span></button>
         <button id="task-stop" class="pf-taskdetail-btn danger" type="button" disabled><span class="material-symbols-outlined" aria-hidden="true">stop</span><span data-pf-en="Stop">停止</span></button>
-        <a href="/tasks" class="pf-taskdetail-btn" id="task-settings"><span class="material-symbols-outlined" aria-hidden="true">settings</span><span data-pf-en="Script settings">脚本设置</span></a>
+        <button type="button" class="pf-taskdetail-btn" id="task-settings"><span class="material-symbols-outlined" aria-hidden="true">settings</span><span data-pf-en="Script settings">脚本设置</span></button>
         <div class="pf-taskdetail-menu-wrap">
           <button type="button" id="task-more" class="pf-taskdetail-btn" aria-expanded="false" aria-controls="task-more-menu" aria-label="更多"><span class="material-symbols-outlined" aria-hidden="true">more_horiz</span><span data-pf-en="More">更多</span></button>
           <div id="task-more-menu" class="pf-taskdetail-dropdown" hidden>
@@ -85,13 +85,9 @@
               <h2 data-pf-en="Log output">运行日志</h2>
               <span id="task-log-count" class="pf-log-counter" aria-live="off">0 行</span>
             </div>
-            <p data-pf-en="Output is read only when requested.">仅点击查看后读取日志</p>
+            <p data-pf-en="Shows output from the selected run.">显示选中执行记录的日志</p>
           </div>
           <div class="pf-log-tools">
-            <button id="task-log-show" class="pf-log-clear" type="button">
-              <span class="material-symbols-outlined" aria-hidden="true">visibility</span>
-              <span data-pf-en="View log">查看日志</span>
-            </button>
             <button id="task-log-clear" class="pf-log-clear" type="button">
               <span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span>
               <span data-pf-en="Clear">清屏</span>
@@ -118,7 +114,7 @@
             <span class="pf-terminal-chrome-right">UTF-8</span>
           </div>
           <div id="task-log-content" class="pf-terminal-content terminal-scroll"
-               data-empty="等待查看日志…" role="log" aria-label="Python 脚本日志" aria-live="off" tabindex="0"></div>
+               data-empty="暂无执行日志" role="log" aria-label="Python 脚本日志" aria-live="off" tabindex="0"></div>
           <div class="pf-terminal-footer">
             <span class="material-symbols-outlined" aria-hidden="true">subdirectory_arrow_right</span>
             <span data-pf-en="Output from the selected run">所选运行的标准输出</span>
@@ -146,21 +142,41 @@
         <section class="pf-taskdetail-pane pf-taskdetail-info-pane">
           <div class="pf-taskdetail-pane-title">
             <h2 data-pf-en="Script information">脚本信息</h2>
-            <a class="pf-taskdetail-text-btn" href="/tasks" data-pf-en="Edit">编辑 ↗</a>
           </div>
           <div class="pf-taskdetail-info">
             <div><span data-pf-en="Python interpreter">Python 解释器</span><code id="task-python">—</code></div>
             <div><span data-pf-en="Working directory">工作目录</span><code id="task-cwd">—</code></div>
             <div><span data-pf-en="Arguments">参数</span><code id="task-args">—</code></div>
-            <div><span data-pf-en="Last exit code">上次退出码</span><code id="task-exit">—</code></div>
-            <div><span>CPU</span><code id="task-cpu">—</code></div>
-            <div><span data-pf-en="Memory">内存</span><code id="task-memory">—</code></div>
             <div><span data-pf-en="Scheduled task">定时计划</span><button type="button" class="pf-taskdetail-text-btn" id="task-schedule-add">添加/修改计划</button><button type="button" class="pf-taskdetail-text-btn" id="task-schedule-remove" hidden>移除计划</button><a id="task-schedule-link" href="/tasks">前往定时任务 →</a></div>
           </div>
         </section>
       </aside>
     </section>
   </main>
+  <dialog id="task-settings-dialog" class="pf-taskdetail-settings-dialog" aria-labelledby="task-settings-heading">
+    <form id="task-settings-form" class="pf-taskdetail-settings-form">
+      <div class="pf-taskdetail-settings-header">
+        <div>
+          <h2 id="task-settings-heading" data-pf-en="Script settings">脚本设置</h2>
+          <p id="task-settings-subtitle"></p>
+        </div>
+        <button id="task-settings-close" class="pf-taskdetail-settings-close" type="button" aria-label="关闭" data-pf-en="Close">×</button>
+      </div>
+      <div class="pf-taskdetail-settings-fields">
+        <label><span data-pf-en="Python interpreter">Python 解释器</span><input id="task-settings-python" type="text" autocomplete="off" required spellcheck="false"></label>
+        <label><span data-pf-en="Script path">脚本路径</span><input id="task-settings-script" type="text" autocomplete="off" required spellcheck="false"></label>
+        <label><span data-pf-en="Working directory">工作目录</span><input id="task-settings-cwd" type="text" autocomplete="off" required spellcheck="false"></label>
+        <label><span data-pf-en="Arguments (one per line)">启动参数（每行一个参数）</span><textarea id="task-settings-args" rows="3" spellcheck="false" placeholder="--example"></textarea></label>
+        <label><span data-pf-en="Execution timeout (seconds; 0 means unlimited)">执行超时（秒，0 表示不限制）</span><input id="task-settings-timeout" type="number" min="0" step="1" required></label>
+        <p data-pf-en="These settings do not change the Cron schedule or execution history.">此处仅修改脚本执行配置，不影响 Cron 计划或执行历史。</p>
+      </div>
+      <p id="task-settings-error" class="pf-taskdetail-settings-error" role="alert" hidden></p>
+      <div class="pf-taskdetail-settings-footer">
+        <button id="task-settings-cancel" type="button" class="pf-taskdetail-btn" data-pf-en="Cancel">取消</button>
+        <button id="task-settings-save" type="submit" class="pf-taskdetail-btn primary" data-pf-en="Save settings">保存设置</button>
+      </div>
+    </form>
+  </dialog>
   <nav class="fixed bottom-0 left-0 w-full z-50 flex items-center bg-surface/60 backdrop-blur-xl border-t border-white/10 h-14 box-content pb-[env(safe-area-inset-bottom)] md:hidden">
     <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/processes"><span class="material-symbols-outlined text-[20px]">monitoring</span><span class="text-[10px]" data-i18n="nav.processes_short">进程</span></a>
     <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/tasks"><span class="material-symbols-outlined text-[20px]">assignment_turned_in</span><span class="text-[10px]" data-i18n="nav.tasks_short">任务</span></a>

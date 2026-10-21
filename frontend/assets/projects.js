@@ -337,11 +337,7 @@ async function renderProjectDetail() {
     stop.dataset.taskAction = 'stop';
     const detail = el('a','pf-project-secondary pf-project-detail-link',pfL('详情'));
     detail.href = taskDetailHref(name);
-    const more = el('a','pf-project-row-more material-symbols-outlined','more_horiz');
-    more.href = '/tasks';
-    more.title = pfL('在定时任务页面查看高级设置');
-    more.setAttribute('aria-label', more.title);
-    actions.append(run,stop,detail,more);
+    actions.append(run,stop,detail);
     row.append(info,state,last,mode,actions);
     row.addEventListener('click',event=>{
       if(!event.target.closest('button,a,input')) window.location.assign(taskDetailHref(name));

@@ -23,6 +23,7 @@ pub fn routes() -> Router<WebContext> {
         .route("/projects/:name", get(detail).put(update).delete(remove))
         .route("/projects/:name/python-task", axum::routing::post(add_python_task))
         .route("/projects/:name/tasks/:task/files", get(task_file_candidates))
+        .route("/projects/:name/tasks/:task/settings", axum::routing::put(update_script_settings))
         .route("/projects/:name/tasks/:task/open-file", axum::routing::post(open_task_file))
         .route("/projects/:name/preflight", get(preflight_status))
         .route("/projects/:name/tasks/:task/schedule", axum::routing::put(set_project_task_schedule))
@@ -94,6 +95,85 @@ async fn task_file_candidates(
     };
     Json(json!({"ok":true,"files":crate::core::script_files::discover(project, task),
         "partial":true,"message":"Static Python string candidates only; dynamic paths may be missing."}))
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ScriptSettingsRequest {
+    cmd: String,
+    script: String,
+    cwd: String,
+    #[serde(default)]
+    args: Vec<String>,
+    timeout_secs: u64,
+}
+
+/// Edit only a registered Python script's execution fields. Cron configuration,
+/// task identity, project membership, and run history must remain unchanged.
+async fn update_script_settings(
+    State(ctx): State<WebContext>,
+    Path((project_name, task_name)): Path<(String, String)>,
+    Json(req): Json<ScriptSettingsRequest>,
+) -> Json<Value> {
+    if req.cmd.trim().is_empty() || !FsPath::new(&req.cmd).is_absolute() {
+        return Json(json!({"ok":false,"error":"Python interpreter needs an absolute path"}));
+    }
+    if req.cwd.trim().is_empty() || !FsPath::new(&req.cwd).is_absolute() {
+        return Json(json!({"ok":false,"error":"working directory needs an absolute path"}));
+    }
+    if req.args.len() > 100 || req.args.iter().any(|arg| arg.len() > 2048) {
+        return Json(json!({"ok":false,"error":"too many or oversized arguments"}));
+    }
+    if ctx.scheduler.is_running(&task_name).await {
+        return Json(json!({"ok":false,"error":"task is running; stop it before editing"}));
+    }
+    let mut config = ctx.state.config.write().await;
+    let Some(project) = config.project.iter().find(|p|
+        p.name == project_name && p.tasks.contains(&task_name)) else {
+        return Json(json!({"ok":false,"error":"project/task not found"}));
+    };
+    let root = FsPath::new(&project.root);
+    let Some(canonical_root) = root.canonicalize().ok() else {
+        return Json(json!({"ok":false,"error":"project directory is not currently available"}));
+    };
+    let requested = FsPath::new(req.script.trim());
+    if !req.script.to_ascii_lowercase().ends_with(".py") ||
+        (!requested.is_absolute() && !config::safe_relative_path(&req.script)) {
+        return Json(json!({"ok":false,"error":"script must be a .py file inside the project"}));
+    }
+    let script = if requested.is_absolute() { requested.to_path_buf() } else { root.join(requested) };
+    let Ok(info) = std::fs::symlink_metadata(&script) else {
+        return Json(json!({"ok":false,"error":"Python script does not exist"}));
+    };
+    if !info.is_file() || info.file_type().is_symlink() ||
+        !script.canonicalize().is_ok_and(|real| real.starts_with(&canonical_root)) {
+        return Json(json!({"ok":false,"error":"script must be a regular file inside project directory"}));
+    }
+    if !FsPath::new(&req.cwd).is_dir() {
+        return Json(json!({"ok":false,"error":"working directory does not exist"}));
+    }
+    let Some(script_path) = script.to_str().map(str::to_owned) else {
+        return Json(json!({"ok":false,"error":"script path cannot be encoded"}));
+    };
+    let mut next = config.clone();
+    let Some(task) = next.task.iter_mut().find(|t| t.name == task_name) else {
+        return Json(json!({"ok":false,"error":"task not found"}));
+    };
+    // Preserve schedule/enabled/identity in the same locked transaction.
+    task.cmd = req.cmd;
+    task.cwd = Some(req.cwd);
+    task.args = std::iter::once(script_path).chain(req.args).collect();
+    task.timeout_secs = req.timeout_secs;
+    if let Err(err) = config::validate(&next) {
+        return Json(json!({"ok":false,"error":err.to_string()}));
+    }
+    if let Err(err) = writer::save(&ctx.state.config_path, &next) {
+        return Json(json!({"ok":false,"error":err.to_string()}));
+    }
+    *config = next;
+    drop(config);
+    ctx.scheduler.reload().await;
+    Json(json!({"ok":true}))
 }
 
 #[derive(Deserialize)]
