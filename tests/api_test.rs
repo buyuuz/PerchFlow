@@ -1034,3 +1034,61 @@ async fn project_task_manual_run_and_stop_use_original_scheduler_even_with_cron_
     assert_eq!(history["runs"][0]["status"],"cancelled");
     assert!(!perch::config::load(&tmp.path().join("perch.toml")).unwrap().task[0].enabled);
 }
+
+
+#[tokio::test]
+async fn task_create_disk_write_failure_keeps_in_memory_tasks_unchanged() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let path = tmp.path().join("perch.toml");
+    // A directory at the target config path reliably fails atomic persist
+    // on a disposable Windows runner without changing machine permissions.
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    let task = serde_json::json!({
+        "name":"not_persisted", "cmd":"cmd","args":["/c","echo MOCK_ONLY"],
+        "schedule":"0 0 0 * * *", "enabled":false
+    });
+    let result:serde_json::Value=client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&task).send().await.unwrap().json().await.unwrap();
+    assert_eq!(result["ok"],false,"{}",result);
+    let list:serde_json::Value=client.get(format!("{base}/api/tasks"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(list["tasks"].as_array().unwrap().len(),0,
+        "failed create must not insert unsaved in-memory task");
+}
+
+#[tokio::test]
+async fn task_update_delete_disk_failures_preserve_runtime_and_definition() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let task = serde_json::json!({
+        "name":"original", "cmd":"cmd","args":["/c","echo MOCK_ONLY"],
+        "schedule":"0 0 0 * * *", "enabled":false
+    });
+    let created:serde_json::Value=client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&task).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"],true);
+    let path = tmp.path().join("perch.toml");
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    let replacement=serde_json::json!({
+        "name":"renamed","cmd":"powershell.exe","args":["-NoProfile"],
+        "schedule":"0 0 0 * * *","enabled":true
+    });
+    let updated:serde_json::Value=client.put(format!("{base}/api/tasks/original"))
+        .bearer_auth(&token).json(&replacement).send().await.unwrap().json().await.unwrap();
+    assert_eq!(updated["ok"],false,"{}",updated);
+    let after_update:serde_json::Value=client.get(format!("{base}/api/tasks"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(after_update["tasks"][0]["name"],"original");
+    assert_eq!(after_update["tasks"][0]["cmd"],"cmd");
+    assert_eq!(after_update["tasks"][0]["enabled"],false);
+    let deleted:serde_json::Value=client.delete(format!("{base}/api/tasks/original"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(deleted["ok"],false,"{}",deleted);
+    let after_delete:serde_json::Value=client.get(format!("{base}/api/tasks"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(after_delete["tasks"][0]["name"],"original",
+        "a failed delete must never remove live task state");
+}
