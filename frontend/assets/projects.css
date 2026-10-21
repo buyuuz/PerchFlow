@@ -156,10 +156,10 @@ body:has(.pf-project-main){background:#0e1519}
 .pf-project-list-column,.pf-project-detail-column{box-sizing:border-box;min-width:0;min-height:0;border:1px solid rgba(135,172,198,.16);border-radius:12px;background:linear-gradient(135deg,#131f29 0%,#101a23 100%);box-shadow:0 14px 36px rgba(0,0,0,.10)}
 .pf-project-list-column{display:flex;flex-direction:column;align-items:stretch;width:auto;max-height:calc(100dvh - 167px);padding:13px 10px 12px;gap:12px;overflow:hidden;position:sticky;top:78px}
 .pf-project-column-title{display:flex;justify-content:space-between;gap:9px;align-items:center;min-width:0;margin:0;padding:0 6px}
-.pf-project-column-title h2{font-size:13px;font-weight:650;line-height:1.4;white-space:nowrap;margin:0}
+.pf-project-column-title h2{font-size:15px;font-weight:650;line-height:1.4;white-space:nowrap;margin:0}
 .pf-project-column-title span{font-size:12px;color:#8fa8b8}
 .pf-project-list{display:flex;flex-direction:column;flex:1 1 auto;gap:5px;max-height:none;min-height:0;min-width:0;overflow-x:hidden;overflow-y:auto;scrollbar-width:thin;padding:0 2px 3px}
-.pf-project-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;width:100%;min-width:0;max-width:none;min-height:57px;padding:9px 10px;border-radius:8px;gap:7px;background:rgba(8,19,29,.32);border:1px solid rgba(126,164,187,.14)}
+.pf-project-entry{box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;flex:0 0 auto;width:100%;min-width:0;max-width:none;min-height:70px;padding:12px 10px;border-radius:8px;gap:7px;background:rgba(8,19,29,.32);border:1px solid rgba(126,164,187,.14)}
 .pf-project-entry>span:first-child{flex:1;min-width:0}
 .pf-project-entry strong{display:block;font-size:12.5px;font-weight:650;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pf-project-entry small{display:block;max-width:100%;margin-top:4px;font-size:10.5px;line-height:1.4;font-family:inherit;color:#8aa3b5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;word-break:normal}
@@ -204,7 +204,7 @@ body:has(.pf-project-main){background:#0e1519}
 .pf-project-task-main{display:flex;flex-direction:row;align-items:center;gap:8px;min-width:0;flex:initial}
 .pf-project-script-icon{display:flex;align-items:center;justify-content:center;flex:0 0 34px;width:34px;height:34px;border-radius:8px;color:#43d6ed;background:#213445;border:1px solid rgba(131,165,185,.12);font-size:19px}
 .pf-project-task-link{min-width:0;font-size:12.5px!important;line-height:1.4;font-weight:650;color:#e7f1f8!important;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none!important}
-.pf-project-task-link:hover{color:#43d6ed!important;text-decoration:underline!important}
+.pf-project-task-link:hover{color:#43d6ed!important;text-decoration:none!important}
 .pf-project-cell{min-width:0}
 .pf-project-status-cell{display:flex;align-items:center;gap:6px}
 .pf-project-status-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#839fb8;box-shadow:0 0 0 3px rgba(146,181,208,.065)}

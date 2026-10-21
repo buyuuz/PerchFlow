@@ -78,6 +78,25 @@ def run():
                 expect(page.locator(".pf-project-task-title")).to_have_text("mock_job")
                 expect(page.locator(".pf-project-task-filename")).to_have_text("mock_job.py")
                 assert r"C:\CI\MOCK_PROJECT" not in page.locator(".pf-project-task-link").inner_text()
+                # PF024/025: taller individual cards, not a larger list container.
+                cards=page.locator(".pf-project-entry")
+                expect(cards.first).to_be_visible()
+                card_height=cards.first.bounding_box()["height"]
+                assert card_height >= 69.5,("project card height",width,height,card_height)
+                title_size=page.locator(".pf-project-column-title h2").evaluate(
+                    "(el)=>getComputedStyle(el).fontSize")
+                assert title_size=="15px",("my projects font size",title_size)
+                # PF023: hover color remains active while both labels lose underline.
+                link=page.locator(".pf-project-task-link").first
+                normal_color=link.evaluate("(el)=>getComputedStyle(el).color")
+                link.hover()
+                hover=link.evaluate("""(el)=>({
+                    color:getComputedStyle(el).color,
+                    line:getComputedStyle(el).textDecorationLine,
+                    childLines:Array.from(el.children).map(x=>getComputedStyle(x).textDecorationLine)
+                })""")
+                assert hover["line"]=="none" and all(x=="none" for x in hover["childLines"]),("underline on hover",hover)
+                assert normal_color != hover["color"],("hover color feedback lost",normal_color,hover)
                 box,scroll=inspect_modal(page,height)
                 print("MODAL",width,height,box,scroll)
                 page.locator(".pf-project-detail-link").click()
@@ -105,14 +124,14 @@ def run():
                     assert heights["bottom"]<height,("sidebar clipped",width,height,heights)
                     if height>=700:
                         ratio=heights["ratios"]
-                        assert abs(ratio[0]-.32)<.065 and abs(ratio[1]-.44)<.065 and abs(ratio[2]-.24)<.065,(width,height,heights)
+                        assert abs(ratio[0]-.30)<.045 and abs(ratio[1]-.40)<.045 and abs(ratio[2]-.30)<.045,(width,height,heights)
                 print("PANEL",width,height,heights)
                 page.close()
             assert not failures,failures
             browser.close()
     finally:
         server.shutdown()
-    print("PF018-PF021 EDGE PASS")
+    print("PF018-PF025 EDGE PASS")
 
 if __name__=="__main__":
     run()
