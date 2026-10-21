@@ -36,15 +36,20 @@ pub struct TaskView {
     pub finished_at: Option<String>,
     pub run_id: Option<String>,
     pub timeout_secs: u64,
+    pub pid: Option<u32>,
+    pub cpu_percent: f32,
+    pub mem_bytes: u64,
+    pub uptime_secs: u64,
 }
 
 async fn build_view(ctx: &WebContext, name: &str) -> Option<TaskView> {
     let cfg = ctx.state.config.read().await;
     let t = cfg.task.iter().find(|t| t.name == name)?;
     let rt = ctx.state.tasks.read().await.get(name).cloned();
-    let (last_run, last_exit_code, status, started_at, finished_at, run_id) = match rt {
-        Some(r) => { let g = r.read().await; (g.last_run.map(|d| d.to_rfc3339()), g.last_exit_code, g.status.clone(), g.started_at.map(|d| d.to_rfc3339()), g.finished_at.map(|d| d.to_rfc3339()), g.run_id.clone()) }
-        None => (None, None, "idle".into(), None, None, None),
+    let (last_run, last_exit_code, status, started_at, finished_at, run_id, pid, cpu_percent, mem_bytes, uptime_secs) = match rt {
+        Some(r) => { let g = r.read().await; (g.last_run.map(|d| d.to_rfc3339()), g.last_exit_code, g.status.clone(), g.started_at.map(|d| d.to_rfc3339()), g.finished_at.map(|d| d.to_rfc3339()), g.run_id.clone(), g.pid, g.cpu_percent, g.mem_bytes,
+            if g.status == "running" { g.started_at.map(|d| (chrono::Utc::now() - d).num_seconds().max(0) as u64).unwrap_or(0) } else { 0 }) }
+        None => (None, None, "idle".into(), None, None, None, None, 0.0, 0, 0),
     };
     Some(TaskView {
         name: t.name.clone(),
@@ -52,6 +57,7 @@ async fn build_view(ctx: &WebContext, name: &str) -> Option<TaskView> {
         schedule: t.schedule.clone(), cmd: t.cmd.clone(),
         args: t.args.clone(), cwd: t.cwd.clone(),
         enabled: t.enabled, last_run, last_exit_code, status, started_at, finished_at, run_id, timeout_secs: t.timeout_secs,
+        pid, cpu_percent, mem_bytes, uptime_secs,
     })
 }
 
@@ -100,6 +106,7 @@ async fn create(State(ctx): State<WebContext>, Json(def): Json<TaskDef>) -> Json
             crate::core::state::TaskRuntime {
                 last_run:None, last_exit_code:None, status:"idle".into(),
                 started_at:None, finished_at:None, run_id:None,
+                pid:None, cpu_percent:0.0, mem_bytes:0,
             }
         )),
     );
@@ -172,8 +179,14 @@ async fn run_now(State(ctx): State<WebContext>, Path(name): Path<String>) -> Jso
 
 async fn stop_task(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
     match ctx.scheduler.cancel_task(&name).await {
-        Ok(run_id) => Json(json!({"ok":true,"run_id":run_id})),
-        Err(e) => Json(json!({"ok":false,"error":e.to_string()})),
+        Ok(run_id) => Json(json!({"ok":true,"run_id":run_id,"requested":true})),
+        Err(e) => match build_view(&ctx, &name).await {
+            Some(view) if view.status != "running" => Json(json!({
+                "ok":true,"already_finished":true,"status":view.status,"run_id":view.run_id
+            })),
+            Some(_) => Json(json!({"ok":false,"error":e.to_string()})),
+            None => Json(json!({"ok":false,"error":"task not found"})),
+        }
     }
 }
 
