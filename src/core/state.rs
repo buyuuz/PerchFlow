@@ -51,6 +51,9 @@ pub struct TaskRuntime {
     pub started_at: Option<DateTime<Utc>>,
     pub finished_at: Option<DateTime<Utc>>,
     pub run_id: Option<String>,
+    pub pid: Option<u32>,
+    pub cpu_percent: f32,
+    pub mem_bytes: u64,
 }
 
 pub struct AppState {
@@ -99,6 +102,7 @@ impl AppState {
                 started_at: record.and_then(|v| parse_time(v, "started_at")),
                 finished_at: record.and_then(|v| parse_time(v, "finished_at")),
                 run_id: record.and_then(|v| v.get("run_id")).and_then(|v| v.as_str()).map(str::to_owned),
+                pid: None, cpu_percent: 0.0, mem_bytes: 0,
             };
             tasks.insert(t.name.clone(), Arc::new(RwLock::new(runtime)));
         }
