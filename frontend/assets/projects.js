@@ -118,6 +118,9 @@ let editedProjectName = null;
 let runMonitorGeneration = 0;
 const busyTasks = new Set();
 let lastHistoryTask = null;
+let historyRequestId = 0;
+let fileRequestId = 0;
+let selectedRunId = null;
 
 function el(tag, className, value) {
   const n = document.createElement(tag);
@@ -182,6 +185,9 @@ function renderProjectList() {
     button.append(left, el('span', 'material-symbols-outlined', 'folder'));
     button.addEventListener('click', async () => {
       runMonitorGeneration += 1;
+      historyRequestId += 1;
+      fileRequestId += 1;
+      selectedRunId = null;
       currentProjectName = project.name;
       renderProjectList();
       try { await renderProjectDetail(); } catch (error) { displayError(error); }
@@ -212,6 +218,9 @@ async function renderProjectDetail() {
   byId('project-file-count').textContent = files.length;
   byId('project-exists-count').textContent = files.filter(f => f.exists).length;
   byId('project-runs').hidden = true;
+  historyRequestId += 1;
+  fileRequestId += 1;
+  selectedRunId = null;
   const readiness = byId('project-preflight-state');
   readiness.textContent = pfL('正在检查输入依赖…');
   try {
@@ -448,6 +457,8 @@ async function showProjectRuns(name) {
   const output = byId('project-runs-list');
   byId('project-runs-title').textContent = name + pfL(' · 最近执行');
   lastHistoryTask = name;
+  const projectAtRequest = currentProjectName;
+  const requestId = ++historyRequestId;
   panel.hidden = false;
   output.replaceChildren(el('p', 'pf-project-muted', pfL('正在加载执行记录…')));
   byId('project-run-changes').replaceChildren();
@@ -456,6 +467,7 @@ async function showProjectRuns(name) {
   byId('project-run-log').hidden = true;
   try {
     const response = await requestJson('/api/tasks/' + encodeURIComponent(name) + '/history');
+    if (requestId !== historyRequestId || currentProjectName !== projectAtRequest || lastHistoryTask !== name) return;
     output.replaceChildren();
     const runs = (response.runs || []).slice(0, 12);
     if (!runs.length) output.append(el('p', 'pf-project-muted', pfL('暂无运行记录。')));
@@ -467,10 +479,18 @@ async function showProjectRuns(name) {
       output.append(button);
     }
     if (runs.length) await showRunSummary(name, runs[0]);
-  } catch (error) { output.replaceChildren(el('p', 'pf-project-form-error', error.message || String(error))); }
+  } catch (error) {
+    if (requestId === historyRequestId && currentProjectName === projectAtRequest) {
+      output.replaceChildren(el('p', 'pf-project-form-error', error.message || String(error)));
+    }
+  }
 }
 
 async function showRunSummary(name, run) {
+  if (name !== lastHistoryTask || !run?.run_id || !projects.some(p => p.name === currentProjectName && p.tasks.includes(name))) return;
+  const projectAtRequest = currentProjectName;
+  selectedRunId = run.run_id;
+  const requestId = ++fileRequestId;
   const target = byId('project-run-summary');
   const log = byId('project-run-log');
   log.hidden = true;
@@ -501,20 +521,26 @@ async function showRunSummary(name, run) {
     log.replaceChildren(el('p', 'pf-project-muted', pfL('正在读取日志…')));
     try {
       const result = await requestJson('/api/tasks/' + encodeURIComponent(name) + '/log/' + encodeURIComponent(run.run_id));
+      if (requestId !== fileRequestId || currentProjectName !== projectAtRequest || selectedRunId !== run.run_id) return;
       log.replaceChildren(el('p', 'pf-project-muted', pfL('提示：脚本日志可能包含其自行打印的敏感内容。')));
       log.append(el('pre', 'pf-project-log-text', result.content || pfL('（空日志）')));
       if (result.truncated) log.prepend(el('p', 'pf-project-muted', pfL('只显示最后 128 KiB 日志。')));
-    } catch (error) { log.replaceChildren(el('p', 'pf-project-muted', pfL('该次执行没有可用日志。'))); }
+    } catch (error) {
+      if (requestId === fileRequestId && currentProjectName === projectAtRequest) {
+        log.replaceChildren(el('p', 'pf-project-muted', pfL('该次执行没有可用日志。')));
+      }
+    }
   });
   target.append(logButton);
-  await showRunFiles(name, run.run_id);
+  await showRunFiles(name, run.run_id, requestId, projectAtRequest);
 }
 
-async function showRunFiles(name, runId) {
+async function showRunFiles(name, runId, requestId, projectAtRequest) {
   const target = byId('project-run-changes');
   target.replaceChildren(el('p', 'pf-project-muted', pfL('正在读取文件变化…')));
   try {
     const data = await requestJson('/api/tasks/' + encodeURIComponent(name) + '/files/' + encodeURIComponent(runId));
+    if (requestId !== fileRequestId || currentProjectName !== projectAtRequest || selectedRunId !== runId) return;
     const record = data.record;
     target.replaceChildren();
     target.append(el('p', 'pf-project-muted', pfL('检查了 ') + record.scanned_paths + pfL(' 条文件/目录元数据（含自动发现）；不包含文件正文。')));
@@ -531,6 +557,7 @@ async function showRunFiles(name, runId) {
       target.append(row);
     }
   } catch (error) {
+    if (requestId !== fileRequestId || currentProjectName !== projectAtRequest) return;
     target.replaceChildren(el('p', 'pf-project-muted', pfL('该次执行没有可用的文件变化记录（例如旧记录或未关联项目）。')));
   }
 }
