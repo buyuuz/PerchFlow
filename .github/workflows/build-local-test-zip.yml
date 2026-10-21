@@ -6,6 +6,7 @@ on:
       - feature/project-hub-local-test
       - feature/project-hub-live-runs
       - feature/project-hub-pf001-pf004
+      - feature/project-hub-optional-cron
   workflow_dispatch:
 
 permissions:
@@ -25,6 +26,8 @@ jobs:
         run: |
           cargo test
           node --check frontend/assets/projects.js
+          node --check frontend/assets/tasks.js
+          node --check frontend/assets/task-detail.js
           python -m py_compile dev/local-test/demo/mock_worker.py
           python -m py_compile dev/verify_project_hub_multi_python.py
       - name: Compile 64-bit Windows executable
@@ -37,7 +40,7 @@ jobs:
       - name: Assemble clean portable folder
         shell: pwsh
         run: |
-          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64'
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-OptionalCron-RC-Win64'
           New-Item -ItemType Directory -Path $folder -Force | Out-Null
           Copy-Item -LiteralPath 'target/release/perch.exe' -Destination $folder
           Copy-Item -LiteralPath 'dev/local-test/Start-Test.ps1' -Destination $folder
@@ -52,7 +55,7 @@ jobs:
       - name: Smoke-test local launcher and disabled demo in temporary directory
         shell: pwsh
         run: |
-          $source = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-OptionalCron-RC-Win64'
           $smoke = Join-Path $env:RUNNER_TEMP 'perch-rc-localtest-smoke'
           Copy-Item -LiteralPath $source -Destination $smoke -Recurse
           try {
@@ -66,8 +69,12 @@ jobs:
             $headers = @{ Authorization = 'Bearer ' + $token }
             $tasks = Invoke-RestMethod -Uri ($base + '/api/tasks') -Headers $headers
             $demo = @($tasks.tasks | Where-Object { $_.name -eq 'rc_mock_python' })
-            if ($demo.Count -ne 1 -or $demo[0].enabled -ne $false) {
-              throw 'Demo Python task must be present and disabled by default'
+            if ($demo.Count -ne 1 -or $demo[0].enabled -ne $false -or $demo[0].schedule -ne '') {
+              throw 'Demo Python task must be manual-only without a Cron plan'
+            }
+            $scheduledBefore = Invoke-RestMethod -Uri ($base + '/api/tasks?scope=scheduled') -Headers $headers
+            if (@($scheduledBefore.tasks).Count -ne 0) {
+              throw 'Manual-only demo was incorrectly listed as a scheduled task'
             }
             $projects = Invoke-RestMethod -Uri ($base + '/api/projects') -Headers $headers
             if (@($projects.projects | Where-Object { $_.name -eq 'RC Sandbox Demo' }).Count -ne 1) {
@@ -91,7 +98,23 @@ jobs:
             if (@($history.runs).Count -lt 1 -or $history.runs[0].files_recorded -ne $true) {
               throw 'File tracking sidecar was not recorded'
             }
-            Write-Host 'PASS isolated local package startup, disabled demo, run history, and output files'
+            # Test Cron changes on the synthetic Python script only.
+            $scheduleJson = @{ schedule='0 0 0 * * *'; enabled=$false } | ConvertTo-Json
+            $linked = Invoke-RestMethod -Uri ($base + '/api/tasks/rc_mock_python/schedule') -Method PUT -Headers $headers -ContentType 'application/json' -Body $scheduleJson
+            if (-not $linked.ok -or $linked.enabled) { throw 'Cannot create paused Cron plan' }
+            $scheduledAfter = Invoke-RestMethod -Uri ($base + '/api/tasks?scope=scheduled') -Headers $headers
+            if (@($scheduledAfter.tasks | Where-Object { $_.name -eq 'rc_mock_python' }).Count -ne 1) { throw 'Planned demo missing in schedule list' }
+            $removed = Invoke-RestMethod -Uri ($base + '/api/tasks/rc_mock_python/schedule') -Method DELETE -Headers $headers
+            if (-not $removed.ok) { throw 'Cannot remove Cron plan' }
+            $scheduledLast = Invoke-RestMethod -Uri ($base + '/api/tasks?scope=scheduled') -Headers $headers
+            if (@($scheduledLast.tasks).Count -ne 0) { throw 'Removed Cron still appears in schedule list' }
+            $original = Invoke-RestMethod -Uri ($base + '/api/tasks/rc_mock_python') -Headers $headers
+            if ($original.schedule -ne '' -or $original.enabled) { throw 'Cron removal changed manual-only state' }
+            $afterHistory = Invoke-RestMethod -Uri ($base + '/api/tasks/rc_mock_python/history') -Headers $headers
+            if (@($afterHistory.runs).Count -lt 1 -or $afterHistory.runs[0].run_id -ne $started.run_id) {
+              throw 'Cron removal discarded script history'
+            }
+            Write-Host 'PASS isolated local package: manual-only demo, logs, add/remove Cron, history preserved'
           } finally {
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $smoke 'Stop-Test.ps1')
             if ($LASTEXITCODE -ne 0) { Write-Warning 'Smoke-test stop script exited nonzero' }
@@ -99,7 +122,7 @@ jobs:
       - name: Verify real-time Python log is visible BEFORE child exit
         shell: pwsh
         run: |
-          $source = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-OptionalCron-RC-Win64'
           $smoke = Join-Path $env:RUNNER_TEMP 'perch-rc-live-output-smoke'
           Copy-Item -LiteralPath $source -Destination $smoke -Recurse
           try {
@@ -149,19 +172,19 @@ jobs:
       - name: Zip portable test folder and publish SHA-256
         shell: pwsh
         run: |
-          $zip = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64.zip'
-          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64'
+          $zip = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-OptionalCron-RC-Win64.zip'
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-OptionalCron-RC-Win64'
           Compress-Archive -Path $folder -DestinationPath $zip -CompressionLevel Optimal -Force
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
-          $line = $hash + '  PerchFlow-ProjectHub-RC-Win64.zip'
+          $line = $hash + '  PerchFlow-OptionalCron-RC-Win64.zip'
           [IO.File]::WriteAllText(($zip + '.sha256.txt'), $line + [Environment]::NewLine)
           Write-Host ('Release candidate ZIP SHA256: ' + $hash)
       - name: Upload test ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: perchflow-projecthub-rc-windows-local-test
+          name: perchflow-optional-cron-windows-test
           path: |
-            dist/PerchFlow-ProjectHub-RC-Win64.zip
-            dist/PerchFlow-ProjectHub-RC-Win64.zip.sha256.txt
+            dist/PerchFlow-OptionalCron-RC-Win64.zip
+            dist/PerchFlow-OptionalCron-RC-Win64.zip.sha256.txt
           if-no-files-found: error
           retention-days: 30

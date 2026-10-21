@@ -1,14 +1,14 @@
 # PerchFlow Project Hub RC — Windows 本地测试版
 
-这个测试包来自 `feature/project-hub-pf001-pf004` 的 Windows 64 位开发候选版，包含此前 Project Hub 功能，以及 PF-001～PF-004 改造。**不是正式升级包，不要替换生产 PerchFlow。**
+这个测试包来自 `feature/project-hub-optional-cron` 的 Windows 64 位开发候选版，包含此前 Project Hub 功能、项目页重构以及 Cron 与脚本管理的解耦。**不是正式升级包，不要替换生产 PerchFlow。**
 
 ## 最简单的使用方法
 
-1. 下载 GitHub Actions 中名为 `perchflow-projecthub-rc-windows-local-test` 的构建产物，解压外层 ZIP，再解压其中的 `PerchFlow-ProjectHub-RC-Win64.zip`。
-2. 将 `PerchFlow-ProjectHub-RC-Win64` 整个文件夹放到新位置，例如 `D:\\Downloads\\PerchFlow-RC-Test`，**不要**解压到原来的 PerchFlow 安装目录。
+1. 下载 GitHub Actions 中名为 `perchflow-optional-cron-windows-test` 的构建产物，解压外层 ZIP，再解压其中的 `PerchFlow-OptionalCron-RC-Win64.zip`。
+2. 将 `PerchFlow-OptionalCron-RC-Win64` 整个文件夹放到新位置，例如 `D:\\Downloads\\PerchFlow-RC-Test`，**不要**解压到原来的 PerchFlow 安装目录。
 3. 双击 **Start-Test.cmd**。第一次启动会生成独立 `perch.toml`、随机回环端口与随机登录令牌；也会在浏览器中打开该本地地址。
 4. 在启动窗口复制显示的登录令牌，登录网页，然后打开 **项目 / Projects** 页面。
-5. 查看已创建的 `RC Sandbox Demo` 项目。如果能检测到 Python，将自动出现 `rc_mock_python` 任务，**定时调度默认禁用**。先点击“运行一次”进行本地安全测试。
+5. 查看已创建的 `RC Sandbox Demo` 项目。如果能检测到 Python，将自动出现 `rc_mock_python` 任务，**完全没有 Cron 定时计划**。先点击“运行一次”进行本地安全测试；在「定时任务」页面应当看不到这个示例脚本。
 6. 看看执行状态、输出文件和文件变化是否正常：`demo/results.txt` 与 `demo/output/report.csv` 应在运行后创建，运行日志在 `task-logs`。
 7. 完成测试后双击 **Stop-Test.cmd** 停止**该测试包自身的后台 PerchFlow 进程**。停止前请确保没有任务正在执行。
 
@@ -37,7 +37,7 @@
 - 任务“运行一次”后状态、`run_id`、日志、输出文件变化能否显示。
 - 删除 `demo/input.txt` 后，输入预检是否能阻止执行；恢复它后能否正常执行。
 - 再次运行是否记录“修改已有文件”。
-- 多次启停 Cron **仅对虚构示例任务测试**。若不需要，不必启用 Cron。
+- 仅对虚构示例任务测试添加/移除 Cron；默认暂停，无需启用自动调度。
 - 中文/英文切换、页面导航和移动宽度下的响应布局。
 
 ## 安全边界
@@ -61,8 +61,16 @@
 
 **Windows 服务与可视化浏览器是否已测试？** CI 对临时 Windows 服务和后台 Python 模拟已通过，但你自己电脑上的系统权限、Python 环境、GUI 浏览器/RPA 仍需单独测试；本包不会自动安装服务。
 
-**版本来源**：`buyuuz/PerchFlow`，独立分支 `feature/project-hub-pf001-pf004`。候选版代码尚未合并正式 `main`。
+**版本来源**：`buyuuz/PerchFlow`，独立分支 `feature/project-hub-optional-cron`。候选版代码尚未合并正式 `main`。
 
 ## 需要反馈什么
 
 如发现问题，请提供：具体点击步骤、错误提示、页面截图、`perch.toml` 中**去掉 token 后**的相关配置，以及必要的**脱敏日志**。不要直接发送完整令牌、邮箱密码或其他账号资料。
+
+## 本版新增验收（Cron 可选）
+
+1. 新建项目时不创建 Cron；新增 Python 脚本不再要求填写 Cron。
+2. 初次打开测试包时，“RC Sandbox Demo”中的 rc_mock_python 默认是手动任务。它应存在于“项目”页面，但不出现在“定时任务”页面。
+3. 在脚本详情中选择“添加/修改计划”，保存后默认暂停，任务才出现在“定时任务”页面。
+4. “移除计划”只删除 Cron 配置，不删除脚本、关联文件、运行历史。
+5. 所有验证只针对 demo 的 mock_worker.py。不要为真实 TikTok 发布脚本启用定时任务，也不要将此 ZIP 覆盖现有生产目录。

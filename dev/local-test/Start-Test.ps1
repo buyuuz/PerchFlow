@@ -117,7 +117,6 @@ if (-not (Test-Path -LiteralPath $Config)) {
         $Lines.Add('cmd = ' + (Quote-Toml $Python))
         $Lines.Add('args = [' + (Quote-Toml $Worker) + ']')
         $Lines.Add('cwd = ' + (Quote-Toml $ProjectRoot))
-        $Lines.Add('schedule = "0 0 0 * * *"')
         $Lines.Add('timeout_secs = 60')
         $Lines.Add('enabled = false')
         $Lines.Add('')
@@ -137,7 +136,7 @@ if (-not (Test-Path -LiteralPath $Config)) {
     $Content = $Lines -join [Environment]::NewLine
     # No user-owned PerchFlow config or Windows Task Scheduler item is changed.
     [IO.File]::WriteAllText($Config, $Content + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding($false)))
-    Write-Host 'Created a NEW test-only configuration. All scheduled tasks are disabled.' -ForegroundColor Green
+    Write-Host 'Created a NEW test-only configuration. Python demo has NO Cron schedule.' -ForegroundColor Green
     if (-not $Python) {
         Write-Host 'Python was not found. The demo project is available, but no task was created.' -ForegroundColor Yellow
         Write-Host 'Install or configure Python, then add the demo task manually in /projects.'
@@ -184,7 +183,7 @@ Write-Host 'PerchFlow RC LOCAL TEST is ready' -ForegroundColor Green
 Write-Host ('URL: ' + $Url)
 Write-Host ('Login token: ' + $Token)
 Write-Host 'Use the Projects menu after logging in.'
-Write-Host 'The mock Python task is DISABLED. Enable it only if you want to test its timer.'
+Write-Host 'The mock Python task is MANUAL ONLY and has no Cron schedule.'
 Write-Host 'For a safe first run, click Run once on the demo task.'
 Write-Host 'To stop this test instance, run Stop-Test.cmd (not the production PerchFlow).'
 if (-not $NoBrowser) {
