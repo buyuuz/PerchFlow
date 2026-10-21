@@ -55,7 +55,7 @@ impl Scheduler {
 
         let tasks: Vec<TaskDef> = {
             let cfg = self.state.config.read().await;
-            cfg.task.iter().filter(|t| t.enabled).cloned().collect()
+            cfg.task.iter().filter(|t| t.enabled && !t.schedule.trim().is_empty()).cloned().collect()
         };
         for t in tasks {
             let notify = Arc::new(Notify::new());

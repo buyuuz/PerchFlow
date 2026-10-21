@@ -85,3 +85,38 @@ fn save_then_load_roundtrips() {
     assert_eq!(loaded.process[0].alias_zh.as_deref(), Some("应用管理"));
     assert_eq!(loaded.server.token, "tok");
 }
+
+#[test]
+fn manual_only_task_roundtrips_without_cron() {
+    let f = write_tmp(r#"
+[server]
+bind = "127.0.0.1:9000"
+token = "abc"
+[[task]]
+name = "manual_only"
+cmd = "cmd"
+enabled = false
+"#);
+    let cfg = config::load(f.path()).unwrap();
+    assert!(cfg.task[0].schedule.is_empty());
+    let output = tempfile::tempdir().unwrap();
+    let saved = output.path().join("perch.toml");
+    perch::config::writer::save(&saved, &cfg).unwrap();
+    let reread = config::load(&saved).unwrap();
+    assert!(reread.task[0].schedule.is_empty());
+    assert!(!reread.task[0].enabled);
+}
+
+#[test]
+fn rejects_enabled_manual_only_task() {
+    let f = write_tmp(r#"
+[server]
+bind = "127.0.0.1:9000"
+token = "abc"
+[[task]]
+name = "cannot_schedule_without_cron"
+cmd = "cmd"
+enabled = true
+"#);
+    assert!(config::load(f.path()).is_err());
+}

@@ -1,11 +1,11 @@
 use crate::config::{model::TaskDef, writer};
 use crate::web::WebContext;
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     routing::{get, post},
     Json, Router,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::str::FromStr;
 
@@ -13,6 +13,7 @@ pub fn routes() -> Router<WebContext> {
     Router::new()
         .route("/tasks", get(list).post(create))
         .route("/tasks/:name", get(detail).put(update).delete(remove))
+        .route("/tasks/:name/schedule", axum::routing::put(set_schedule).delete(clear_schedule))
         .route("/tasks/:name/run", post(run_now))
         .route("/tasks/:name/stop", post(stop_task))
         .route("/tasks/:name/history", get(history))
@@ -61,8 +62,21 @@ async fn build_view(ctx: &WebContext, name: &str) -> Option<TaskView> {
     })
 }
 
-async fn list(State(ctx): State<WebContext>) -> Json<serde_json::Value> {
-    let names: Vec<String> = ctx.state.config.read().await.task.iter().map(|t| t.name.clone()).collect();
+#[derive(Debug, Default, Deserialize)]
+struct TaskListFilter {
+    scope: Option<String>,
+}
+
+// Default remains ALL tasks for Project Hub and other existing API consumers.
+// The scheduled-task page explicitly requests scope=scheduled.
+async fn list(State(ctx): State<WebContext>, Query(filter): Query<TaskListFilter>) -> Json<serde_json::Value> {
+    let names: Vec<String> = ctx.state.config.read().await.task.iter()
+        .filter(|t| match filter.scope.as_deref() {
+            Some("scheduled") => !t.schedule.trim().is_empty(),
+            Some("unscheduled") => t.schedule.trim().is_empty(),
+            _ => true,
+        })
+        .map(|t| t.name.clone()).collect();
     let mut views = Vec::new();
     for n in names { if let Some(v) = build_view(&ctx, &n).await { views.push(v); } }
     Json(json!({ "tasks": views }))
@@ -88,7 +102,9 @@ fn save_task_config(
 }
 
 async fn create(State(ctx): State<WebContext>, Json(def): Json<TaskDef>) -> Json<serde_json::Value> {
-    if cron::Schedule::from_str(&def.schedule).is_err() {
+    if def.schedule.trim().is_empty() {
+        if def.enabled { return Json(json!({"ok":false,"error":"unscheduled task cannot be enabled"})); }
+    } else if cron::Schedule::from_str(&def.schedule).is_err() {
         return Json(json!({"ok":false,"error":"bad cron"}));
     }
     let mut cfg = ctx.state.config.write().await;
@@ -117,7 +133,9 @@ async fn create(State(ctx): State<WebContext>, Json(def): Json<TaskDef>) -> Json
 async fn update(
     State(ctx): State<WebContext>, Path(name): Path<String>, Json(def): Json<TaskDef>,
 ) -> Json<serde_json::Value> {
-    if cron::Schedule::from_str(&def.schedule).is_err() {
+    if def.schedule.trim().is_empty() {
+        if def.enabled { return Json(json!({"ok":false,"error":"unscheduled task cannot be enabled"})); }
+    } else if cron::Schedule::from_str(&def.schedule).is_err() {
         return Json(json!({"ok":false,"error":"bad cron"}));
     }
     if ctx.scheduler.is_running(&name).await {
@@ -147,6 +165,66 @@ async fn update(
     }
     ctx.scheduler.reload().await;
     Json(json!({"ok":true}))
+}
+
+#[derive(Deserialize)]
+struct ScheduleRequest {
+    schedule: String,
+    #[serde(default)]
+    enabled: bool,
+}
+
+/// Add/update a Cron plan without touching the script's identity, command,
+/// project association, execution history, or currently running process.
+async fn set_schedule(
+    State(ctx): State<WebContext>, Path(name): Path<String>, Json(req): Json<ScheduleRequest>,
+) -> Json<serde_json::Value> {
+    if req.schedule.trim().is_empty() ||
+        cron::Schedule::from_str(&req.schedule).is_err() {
+        return Json(json!({"ok":false,"error":"invalid cron schedule"}));
+    }
+    let mut current = ctx.state.config.write().await;
+    let Some(idx) = current.task.iter().position(|t| t.name == name) else {
+        return Json(json!({"ok":false,"error":"not found"}));
+    };
+    let mut next = current.clone();
+    next.task[idx].schedule = req.schedule.trim().to_owned();
+    next.task[idx].enabled = req.enabled;
+    if let Err(err) = crate::config::validate(&next) {
+        return Json(json!({"ok":false,"error":err.to_string()}));
+    }
+    let result = save_task_config(&mut current,next,&ctx);
+    drop(current);
+    if result.is_err() { return op_result(result); }
+    ctx.scheduler.reload().await;
+    Json(json!({"ok":true,"name":name,"schedule":req.schedule.trim(),"enabled":req.enabled}))
+}
+
+/// Only project-linked tasks can remove a schedule without losing their
+/// management entry. A standalone task must be removed with the existing API.
+async fn clear_schedule(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
+    let mut current = ctx.state.config.write().await;
+    if !current.project.iter().any(|p| p.tasks.iter().any(|n| n == &name)) {
+        return Json(json!({"ok":false,"error":"remove schedule requires a project-linked task"}));
+    }
+    let Some(idx) = current.task.iter().position(|t| t.name == name) else {
+        return Json(json!({"ok":false,"error":"not found"}));
+    };
+    if current.task[idx].schedule.is_empty() && !current.task[idx].enabled {
+        return Json(json!({"ok":true,"unchanged":true,"schedule":"","enabled":false}));
+    }
+    let mut next=current.clone();
+    next.task[idx].schedule.clear();
+    next.task[idx].enabled=false;
+    if let Err(err) = crate::config::validate(&next) {
+        return Json(json!({"ok":false,"error":err.to_string()}));
+    }
+    let result=save_task_config(&mut current,next,&ctx);
+    drop(current);
+    if result.is_err(){return op_result(result);}
+    // Cancels only future Cron timers; running child continues.
+    ctx.scheduler.reload().await;
+    Json(json!({"ok":true,"name":name,"schedule":"","enabled":false}))
 }
 
 async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {

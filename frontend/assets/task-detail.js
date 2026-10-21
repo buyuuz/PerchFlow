@@ -81,13 +81,13 @@ function renderTask(task) {
   if(active) node('task-uptime').textContent=duration(task.uptime_secs);
   node('task-cpu').textContent=active?(Number(task.cpu_percent)||0).toFixed(1)+'%':'—';
   node('task-memory').textContent=active?(Number(task.mem_bytes||0)/1048576).toFixed(1)+' MB':'—';
-  node('task-schedule').textContent=tx(task.enabled?'手动 + 定时':'手动执行');
-  node('task-schedule-hint').textContent=task.enabled?tx('定时已启用') :
-    (task.schedule?tx('Cron 已暂停'):tx('未设置定时'));
+  node('task-schedule').textContent=tx(task.schedule?'手动 + 定时':'手动执行');
+  node('task-schedule-hint').textContent=task.schedule?(task.enabled?tx('定时已启用'):tx('Cron 已暂停')):tx('未设置定时');
   node('task-python').textContent=task.cmd||'—';
   node('task-cwd').textContent=task.cwd||'—';
   node('task-args').textContent=(task.args||[]).slice(1).join(' ')||'—';
   node('task-exit').textContent=task.last_exit_code==null?'—':task.last_exit_code;
+  node('task-schedule-remove').hidden=!task.schedule;
   node('task-run').disabled=active||actionBusy;
   node('task-stop').disabled=!active||actionBusy;
 }function logReset() {
@@ -286,7 +286,26 @@ document.addEventListener('DOMContentLoaded',()=>{
     // Clear the visible console only; never remove retained log files.
     logOpted=false;
     logReset();
-  });  node('task-run').addEventListener('click',()=>{void act('run');});
+  });  node('task-schedule-add').addEventListener('click',async()=>{
+    if(!checkedOwnership||!latestTask)return;
+    const value=window.prompt('Cron 表达式（含秒，6/7 段）。保存后默认暂停，需在「定时任务」页面启用：',
+      latestTask.schedule||'0 0 0 * * *');
+    if(value===null)return;
+    const schedule=value.trim();
+    if(!schedule){message('请输入 Cron 表达式');return;}
+    if(!window.confirm('将为该脚本保存定时计划（默认暂停）。确认？'))return;
+    try {
+      await get(apiTask+'/schedule',{method:'PUT',body:JSON.stringify({schedule,enabled:false})});
+      await poll();
+    }catch(e){message(e.message);}
+  });
+  node('task-schedule-remove').addEventListener('click',async()=>{
+    if(!checkedOwnership||!latestTask||!latestTask.schedule)return;
+    if(!window.confirm('仅移除这个脚本的 Cron 计划，保留脚本和日志；运行中的任务不会被停止。确认？'))return;
+    try{await get(apiTask+'/schedule',{method:'DELETE'});await poll();}
+    catch(e){message(e.message);}
+  });
+  node('task-run').addEventListener('click',()=>{void act('run');});
   node('task-stop').addEventListener('click',()=>{void act('stop');});
   node('task-log-show').addEventListener('click',()=>{
     logOpted=true;

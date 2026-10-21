@@ -102,6 +102,7 @@ const projectTranslationsEn = {
   "尚未执行": "Not run",
   "最近已执行": "Recently executed",
   "手动执行": "Manual run",
+  "定时已暂停": "Cron paused",
   "已启用定时": "Scheduled",
   "运行": "Run",
   "详情": "Details",
@@ -266,9 +267,9 @@ function updateProjectTaskRow(row, task) {
   if (date) date.textContent = task?.last_run ? new Date(task.last_run).toLocaleString() : '—';
   const schedule = row.querySelector('[data-task-mode]');
   if (schedule) {
-    schedule.textContent = task?.enabled ? pfL('已启用定时') : pfL('手动执行');
-    schedule.dataset.scheduled = String(Boolean(task?.enabled));
-    schedule.title = task?.enabled ? (task.schedule || '') :
+    schedule.textContent = task?.schedule ? (task.enabled ? pfL('已启用定时') : pfL('定时已暂停')) : pfL('手动执行');
+    schedule.dataset.scheduled = String(Boolean(task?.schedule));
+    schedule.title = task?.schedule ? task.schedule :
       pfL('手动运行不受 Cron 开关影响；如有已暂停的定时配置，请在定时任务页面管理。');
   }
   const run = row.querySelector('[data-task-action="run"]');
@@ -759,7 +760,7 @@ async function showRunFiles(name, runId, requestId, projectAtRequest) {
 function openPythonForm() {
   if (!currentProjectName) return;
   byId('project-python-form').reset();
-  byId('project-python-cron').value = '0 0 0 * * *';
+
   byId('project-python-timeout').value = '3600';
   byId('project-python-error').hidden = true;
   byId('project-python-modal').hidden = false;
@@ -784,7 +785,7 @@ async function savePythonTask(event) {
     python:byId('project-python-exe').value.trim(),
     script:byId('project-python-script').value.trim(),
     args:lines('project-python-args'),
-    schedule:'0 0 0 * * *', timeout_secs:timeout
+    timeout_secs:timeout
   };
   const button = byId('project-python-submit');
   button.disabled = true;

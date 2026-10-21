@@ -1092,3 +1092,45 @@ async fn task_update_delete_disk_failures_preserve_runtime_and_definition() {
     assert_eq!(after_delete["tasks"][0]["name"],"original",
         "a failed delete must never remove live task state");
 }
+
+#[tokio::test]
+async fn manual_only_task_is_hidden_from_schedules_and_can_be_reused() {
+    let (base,token,dir)=spawn_server().await;
+    let client=reqwest::Client::new();
+    let manual=serde_json::json!({
+        "name":"manual","cmd":"cmd","args":["/c","echo TEST_MANUAL"],
+        "enabled":false
+    });
+    let created:serde_json::Value=client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&manual).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"],true);
+    let all:serde_json::Value=client.get(format!("{base}/api/tasks"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(all["tasks"].as_array().unwrap().len(),1);
+    assert_eq!(all["tasks"][0]["schedule"],"");
+    let scheduled:serde_json::Value=client.get(format!("{base}/api/tasks?scope=scheduled"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert!(scheduled["tasks"].as_array().unwrap().is_empty());
+    let manual_list:serde_json::Value=client.get(format!("{base}/api/tasks?scope=unscheduled"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(manual_list["tasks"].as_array().unwrap().len(),1);
+    let run:serde_json::Value=client.post(format!("{base}/api/tasks/manual/run"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(run["ok"],true);
+    assert_eq!(await_task_completion(&client,&base,&token,"manual").await["status"],"success");
+    let set:serde_json::Value=client.put(format!("{base}/api/tasks/manual/schedule"))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({"schedule":"0 0 0 * * *","enabled":false}))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(set["ok"],true);
+    let scheduled:serde_json::Value=client.get(format!("{base}/api/tasks?scope=scheduled"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(scheduled["tasks"].as_array().unwrap().len(),1);
+    assert_eq!(scheduled["tasks"][0]["enabled"],false);
+    let cfg=perch::config::load(&dir.path().join("perch.toml")).unwrap();
+    assert_eq!(cfg.task[0].schedule,"0 0 0 * * *");
+    assert!(!cfg.task[0].enabled);
+    let history:serde_json::Value=client.get(format!("{base}/api/tasks/manual/history"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(history["runs"][0]["status"],"success");
+}

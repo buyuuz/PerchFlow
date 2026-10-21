@@ -40,8 +40,14 @@ pub fn validate(cfg: &Config) -> Result<()> {
         if !seen.insert(("t", t.name.as_str())) {
             return Err(PerchError::Config(format!("duplicate task name: {}", t.name)));
         }
-        cron::Schedule::from_str(&t.schedule)
-            .map_err(|e| PerchError::Config(format!("bad cron for {}: {e}", t.name)))?;
+        if t.schedule.trim().is_empty() {
+            if t.enabled {
+                return Err(PerchError::Config(format!("task {} has no schedule; enabled must be false", t.name)));
+            }
+        } else {
+            cron::Schedule::from_str(&t.schedule)
+                .map_err(|e| PerchError::Config(format!("bad cron for {}: {e}", t.name)))?;
+        }
     }
     // Project identities and file paths are metadata, never arbitrary filesystem routes.
     // Restrict references to relative, normal path components under the project root.

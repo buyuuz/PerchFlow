@@ -210,7 +210,10 @@ struct PythonTaskRequest {
     script: String,
     #[serde(default)]
     args: Vec<String>,
-    schedule: String,
+    // Optional: a project script is manual-only until the user creates a schedule.
+    // Legacy clients may still send a schedule; ignore it for new project scripts.
+    #[serde(default)]
+    schedule: Option<String>,
     #[serde(default)]
     timeout_secs: u64,
 }
@@ -234,9 +237,9 @@ async fn add_python_task(
     if body.args.len() > 100 || body.args.iter().any(|arg| arg.len() > 2048) {
         return Json(json!({"ok":false,"error":"too many or oversized arguments"}));
     }
-    if cron::Schedule::from_str(&body.schedule).is_err() {
-        return Json(json!({"ok":false,"error":"invalid cron schedule"}));
-    }
+    // No Cron is provisioned by creating a Python script. Scheduling is a
+    // separate, explicit action; any legacy body.schedule is ignored.
+    let _legacy_schedule = &body.schedule;
 
     let mut config = ctx.state.config.write().await;
     let Some(index) = config.project.iter().position(|p| p.name == name) else {
@@ -266,7 +269,7 @@ async fn add_python_task(
     let mut next = config.clone();
     next.task.push(TaskDef {
         name: body.name.clone(), cmd: body.python, args,
-        cwd: Some(next.project[index].root.clone()), schedule: body.schedule,
+        cwd: Some(next.project[index].root.clone()), schedule: String::new(),
         timeout_secs: body.timeout_secs, enabled: false,
     });
     next.project[index].tasks.push(body.name.clone());
@@ -330,6 +333,9 @@ async fn set_project_task_schedule(
     let Some(task_index) = current.task.iter().position(|t| t.name == task_name) else {
         return Json(json!({"ok":false,"error":"task not found"}));
     };
+    if current.task[task_index].schedule.is_empty() {
+        return Json(json!({"ok":false,"error":"no schedule configured; add a schedule first"}));
+    }
     if current.task[task_index].enabled == request.enabled {
         return Json(json!({"ok":true,"enabled":request.enabled,"unchanged":true}));
     }

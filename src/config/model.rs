@@ -66,6 +66,7 @@ pub struct TaskDef {
     pub args: Vec<String>,
     #[serde(default)]
     pub cwd: Option<String>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub schedule: String,
     #[serde(default = "default_task_timeout")]
     pub timeout_secs: u64,

@@ -164,7 +164,7 @@
       <label><span data-pf-en="Absolute Python interpreter path">Python 解释器绝对路径</span><input id="project-python-exe" required placeholder="D:\Scoop\apps\python312\current\python.exe"></label>
       <label><span data-pf-en="Main script (relative to project directory)">主脚本（相对于项目目录）</span><input id="project-python-script" required placeholder="worker.py"></label>
       <label><span data-pf-en="Launch arguments (one per line)">启动参数（每行一个参数）</span><textarea id="project-python-args" rows="2" placeholder="--limit&#10;10"></textarea></label>
-      <!-- Compatibility: the current scheduler backend still requires a valid disabled schedule. Do not expose it as a user-required field. --><input type="hidden" id="project-python-cron" value="0 0 0 * * *">
+      
       <label><span data-pf-en="Timeout in seconds (0 means unlimited)">最长运行秒数（0 = 不限制）</span><input id="project-python-timeout" type="number" required min="0" value="3600"></label>
       <p id="project-python-error" class="pf-project-form-error" role="alert" hidden></p>
       <div class="pf-project-form-footer">

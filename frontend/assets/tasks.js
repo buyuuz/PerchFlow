@@ -98,7 +98,7 @@ const selectedTasks = new Set();
 
 function visibleTasks() {
   const needle = taskSearch.trim().toLocaleLowerCase();
-  const rows = cachedTasks.filter(task => (
+  const rows = cachedTasks.filter(task => task.schedule && (
     !needle || [task.name, task.schedule, taskCommand(task),
       task.enabled ? taskText('on') : taskText('off'),
       task.last_exit_code == null ? taskText('never') : Number(task.last_exit_code) === 0 ? taskText('success') : taskText('failed')
@@ -173,7 +173,7 @@ function taskError(error) {
 async function loadTasks() {
   const sequence = ++taskRequestSequence;
   try {
-    const result = await apiJson('/api/tasks');
+    const result = await apiJson('/api/tasks?scope=scheduled');
     if (sequence !== taskRequestSequence) return;
     cachedTasks = Array.isArray(result.tasks) ? result.tasks : [];
     const names = new Set(cachedTasks.map(task => task.name));
@@ -413,7 +413,27 @@ async function submitTaskModal() {
   }
 }
 
+async function bindExistingScript() {
+  try {
+    const result=await apiJson('/api/tasks?scope=unscheduled');
+    const options=(result.tasks||[]).filter(task=>task.project);
+    if(!options.length){alert('没有可关联的项目脚本。先在「项目」页面添加 Python 脚本。');return;}
+    const names=options.map(item=>item.name);
+    const name=prompt('选择要添加定时计划的项目脚本：\\n'+names.map((v,i)=>(i+1)+'. '+v).join('\\n')+'\\n输入序号');
+    if(name===null)return;
+    const i=Number(name)-1;
+    if(!Number.isInteger(i)||i<0||i>=names.length){alert('序号无效');return;}
+    const schedule=prompt('Cron 表达式（含秒，6/7 段）。保存后默认暂停：','0 0 0 * * *');
+    if(schedule===null)return;
+    if(!schedule.trim()){alert('请输入 Cron 表达式');return;}
+    if(!confirm('为「'+names[i]+'」添加定时计划（默认暂停）？'))return;
+    await executeTaskOperation('/api/tasks/'+encodeURIComponent(names[i])+'/schedule',
+      {method:'PUT',body:JSON.stringify({schedule:schedule.trim(),enabled:false})});
+  }catch(error){taskError(error);}
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('task-bind-existing')?.addEventListener('click',()=>{void bindExistingScript();});
   const input = document.getElementById('task-search');
   if (input) input.addEventListener('input', () => {
     taskSearch = input.value;
