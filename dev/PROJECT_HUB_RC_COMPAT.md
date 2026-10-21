@@ -49,4 +49,12 @@
 
 ## 验收记录
 
-CI 通过以后再填入通过项、构建提交和运行链接。未经完整测试不得标注正式可发布。
+已通过的**隔离模拟验收**（全部使用 GitHub 托管的临时 Windows 环境）：
+
+- **真实 PerchFlow EXE + Python 虚构项目**：11/11 通过。任务默认停用、输入阻止/恢复、stdout、模拟 TXT/CSV/PNG 输出、运行记录文件变化、重复修改、非零退出码、超时、停止、重启历史恢复均通过。[Run 39528201472](https://github.com/buyuuz/PerchFlow/actions/runs/39528201472)（测试代码提交 `6d32c37a5`）。
+- **Rust 单元/API**：69 项通过（35+30+4），Release 构建成功，JavaScript 检查与既有 Windows EXE Cron/取消/超时/恢复模拟成功。[Run 39528306706](https://github.com/buyuuz/PerchFlow/actions/runs/39528306706)（候选代码提交 `aa910518e`）。
+- **Windows SCM 服务回归**：通过。[Run 39528295357](https://github.com/buyuuz/PerchFlow/actions/runs/39528295357)。
+- **项目浏览器桌面/移动端冒烟**：通过。[Run 39528301220](https://github.com/buyuuz/PerchFlow/actions/runs/39528301220)。
+- **V1–V5 综合视觉/异常/交互验收**：通过。[Run 39528306768](https://github.com/buyuuz/PerchFlow/actions/runs/39528306768)。
+
+**决策：隔离测试环境中的后台 Python 执行链路达到发布候选标准，但不批准自动合并、部署或接管真实任务。** 下一步应先对具体真实脚本做只读依赖与 Session 0/交互桌面兼容性审查，再由用户决定是否授权独立试运行或迁移。项目管理本身仍不会读取文件正文；虚构脚本自己读取测试数据的行为不代表 PerchFlow 读取用户数据。
