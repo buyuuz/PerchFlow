@@ -1,5 +1,6 @@
 use crate::config::model::TaskDef;
 use crate::core::process::build_command;
+use crate::core::task_log_paths;
 use crate::core::state::SharedState;
 use crate::error::{PerchError, Result};
 use chrono::{Local, Utc};
@@ -238,15 +239,11 @@ impl Scheduler {
     }
 
     async fn prune_task_logs(&self, log_dir: &std::path::Path, task_name: &str, current: &str) -> std::io::Result<()> {
-        // Existing log names use a sanitized task identifier. If names collide,
-        // decline to delete logs instead of risking cross-task data loss.
         let config = self.state.config.read().await;
-        let identity = sanitize_task_name(task_name);
-        if config.task.iter().filter(|task| sanitize_task_name(&task.name) == identity).count() > 1 {
-            return Ok(());
-        }
+        let legacy_ok = task_log_paths::legacy_unique(
+            task_name, config.task.iter().map(|task| task.name.as_str()));
         drop(config);
-        prune_run_logs(log_dir, &identity, current)
+        prune_run_logs(log_dir, task_name, current, legacy_ok)
     }
 
     async fn append_history(&self, log_dir: &std::path::Path, record: &serde_json::Value) {
@@ -269,8 +266,9 @@ impl Scheduler {
 
     async fn execute_child(&self, task: &TaskDef, log_dir: &std::path::Path, run_id: &str, cancel: CancellationToken) -> Result<i32> {
         std::fs::create_dir_all(log_dir).map_err(|e| PerchError::Process(format!("create task log directory: {e}")))?;
-        let safe_name = sanitize_task_name(&task.name);
-        let log_file = log_dir.join(format!("{safe_name}-{run_id}.log"));
+        let log_file = task_log_paths::log_path(log_dir, &task.name, run_id);
+        std::fs::create_dir_all(log_file.parent().expect("v2 task directory"))
+            .map_err(|e| PerchError::Process(format!("create v2 task log directory: {e}")))?;
         let stdout = std::fs::File::create(&log_file).map_err(|e| PerchError::Process(format!("task log file: {e}")))?;
         let stderr = stdout.try_clone().map_err(|e| PerchError::Process(format!("task log clone: {e}")))?;
         let mut cmd = build_command_for_task(task);
@@ -344,29 +342,41 @@ impl Scheduler {
     }
 }
 
-fn sanitize_task_name(name: &str) -> String {
-    name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect()
-}
-
-/// Retains exactly the latest three run-specific log bodies for one task.
-/// history.jsonl and sidecar metadata are deliberately not part of this policy.
-fn prune_run_logs(log_dir: &std::path::Path, safe_name: &str, current: &str) -> std::io::Result<()> {
-    let prefix = format!("{safe_name}-");
-    let mut files = Vec::new();
-    for entry in std::fs::read_dir(log_dir)? {
-        let entry = entry?;
-        if !entry.file_type()?.is_file() { continue; }
-        let filename = entry.file_name();
-        let Some(s) = filename.to_str() else { continue };
-        let Some(run) = s.strip_prefix(&prefix).and_then(|rest| rest.strip_suffix(".log")) else { continue };
-        if !is_valid_run_id(run) { continue; }
-        let timestamp = run.split('-').next().unwrap_or("0").parse::<u64>().unwrap_or(0);
-        files.push((timestamp, run.to_owned(), entry.path()));
+/// Retain only the most recent three log bodies for this task across both
+/// v2 and uniquely identifiable legacy files. Never rewrite history.jsonl
+/// or delete another task's data when legacy stems collide.
+fn prune_run_logs(log_dir: &std::path::Path, task_name: &str, current: &str, legacy_ok: bool) -> std::io::Result<()> {
+    let mut files: Vec<(u64, String, std::path::PathBuf)> = Vec::new();
+    let v2_dir = task_log_paths::task_dir(log_dir, task_name);
+    if v2_dir.is_dir() {
+        for entry in std::fs::read_dir(&v2_dir)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_file() { continue; }
+            let filename = entry.file_name();
+            let Some(run) = filename.to_str().and_then(|s| s.strip_suffix(".log")) else { continue };
+            if !is_valid_run_id(run) { continue; }
+            let timestamp = run.split('-').next().unwrap_or("0").parse::<u64>().unwrap_or(0);
+            files.push((timestamp, run.to_owned(), entry.path()));
+        }
     }
-    files.sort_by(|a,b| b.0.cmp(&a.0).then_with(|| b.1.cmp(&a.1)));
-    // Preserve a running new log even if a clock jump makes it sort older.
-    for (_, run, path) in files.iter().skip(3) {
-        if run == current { continue; }
+    if legacy_ok {
+        let prefix = format!("{}-", task_log_paths::legacy_stem(task_name));
+        for entry in std::fs::read_dir(log_dir)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_file() { continue; }
+            let filename = entry.file_name();
+            let Some(run) = filename.to_str()
+                .and_then(|s| s.strip_prefix(&prefix))
+                .and_then(|s| s.strip_suffix(".log")) else { continue };
+            if !is_valid_run_id(run) { continue; }
+            let timestamp = run.split('-').next().unwrap_or("0").parse::<u64>().unwrap_or(0);
+            files.push((timestamp, run.to_owned(), entry.path()));
+        }
+    }
+    // Always retain the active run despite clock skew; other runs sorted by ID.
+    files.sort_by(|a,b| (b.1 == current).cmp(&(a.1 == current))
+        .then_with(|| b.0.cmp(&a.0)).then_with(|| b.1.cmp(&a.1)));
+    for (_, _, path) in files.iter().skip(3) {
         std::fs::remove_file(path)?;
     }
     Ok(())
@@ -428,12 +438,55 @@ mod tests {
         std::fs::write(folder.join("Alpha-4-3-4.log"), "four").unwrap();
         std::fs::write(folder.join("Beta-1-3-1.log"), "untouched").unwrap();
         std::fs::write(folder.join("Alpha-not-a-run.log"), "not a run").unwrap();
-        prune_run_logs(folder, "Alpha", "4-3-4").unwrap();
+        prune_run_logs(folder, "Alpha", "4-3-4", true).unwrap();
         assert!(!folder.join("Alpha-1-3-1.log").exists());
         for name in ["Alpha-2-3-2.log","Alpha-3-3-3.log","Alpha-4-3-4.log",
                      "Beta-1-3-1.log","Alpha-not-a-run.log","history.jsonl"] {
             assert!(folder.join(name).is_file(), "must keep {name}");
         }
+    }
+
+    #[test]
+    fn v2_and_legacy_retention_is_safe_for_unicode_names() {
+        let folder = tempfile::tempdir().unwrap();
+        let root = folder.path();
+        let a = "自动发布";
+        let b = "每日巡检";
+        assert_eq!(task_log_paths::legacy_stem(a), task_log_paths::legacy_stem(b));
+        let a_dir = task_log_paths::task_dir(root, a);
+        let b_dir = task_log_paths::task_dir(root, b);
+        std::fs::create_dir_all(&a_dir).unwrap();
+        std::fs::create_dir_all(&b_dir).unwrap();
+        for run in ["1-3-1", "2-3-2", "3-3-3", "4-3-4"] {
+            std::fs::write(task_log_paths::log_path(root, a, run), "A").unwrap();
+        }
+        std::fs::write(task_log_paths::log_path(root, b, "2-3-7"), "B").unwrap();
+        std::fs::write(task_log_paths::legacy_log_path(root, a, "1-3-9"), "UNKNOWN").unwrap();
+        prune_run_logs(root, a, "4-3-4", false).unwrap();
+        assert!(!task_log_paths::log_path(root,a,"1-3-1").exists());
+        assert!(task_log_paths::log_path(root,a,"4-3-4").exists());
+        assert!(task_log_paths::log_path(root,b,"2-3-7").exists());
+        // The ambiguous old prefix is never pruned or read as either task.
+        assert!(task_log_paths::legacy_log_path(root,a,"1-3-9").exists());
+        assert!(task_log_paths::resolve_log_path(root,a,"1-3-9",false).is_none());
+        assert!(task_log_paths::resolve_log_path(root,b,"1-3-9",false).is_none());
+    }
+
+    #[test]
+    fn retention_spans_unique_legacy_and_v2_formats() {
+        let folder = tempfile::tempdir().unwrap();
+        let root = folder.path();
+        std::fs::write(root.join("legacy-1-3-1.log"), "one").unwrap();
+        std::fs::write(root.join("legacy-2-3-2.log"), "two").unwrap();
+        let target = task_log_paths::task_dir(root,"legacy");
+        std::fs::create_dir_all(target).unwrap();
+        std::fs::write(task_log_paths::log_path(root,"legacy","3-3-3"),"three").unwrap();
+        std::fs::write(task_log_paths::log_path(root,"legacy","4-3-4"),"four").unwrap();
+        prune_run_logs(root,"legacy","4-3-4",true).unwrap();
+        assert!(!root.join("legacy-1-3-1.log").exists());
+        assert!(root.join("legacy-2-3-2.log").exists());
+        assert!(task_log_paths::log_path(root,"legacy","3-3-3").exists());
+        assert!(task_log_paths::log_path(root,"legacy","4-3-4").exists());
     }
 
     #[test]

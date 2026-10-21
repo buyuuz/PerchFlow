@@ -1,11 +1,11 @@
 # PerchFlow Project Hub — PF-005～PF-009 界面验收测试版
 
-这个测试包来自 `feature/project-hub-pf012-pf017` 的 Windows 64 位开发候选版，包含此前 Project Hub 功能、项目页重构以及 Cron 与脚本管理的解耦。**不是正式升级包，不要替换生产 PerchFlow。**
+这个测试包来自 `feature/project-hub-safe-log-naming` 的 Windows 64 位开发候选版，包含此前 Project Hub 功能、项目页重构以及 Cron 与脚本管理的解耦。**不是正式升级包，不要替换生产 PerchFlow。**
 
 ## 最简单的使用方法
 
-1. 下载 GitHub Actions 中名为 `perchflow-pf012-pf017-windows-ui-test` 的构建产物，解压外层 ZIP，再解压其中的 `PerchFlow-PF012-PF017-UI-Test-Win64.zip`。
-2. 将 `PerchFlow-PF012-PF017-UI-Test-Win64` 整个文件夹放到新位置，例如 `D:\\Downloads\\PerchFlow-RC-Test`，**不要**解压到原来的 PerchFlow 安装目录。
+1. 下载 GitHub Actions 中名为 `perchflow-safe-log-naming-windows-test` 的构建产物，解压外层 ZIP，再解压其中的 `PerchFlow-Safe-Log-Naming-Test-Win64.zip`。
+2. 将 `PerchFlow-Safe-Log-Naming-Test-Win64` 整个文件夹放到新位置，例如 `D:\\Downloads\\PerchFlow-RC-Test`，**不要**解压到原来的 PerchFlow 安装目录。
 3. 双击 **Start-Test.cmd**。第一次启动会生成独立 `perch.toml`、随机回环端口与随机登录令牌；也会在浏览器中打开该本地地址。
 4. 在启动窗口复制显示的登录令牌，登录网页，然后打开 **项目 / Projects** 页面。
 5. 查看已创建的 `RC Sandbox Demo` 项目。如果能检测到 Python，将自动出现 `rc_mock_python` 任务，**完全没有 Cron 定时计划**。先点击“运行一次”进行本地安全测试；在「定时任务」页面应当看不到这个示例脚本。
@@ -61,7 +61,7 @@
 
 **Windows 服务与可视化浏览器是否已测试？** CI 对临时 Windows 服务和后台 Python 模拟已通过，但你自己电脑上的系统权限、Python 环境、GUI 浏览器/RPA 仍需单独测试；本包不会自动安装服务。
 
-**版本来源**：`buyuuz/PerchFlow`，独立分支 `feature/project-hub-pf012-pf017`。候选版代码尚未合并正式 `main`。
+**版本来源**：`buyuuz/PerchFlow`，独立分支 `feature/project-hub-safe-log-naming`。候选版代码尚未合并正式 `main`。
 
 ## 需要反馈什么
 
@@ -99,3 +99,11 @@
 - Script Settings opens a local dialog (interpreter/script path/working directory/one argument per line/timeout); edits use a project-scoped API that preserves task identity, Cron enabled/schedule, and history.
 - The Script Info edit link, exit-code/CPU/memory fields, and the three-dots shortcut in project script rows were removed. Existing task data remain unchanged.
 - The compact single-viewport Script Detail, terminal log styling and per-panel scrolling remain in place.
+
+## Collision-resistant task log storage
+
+- New per-run output goes to task-logs/v2/<sha256-of-exact-UTF8-task-name>/<run_id>.log; output-file metadata uses <run_id>.files.json alongside it. Unicode labels, punctuation and very long names cannot accidentally collapse to the same underscored filename.
+- The existing perch.toml, task identity, project membership, schedules and task-logs/history.jsonl stay unchanged.
+- Unique legacy paths are still readable: task-logs/<legacy_sanitized_task_name>-<run_id>.log (and .files.json). A legacy filename prefix shared by multiple currently registered tasks is ambiguous: leave it untouched and DO NOT associate it with the wrong task.
+- Log retention counts legacy and new per-run logs together; keep the latest three unambiguous log bodies per task; old ambiguous files are deliberately left untouched to avoid data loss. Per-run .files.json metadata and the JSONL history follow their pre-existing separate retention behavior.
+- All operations run in the isolated test package, not the active C2 Windows service.

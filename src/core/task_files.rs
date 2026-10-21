@@ -4,6 +4,7 @@
 //! directories are monitored. Directory scanning never opens file contents,
 //! follows links outside the project root, or walks deeper than two levels.
 use crate::config::{self, model::ProjectDef};
+use crate::core::task_log_paths;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -220,12 +221,8 @@ pub fn diff(task: &str, run_id: &str, project: &ProjectDef, before: Snapshot, af
 }
 
 pub fn store(log_dir: &Path, changes: &RunFileChanges) -> std::io::Result<()> {
-    std::fs::create_dir_all(log_dir)?;
-    let safe: String = changes.task.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
-        .collect();
-    let filename = format!("{safe}-{}.files.json", changes.run_id);
-    let target = log_dir.join(filename);
+    let target = task_log_paths::sidecar_path(log_dir, &changes.task, &changes.run_id);
+    std::fs::create_dir_all(target.parent().expect("v2 task directory"))?;
     let data = serde_json::to_vec(changes)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     if data.len() as u64 > MAX_SIDECAR_BYTES {
@@ -237,15 +234,18 @@ pub fn store(log_dir: &Path, changes: &RunFileChanges) -> std::io::Result<()> {
     Ok(())
 }
 
-pub fn read(log_dir: &Path, name: &str, run_id: &str) -> std::io::Result<RunFileChanges> {
+pub fn read(log_dir: &Path, name: &str, run_id: &str, legacy_ok: bool) -> std::io::Result<RunFileChanges> {
     if run_id.is_empty() || !run_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid run id"));
     }
-    let safe: String = name.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
-        .collect();
-    let path = log_dir.join(format!("{safe}-{run_id}.files.json"));
-    let mut file = std::fs::File::open(path)?;
+    let path = task_log_paths::sidecar_path(log_dir, name, run_id);
+    let mut file = match std::fs::File::open(path) {
+        Ok(file) => file,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound && legacy_ok => {
+            std::fs::File::open(task_log_paths::legacy_sidecar_path(log_dir, name, run_id))?
+        }
+        Err(err) => return Err(err),
+    };
     if file.metadata()?.len() > MAX_SIDECAR_BYTES {
         return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "file metadata too large"));
     }
@@ -284,9 +284,9 @@ mod tests {
         let changes = diff("mock_task", "123-456-7", &p, before, snapshot(&p));
         assert_eq!(changes.changes[0].change, "created");
         store(dir.path(), &changes).unwrap();
-        let saved = read(dir.path(), "mock_task", "123-456-7").unwrap();
+        let saved = read(dir.path(), "mock_task", "123-456-7", true).unwrap();
         assert_eq!(saved.changes[0].path, "out.txt");
-        let raw = std::fs::read_to_string(dir.path().join("mock_task-123-456-7.files.json")).unwrap();
+        let raw = std::fs::read_to_string(task_log_paths::sidecar_path(dir.path(), "mock_task", "123-456-7")).unwrap();
         assert!(!raw.contains("SECRET_DUMMY_TEST_TOKEN"));
         let before = snapshot(&p);
         std::fs::write(dir.path().join("out.txt"), "SECRET_DUMMY_TEST_TOKEN_LONGER").unwrap();
@@ -294,7 +294,25 @@ mod tests {
         let before = snapshot(&p);
         std::fs::remove_file(dir.path().join("out.txt")).unwrap();
         assert_eq!(diff("mock_task", "third", &p, before, snapshot(&p)).changes[0].change, "removed");
-        assert!(read(dir.path(), "mock_task", "../secret").is_err());
+        assert!(read(dir.path(), "mock_task", "../secret", true).is_err());
+    }
+
+    #[test]
+    fn legacy_sidecars_read_only_with_unambiguous_identity() {
+        let dir = tempdir().unwrap();
+        let root=dir.path();
+        let item=RunFileChanges {
+            task:"自动发布".into(),run_id:"1-2-3".into(),project:"mock".into(),
+            scanned_paths:0,changes:vec![],finished_at:"now".into(),incomplete_scan:false,
+        };
+        let path=task_log_paths::legacy_sidecar_path(root, "自动发布", "1-2-3");
+        std::fs::write(&path,serde_json::to_vec(&item).unwrap()).unwrap();
+        assert!(read(root,"自动发布","1-2-3",true).is_ok());
+        assert!(read(root,"自动发布","1-2-3",false).is_err());
+        assert!(read(root,"每日巡检","1-2-3",true).is_err());
+        store(root,&item).unwrap();
+        assert!(read(root,"自动发布","1-2-3",false).is_ok());
+        assert!(task_log_paths::sidecar_path(root,"自动发布","1-2-3").exists());
     }
 
     #[test]

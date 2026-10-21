@@ -1269,3 +1269,100 @@ async fn script_settings_update_preserves_cron_and_script_identity() {
     assert_eq!(stored.task[0].timeout_secs,130);
     assert_eq!(stored.project[0].tasks,vec!["script1".to_string()]);
 }
+
+#[cfg(windows)]
+#[tokio::test]
+async fn chinese_task_names_do_not_collide_in_logs_history_or_file_metadata() {
+    use perch::core::task_log_paths;
+    let (base, token, tmp)=spawn_server().await;
+    let client=reqwest::Client::new();
+    let root=tmp.path().join("unicode-jobs");
+    std::fs::create_dir(&root).unwrap();
+    let names=["自动发布","每日巡检"];
+    assert_eq!(task_log_paths::legacy_stem(names[0]),task_log_paths::legacy_stem(names[1]));
+    for (name, output) in names.iter().zip(["FIRST_UNICODE_RUN","SECOND_UNICODE_RUN"]) {
+        let req=serde_json::json!({
+            "name":name,"cmd":"cmd","args":["/c",format!("echo {output}")],
+            "cwd":root.to_string_lossy(),"schedule":"","enabled":false
+        });
+        let result:serde_json::Value=client.post(format!("{base}/api/tasks"))
+            .bearer_auth(&token).json(&req).send().await.unwrap().json().await.unwrap();
+        assert_eq!(result["ok"],true,"{result}");
+    }
+    let project=serde_json::json!({
+        "name":"Unicode Tasks","root":root.to_string_lossy(),
+        "tasks":names,"inputs":[],"outputs":[]
+    });
+    let created:serde_json::Value=client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"],true,"{created}");
+
+    let enc=|name:&str|name.as_bytes().iter().map(|b|format!("%{b:02X}")).collect::<String>();
+    for (name, output) in names.iter().zip(["FIRST_UNICODE_RUN","SECOND_UNICODE_RUN"]) {
+        let url=format!("{base}/api/tasks/{}",enc(name));
+        let launched:serde_json::Value=client.post(format!("{url}/run"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        assert_eq!(launched["ok"],true,"{launched}");
+        let run_id=launched["run_id"].as_str().unwrap();
+        let mut done=false;
+        for _ in 0..100 {
+            let state:serde_json::Value=client.get(&url).bearer_auth(&token)
+                .send().await.unwrap().json().await.unwrap();
+            if state["status"]=="success" {done=true;break;}
+            tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        }
+        assert!(done,"unicode task {name} failed to complete");
+        let log:serde_json::Value=client.get(format!("{url}/log/{run_id}"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        assert!(log["content"].as_str().unwrap().contains(output),"{log}");
+        let history:serde_json::Value=client.get(format!("{url}/history"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        assert_eq!(history["runs"][0]["log_available"],true);
+        let metadata:serde_json::Value=client.get(format!("{url}/files/{run_id}"))
+            .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+        assert_eq!(metadata["record"]["task"],*name);
+        let logdir=tmp.path().join("task-logs");
+        assert!(task_log_paths::log_path(&logdir,name,run_id).is_file());
+        assert!(task_log_paths::sidecar_path(&logdir,name,run_id).is_file());
+    }
+    assert_ne!(task_log_paths::task_key(names[0]),task_log_paths::task_key(names[1]));
+    let config=perch::config::load(&tmp.path().join("perch.toml")).unwrap();
+    assert_eq!(config.task[0].name,names[0]);
+    assert_eq!(config.task[1].name,names[1]);
+    assert_eq!(config.project[0].tasks,names.map(str::to_owned).to_vec());
+
+    // Legacy files belonging to the collided stem must never appear for
+    // either Chinese task, nor be deleted by a new task execution.
+    let logdir=tmp.path().join("task-logs");
+    let old=task_log_paths::legacy_log_path(&logdir,names[0],"1-2-3");
+    std::fs::write(&old,"AMBIGUOUS_OLD_CONTENT").unwrap();
+    let url=format!("{base}/api/tasks/{}",enc(names[0]));
+    let get_old:serde_json::Value=client.get(format!("{url}/log/1-2-3"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(get_old["ok"],false);
+    assert!(old.exists());
+}
+
+#[tokio::test]
+async fn ascii_legacy_task_logs_are_readable_after_v2_upgrade() {
+    let (base, token, tmp)=spawn_server().await;
+    let client=reqwest::Client::new();
+    let job=serde_json::json!({
+        "name":"old_job","cmd":"cmd","args":["/c","echo fake"],
+        "schedule":"","enabled":false
+    });
+    let created:serde_json::Value=client.post(format!("{base}/api/tasks"))
+        .bearer_auth(&token).json(&job).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"],true);
+    let folder=tmp.path().join("task-logs");
+    std::fs::create_dir_all(&folder).unwrap();
+    std::fs::write(folder.join("old_job-1-2-3.log"),"LEGACY_LOG_BODY").unwrap();
+    std::fs::write(folder.join("history.jsonl"),
+        r#"{"task":"old_job","run_id":"1-2-3","started_at":"2026-10-21T00:00:00Z","status":"success"}"#).unwrap();
+    let log:serde_json::Value=client.get(format!("{base}/api/tasks/old_job/log/1-2-3"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(log["content"],"LEGACY_LOG_BODY");
+    let history:serde_json::Value=client.get(format!("{base}/api/tasks/old_job/history"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(history["runs"][0]["log_available"],true);
+}

@@ -1,4 +1,5 @@
 use crate::config::{model::TaskDef, writer};
+use crate::core::task_log_paths;
 use crate::web::WebContext;
 use axum::{
     extract::{Path, Query, State},
@@ -302,13 +303,17 @@ async fn history(State(ctx): State<WebContext>, Path(name): Path<String>) -> Jso
             }
             r
         }).collect();
-    // Body retention is intentionally separate from the persistent history.
-    let safe: String = name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+    // History stays keyed by the original name; new logs use v2 SHA-256 dirs.
+    // Legacy reads are allowed only when the old filename stem is unambiguous.
+    let config = ctx.state.config.read().await;
+    let legacy_ok = task_log_paths::legacy_unique(&name, config.task.iter().map(|t| t.name.as_str()));
+    drop(config);
     let log_dir = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs");
     for entry in &mut runs {
         let available = entry.get("run_id").and_then(|v|v.as_str())
             .filter(|id| id.chars().all(|c|c.is_ascii_alphanumeric() || c == '-'))
-            .is_some_and(|id| log_dir.join(format!("{safe}-{id}.log")).is_file());
+            .and_then(|id| task_log_paths::resolve_log_path(&log_dir, &name, id, legacy_ok))
+            .is_some();
         entry["log_available"] = json!(available);
     }
     Json(json!({"ok":true,"runs":runs}))
@@ -321,10 +326,13 @@ async fn log(State(ctx): State<WebContext>, Path((name, run_id)): Path<(String, 
     if !run_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Json(json!({"ok":false,"error":"invalid run id"}));
     }
-    let safe: String = name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
-    let path = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs").join(format!("{safe}-{run_id}.log"));
+    let cfg = ctx.state.config.read().await;
+    let legacy_ok = task_log_paths::legacy_unique(&name, cfg.task.iter().map(|t| t.name.as_str()));
+    drop(cfg);
+    let log_dir = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs");
+    let file = task_log_paths::resolve_log_path(&log_dir, &name, &run_id, legacy_ok);
     use std::io::{Read, Seek, SeekFrom};
-    match std::fs::File::open(path) {
+    match file.map(std::fs::File::open).unwrap_or_else(|| Err(std::io::Error::from(std::io::ErrorKind::NotFound))) {
         Ok(mut file) => {
             let length = file.metadata().map(|m| m.len()).unwrap_or(0);
             let start = length.saturating_sub(131_072);
@@ -355,11 +363,14 @@ async fn files(
     State(ctx): State<WebContext>,
     Path((name, run_id)): Path<(String, String)>,
 ) -> Json<serde_json::Value> {
-    if ctx.state.config.read().await.task.iter().all(|t| t.name != name) {
+    let cfg = ctx.state.config.read().await;
+    if cfg.task.iter().all(|t| t.name != name) {
         return Json(json!({"ok":false,"error":"task not found"}));
     }
+    let legacy_ok = task_log_paths::legacy_unique(&name, cfg.task.iter().map(|t| t.name.as_str()));
+    drop(cfg);
     let base = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs");
-    match crate::core::task_files::read(&base, &name, &run_id) {
+    match crate::core::task_files::read(&base, &name, &run_id, legacy_ok) {
         Ok(record) => Json(json!({"ok":true,"record":record})),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound =>
             Json(json!({"ok":false,"error":"file metadata not recorded for this run"})),
