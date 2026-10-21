@@ -1,0 +1,40 @@
+name: RC isolated Python project compatibility
+
+on:
+  push:
+    branches:
+      - feature/project-hub-rc-compat
+    paths:
+      - 'src/**'
+      - 'dev/verify_project_runtime_compat.py'
+      - 'dev/simulate_task_runtime_binary.py'
+      - '.github/workflows/project-rc-compat-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-project-compat:
+    runs-on: windows-latest
+    timeout-minutes: 22
+    steps:
+      - name: Checkout isolated development branch
+        uses: actions/checkout@v4
+      - name: Build test binary from branch
+        uses: dtolnay/rust-toolchain@stable
+      - name: Syntax check isolated mock runner
+        shell: pwsh
+        run: python -m py_compile dev/verify_project_runtime_compat.py dev/simulate_task_runtime_binary.py
+      - name: Build disposable PerchFlow executable
+        run: cargo build --release
+      - name: Real Python interpreter against FAKE project only
+        run: python dev/verify_project_runtime_compat.py --exe target/release/perch.exe --report dev/reports/project-rc-compat.json
+      - name: Upload isolated Python compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perchflow-rc-python-mock-verification
+          path: dev/reports/project-rc-compat.json
+          retention-days: 14
+          if-no-files-found: warn
