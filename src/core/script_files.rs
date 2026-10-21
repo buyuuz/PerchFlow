@@ -28,6 +28,9 @@ fn safe_document_path(project: &ProjectDef, raw: &str) -> Option<PathBuf> {
     if raw.len() > 512 || raw.is_empty() || raw.chars().any(|c| c.is_control()) {
         return None;
     }
+    // Reject network paths BEFORE decoding Python escaped backslashes.
+    // Otherwise four leading backslashes could be collapsed into UNC syntax.
+    if raw.starts_with("\\\\") || raw.starts_with("//") { return None; }
     let cleaned = raw.replace("\\\\", "\\"); // Python string with escaped backslashes
     if cleaned.starts_with("\\\\") || cleaned.starts_with("//") {
         return None; // no UNC/network targets
