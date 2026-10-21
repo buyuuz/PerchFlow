@@ -250,6 +250,15 @@ impl Scheduler {
         let stdout = std::fs::File::create(&log_file).map_err(|e| PerchError::Process(format!("task log file: {e}")))?;
         let stderr = stdout.try_clone().map_err(|e| PerchError::Process(format!("task log clone: {e}")))?;
         let mut cmd = build_command_for_task(task);
+        // Python normally block-buffers stdout when redirected to a file.
+        // Unbuffer only Python children so run logs can be followed live,
+        // without changing the user's script, CLI flags or environment globally.
+        let executable_name = std::path::Path::new(&task.cmd)
+            .file_name().and_then(|name| name.to_str()).unwrap_or("")
+            .to_ascii_lowercase();
+        if matches!(executable_name.as_str(), "python.exe" | "python3.exe" | "pythonw.exe" | "python" | "python3") {
+            cmd.env("PYTHONUNBUFFERED", "1");
+        }
         cmd.stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr)).kill_on_drop(true);
         let mut child = cmd.spawn().map_err(|e| PerchError::Process(format!("spawn task {}: {e}", task.name)))?;
         #[cfg(windows)]
