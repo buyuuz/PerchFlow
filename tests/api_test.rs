@@ -1134,3 +1134,72 @@ async fn manual_only_task_is_hidden_from_schedules_and_can_be_reused() {
         .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
     assert_eq!(history["runs"][0]["status"],"success");
 }
+
+#[tokio::test]
+async fn project_script_schedule_lifecycle_preserves_manual_task_and_history() {
+    let (base, token, tmp) = spawn_server().await;
+    let client = reqwest::Client::new();
+    let root = tmp.path().join("safe-project");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(root.join("worker.py"), "print('MOCK_ONLY')\n").unwrap();
+    let project = serde_json::json!({
+        "name":"Safe Project", "root":root.to_string_lossy(), "tasks":[]
+    });
+    let created: serde_json::Value = client.post(format!("{base}/api/projects"))
+        .bearer_auth(&token).json(&project).send().await.unwrap().json().await.unwrap();
+    assert_eq!(created["ok"], true);
+
+    // Project Python task registration no longer provisions a synthetic Cron.
+    let py = serde_json::json!({
+        "name":"safe_worker", "python":std::env::current_exe().unwrap().to_string_lossy(),
+        "script":"worker.py", "timeout_secs":12
+    });
+    let script: serde_json::Value = client.post(format!("{base}/api/projects/Safe%20Project/python-task"))
+        .bearer_auth(&token).json(&py).send().await.unwrap().json().await.unwrap();
+    assert_eq!(script["ok"], true, "{script}");
+    let task: serde_json::Value = client.get(format!("{base}/api/tasks/safe_worker"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(task["schedule"], "");
+    assert_eq!(task["enabled"], false);
+    let scheduled: serde_json::Value = client.get(format!("{base}/api/tasks?scope=scheduled"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert!(scheduled["tasks"].as_array().unwrap().is_empty());
+    let rejected: serde_json::Value = client.put(format!("{base}/api/projects/Safe%20Project/tasks/safe_worker/schedule"))
+        .bearer_auth(&token).json(&serde_json::json!({"enabled":true}))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(rejected["ok"], false);
+
+    // Simulate a pre-existing history record without launching a real process.
+    let history_dir = tmp.path().join("task-logs");
+    std::fs::create_dir_all(&history_dir).unwrap();
+    std::fs::write(history_dir.join("history.jsonl"),
+        r#"{"task":"safe_worker","run_id":"historical-safe-1","status":"success","started_at":"2026-10-20T01:00:00Z","finished_at":"2026-10-20T01:00:01Z","exit_code":0}"#
+    ).unwrap();
+    let created_plan: serde_json::Value = client.put(format!("{base}/api/tasks/safe_worker/schedule"))
+        .bearer_auth(&token)
+        .json(&serde_json::json!({"schedule":"0 0 0 * * *","enabled":false}))
+        .send().await.unwrap().json().await.unwrap();
+    assert_eq!(created_plan["ok"], true);
+    let scheduled: serde_json::Value = client.get(format!("{base}/api/tasks?scope=scheduled"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(scheduled["tasks"].as_array().unwrap().len(), 1);
+    assert_eq!(scheduled["tasks"][0]["enabled"], false);
+
+    let removed: serde_json::Value = client.delete(format!("{base}/api/tasks/safe_worker/schedule"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(removed["ok"], true);
+    let scheduled: serde_json::Value = client.get(format!("{base}/api/tasks?scope=scheduled"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert!(scheduled["tasks"].as_array().unwrap().is_empty());
+    let preserved: serde_json::Value = client.get(format!("{base}/api/tasks/safe_worker"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(preserved["name"], "safe_worker");
+    assert_eq!(preserved["schedule"], "");
+    let membership: serde_json::Value = client.get(format!("{base}/api/projects/Safe%20Project"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(membership["project"]["tasks"][0], "safe_worker");
+    let history: serde_json::Value = client.get(format!("{base}/api/tasks/safe_worker/history"))
+        .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
+    assert_eq!(history["runs"][0]["run_id"], "historical-safe-1");    let saved = perch::config::load(&tmp.path().join("perch.toml")).unwrap();
+    assert!(saved.task[0].schedule.is_empty());
+}
