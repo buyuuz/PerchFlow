@@ -14,6 +14,8 @@ use axum::{
 use serde_json::{json, Value};
 use std::path::Path as FsPath;
 use std::time::UNIX_EPOCH;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
 pub fn routes() -> Router<WebContext> {
     Router::new()
@@ -135,7 +137,7 @@ async fn open_task_file(
             .args(["-NoProfile","-NonInteractive","-Command",
                 "Start-Process -FilePath $env:PERCHFLOW_OPEN_DOCUMENT"])
             .env("PERCHFLOW_OPEN_DOCUMENT", &req.path)
-            .creation_flags(std::os::windows::process::CommandExt::CREATE_NO_WINDOW)
+            .creation_flags(0x0800_0000)
             .spawn() {
                 Ok(_) => Json(json!({"ok":true,"requested":true,
                     "warning":"The document opens in the PerchFlow process desktop session."})),
