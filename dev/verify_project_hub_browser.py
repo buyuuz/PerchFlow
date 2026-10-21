@@ -156,7 +156,7 @@ def main():
         with sync_playwright() as playwright:
             browser=playwright.chromium.launch(channel="msedge",headless=True)
             desktop=browser.new_page(viewport={"width":1280,"height":800})
-            desktop.add_init_script(f"localStorage.setItem('perch_token', {json.dumps(TOKEN)});")
+            desktop.add_init_script(f"localStorage.setItem('perch_token', {json.dumps(TOKEN)}); localStorage.setItem('perch-lang','zh');")
             desktop.on("dialog", lambda dialog: dialog.accept())
             desktop.goto(f"http://127.0.0.1:{server.server_port}/projects",wait_until="networkidle")
             expect(desktop.locator("#project-current-name")).to_have_text(PROJECT_NAME)
@@ -207,7 +207,7 @@ def main():
             assert len(CAPTURED) == 1
             desktop.screenshot(path=str(target/"project-hub-desktop.png"),full_page=True)
             mobile=browser.new_page(viewport={"width":390,"height":844})
-            mobile.add_init_script(f"localStorage.setItem('perch_token', {json.dumps(TOKEN)});")
+            mobile.add_init_script(f"localStorage.setItem('perch_token', {json.dumps(TOKEN)}); localStorage.setItem('perch-lang','zh');")
             mobile.goto(f"http://127.0.0.1:{server.server_port}/projects",wait_until="networkidle")
             expect(mobile.locator("#project-current-name")).to_have_text(PROJECT_NAME)
             expect(mobile.locator("#project-add-python")).to_be_visible()
