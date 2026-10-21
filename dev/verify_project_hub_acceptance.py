@@ -166,7 +166,7 @@ def main():
 
             # Slow A history must never render inside B's panel after switching.
             mode="switch"
-            switching=browser.new_page(viewport={"width":1280,"height":800"})
+            switching=browser.new_page(viewport={"width":1280,"height":800})
             prep(switching,"zh")
             switching.goto(url,wait_until="networkidle")
             expect(switching.locator("#project-current-name")).to_have_text(mock.PROJECT_NAME)
