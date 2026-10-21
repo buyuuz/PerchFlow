@@ -5,6 +5,7 @@ on:
     branches:
       - feature/project-hub-local-test
       - feature/project-hub-live-runs
+      - feature/project-hub-pf001-pf004
   workflow_dispatch:
 
 permissions:
