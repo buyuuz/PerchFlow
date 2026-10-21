@@ -1,0 +1,42 @@
+name: Project Hub V1-V5 acceptance
+
+on:
+  push:
+    branches:
+      - feature/project-hub-acceptance
+    paths:
+      - 'frontend/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'dev/verify_project_hub_acceptance.py'
+      - 'dev/verify_project_hub_browser.py'
+      - '.github/workflows/project-hub-acceptance-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated Playwright dependency
+        run: python -m pip install playwright
+      - name: Validate acceptance test Python and UI JavaScript
+        run: |
+          python -m py_compile dev/verify_project_hub_acceptance.py dev/verify_project_hub_browser.py
+          node --check frontend/assets/projects.js
+      - name: Run mocked acceptance with built-in Windows Edge
+        run: python dev/verify_project_hub_acceptance.py
+      - name: Upload visual proof and check results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perchflow-v1-v5-acceptance
+          path: |
+            dev/reports/project-hub-acceptance.json
+            dev/reports/acceptance-*.png
+          retention-days: 14
+          if-no-files-found: warn
