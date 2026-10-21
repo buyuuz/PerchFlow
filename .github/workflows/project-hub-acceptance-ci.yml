@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/project-hub-acceptance
+      - feature/project-hub-pf001-pf004
       - feature/project-hub-rc-compat
     paths:
       - 'frontend/**'
