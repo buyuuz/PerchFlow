@@ -209,6 +209,7 @@ async fn add_python_task(
             crate::core::state::TaskRuntime {
                 last_run:None, last_exit_code:None, status:"idle".into(),
                 started_at:None, finished_at:None, run_id:None,
+                pid:None, cpu_percent:0.0, mem_bytes:0,
             }
         )),
     );
