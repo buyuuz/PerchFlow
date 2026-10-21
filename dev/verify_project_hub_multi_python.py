@@ -62,7 +62,7 @@ def main(exe,report_file):
                 'import time\n'
                 'path = Path("report.xlsx")\n'
                 'print("MOCK_A_STARTED", flush=True)\n'
-                'time.sleep(1.1)\n'
+                'time.sleep(2.0)\n'
                 'Path("generated_a.txt").write_text(str(time.time_ns()))\n'
                 'print("MOCK_A_DONE", flush=True)\n',
                 encoding="utf-8")
@@ -117,7 +117,11 @@ def main(exe,report_file):
                             f"PID not exposed: {running}")
                         ensure(running["uptime_secs"]>=0, "No runtime data")
                         checks["actual_child_pid_and_runtime"]="PASS"
-                        log=api(base,token,f"/api/tasks/fake_A/log/{rid}")
+                        log=wait_for(lambda: (
+                            entry if (view:=api(base,token,"/api/tasks/fake_A")).get("status")=="running"
+                            and "MOCK_A_STARTED" in (entry:=api(base,token,f"/api/tasks/fake_A/log/{rid}")).get("content","")
+                            else None
+                        ), "Python first line visible before child exit", seconds=1.7)
                         ensure("MOCK_A_STARTED" in log["content"], "stdout not visible while running")
                         checks["unbuffered_live_log_before_completion"]="PASS"
                     finish=wait_status(base,token,"fake_A","success",seconds=12)
