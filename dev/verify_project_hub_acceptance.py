@@ -26,6 +26,10 @@ SECOND_TASK = {"name":"second_mock","cmd":"cmd","args":["/c","echo MOCK"],
     "cwd":SECOND["root"],"schedule":"0 0 0 * * *","enabled":False,
     "status":"idle","project":SECOND["name"]}
 mode = "normal"
+MANY = [{
+    "name":f"Mock Project {i:02d}", "root":fr"C:\CI\PROJECT_{i:02d}",
+    "tasks":[], "inputs":[], "outputs":[], "output_dirs":[], "preflight_inputs":False
+} for i in range(1,41)]
 
 def check_ci():
     assert os.name == "nt"
@@ -45,6 +49,17 @@ class AcceptanceHandler(mock.Handler):
                     return self.api(200, {"projects":[]})
                 if path == "/api/tasks":
                     return self.api(200, {"tasks":[]})
+            if mode == "many":
+                if path == "/api/projects":
+                    return self.api(200, {"projects":[mock.PROJECT]+MANY})
+                if path == "/api/tasks":
+                    return self.api(200, {"tasks":mock.TASKS})
+                for item in MANY:
+                    if path == "/api/projects/" + item["name"]:
+                        return self.api(200, {"ok":True,"project":item,"files":[]})
+                    if path == "/api/projects/" + item["name"] + "/preflight":
+                        return self.api(200, {"ok":True,"preflight":{
+                            "enabled":False,"ready":True,"checked":0,"unavailable":[],"reason":None}})
             if mode == "error" and path == "/api/projects":
                 return self.api(503, {"ok":False,"error":"MOCK_SERVER_UNAVAILABLE"})
             if mode == "switch":
@@ -125,6 +140,7 @@ def main():
             page.get_by_role("button",name="View this run’s log").click()
             expect(page.locator("#project-run-log")).to_contain_text("MOCK_LOG_ONLY")
             checks["history_and_log"]="PASS"
+            page.evaluate("window.scrollTo(0,0)")
             page.screenshot(path=str(OUT/"acceptance-run-details.png"),full_page=True)
 
             # Compact form: mobile should not show 360px of empty list space.
@@ -141,6 +157,23 @@ def main():
                     mobile.screenshot(path=str(OUT/"acceptance-mobile-390.png"),full_page=True)
                 mobile.close()
             checks["responsive_360_390_768"]="PASS"
+
+            # A typical dozens-of-projects setup must scroll within its list
+            # instead of growing the whole page or losing access to the last entry.
+            mode="many"
+            bulk=browser.new_page(viewport={"width":390,"height":844})
+            prep(bulk,"zh")
+            bulk.goto(url,wait_until="networkidle")
+            expect(bulk.locator("#project-count")).to_have_text("41")
+            sizes=bulk.locator("#project-list").evaluate("(el)=>({scroll:el.scrollHeight,view:el.clientHeight})")
+            assert sizes["scroll"]>sizes["view"],f"41 projects must have an internal scroll: {sizes}"
+            assert_no_horizontal_scroll(bulk,390)
+            bulk.get_by_role("button",name="查看 Mock Project 40").click()
+            expect(bulk.locator("#project-current-name")).to_have_text("Mock Project 40")
+            expect(bulk.locator("#project-job-count")).to_have_text("0")
+            checks["bulk_41_projects"]="PASS"
+            bulk.screenshot(path=str(OUT/"acceptance-many-projects.png"),full_page=True)
+            bulk.close()
 
             # Empty state: neither stale details nor broken controls remain.
             mode="empty"
