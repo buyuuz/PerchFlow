@@ -8,5 +8,6 @@ pub mod process;
 pub mod supervisor;
 pub mod scheduler;
 pub mod task_files;
+pub mod script_files;
 pub mod task_preflight;
 pub mod metrics;
