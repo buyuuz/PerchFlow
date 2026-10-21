@@ -1,0 +1,112 @@
+name: Build isolated Windows local test ZIP
+
+on:
+  push:
+    branches:
+      - feature/project-hub-local-test
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-local-test:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout release candidate code
+        uses: actions/checkout@v4
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Validate release candidate and launch scripts
+        shell: pwsh
+        run: |
+          cargo test
+          node --check frontend/assets/projects.js
+          python -m py_compile dev/local-test/demo/mock_worker.py
+      - name: Compile 64-bit Windows executable
+        shell: pwsh
+        run: |
+          cargo build --release
+          if (-not (Test-Path target/release/perch.exe)) { throw 'Missing built perch.exe' }
+      - name: Assemble clean portable folder
+        shell: pwsh
+        run: |
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64'
+          New-Item -ItemType Directory -Path $folder -Force | Out-Null
+          Copy-Item -LiteralPath 'target/release/perch.exe' -Destination $folder
+          Copy-Item -LiteralPath 'dev/local-test/Start-Test.ps1' -Destination $folder
+          Copy-Item -LiteralPath 'dev/local-test/Stop-Test.ps1' -Destination $folder
+          Copy-Item -LiteralPath 'dev/local-test/Start-Test.cmd' -Destination $folder
+          Copy-Item -LiteralPath 'dev/local-test/Stop-Test.cmd' -Destination $folder
+          Copy-Item -LiteralPath 'dev/local-test/README-LOCAL-TEST.md' -Destination $folder
+          Copy-Item -LiteralPath 'dev/local-test/demo' -Destination $folder -Recurse
+          if (Test-Path (Join-Path $folder 'perch.toml')) {
+            throw 'Refusing to distribute an existing config or token'
+          }
+      - name: Smoke-test local launcher and disabled demo in temporary directory
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64'
+          $smoke = Join-Path $env:RUNNER_TEMP 'perch-rc-localtest-smoke'
+          Copy-Item -LiteralPath $source -Destination $smoke -Recurse
+          try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $smoke 'Start-Test.ps1') -NoBrowser
+            if ($LASTEXITCODE -ne 0) { throw 'Start-Test.ps1 failed on Windows PowerShell 5.1' }
+            $config = Get-Content -LiteralPath (Join-Path $smoke 'perch.toml') -Raw
+            $port = [regex]::Match($config,'(?m)^bind\s*=\s*"127\.0\.0\.1:(\d+)"\s*$').Groups[1].Value
+            $token = [regex]::Match($config,'(?m)^token\s*=\s*"([^"]+)"\s*$').Groups[1].Value
+            if (-not $port -or -not $token) { throw 'Generated TOML missing local bind or token' }
+            $base = 'http://127.0.0.1:' + $port
+            $headers = @{ Authorization = 'Bearer ' + $token }
+            $tasks = Invoke-RestMethod -Uri ($base + '/api/tasks') -Headers $headers
+            $demo = @($tasks.tasks | Where-Object { $_.name -eq 'rc_mock_python' })
+            if ($demo.Count -ne 1 -or $demo[0].enabled -ne $false) {
+              throw 'Demo Python task must be present and disabled by default'
+            }
+            $projects = Invoke-RestMethod -Uri ($base + '/api/projects') -Headers $headers
+            if (@($projects.projects | Where-Object { $_.name -eq 'RC Sandbox Demo' }).Count -ne 1) {
+              throw 'Missing preconfigured safe demo project'
+            }
+            if (Test-Path (Join-Path $smoke 'demo/results.txt')) {
+              throw 'Demo ran without authorization'
+            }
+            $started = Invoke-RestMethod -Uri ($base + '/api/tasks/rc_mock_python/run') -Method POST -Headers $headers
+            if ($started.ok -ne $true) { throw 'Explicit demo run failed to start' }
+            $deadline = [DateTime]::UtcNow.AddSeconds(20)
+            $status = $null
+            do {
+              Start-Sleep -Milliseconds 250
+              $status = Invoke-RestMethod -Uri ($base + '/api/tasks/rc_mock_python') -Headers $headers
+            } while ($status.status -eq 'running' -and [DateTime]::UtcNow -lt $deadline)
+            if ($status.status -ne 'success') { throw ('Mock Python task did not succeed: ' + $status.status) }
+            if (-not (Test-Path (Join-Path $smoke 'demo/results.txt'))) { throw 'Missing mock results.txt' }
+            if (-not (Test-Path (Join-Path $smoke 'demo/output/report.csv'))) { throw 'Missing mock report.csv' }
+            $history = Invoke-RestMethod -Uri ($base + '/api/tasks/rc_mock_python/history') -Headers $headers
+            if (@($history.runs).Count -lt 1 -or $history.runs[0].files_recorded -ne $true) {
+              throw 'File tracking sidecar was not recorded'
+            }
+            Write-Host 'PASS isolated local package startup, disabled demo, run history, and output files'
+          } finally {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $smoke 'Stop-Test.ps1')
+            if ($LASTEXITCODE -ne 0) { Write-Warning 'Smoke-test stop script exited nonzero' }
+          }
+      - name: Zip portable test folder and publish SHA-256
+        shell: pwsh
+        run: |
+          $zip = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64.zip'
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64'
+          Compress-Archive -Path $folder -DestinationPath $zip -CompressionLevel Optimal -Force
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
+          $line = $hash + '  PerchFlow-ProjectHub-RC-Win64.zip'
+          [IO.File]::WriteAllText(($zip + '.sha256.txt'), $line + [Environment]::NewLine)
+          Write-Host ('Release candidate ZIP SHA256: ' + $hash)
+      - name: Upload test ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: perchflow-projecthub-rc-windows-local-test
+          path: |
+            dist/PerchFlow-ProjectHub-RC-Win64.zip
+            dist/PerchFlow-ProjectHub-RC-Win64.zip.sha256.txt
+          if-no-files-found: error
+          retention-days: 30
