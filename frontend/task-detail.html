@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="zh" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PerchFlow · 脚本详情</title>
+  <link rel="stylesheet" href="/assets/fonts.css">
+  <link rel="stylesheet" href="/assets/tailwind.css">
+  <link rel="stylesheet" href="/assets/branding.css">
+  <link rel="stylesheet" href="/assets/process-table.css">
+  <link rel="stylesheet" href="/assets/topbar-controls.css">
+  <link rel="stylesheet" href="/assets/task-detail.css">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+</head>
+<body class="bg-background text-on-background min-h-screen">
+  <nav class="pf-process-topnav fixed top-0 w-full z-50 h-14 bg-surface/60 backdrop-blur-[30px] border-b border-white/10 shadow-sm flex justify-between items-center px-4 md:px-container-padding">
+    <div class="flex items-center gap-8 h-full">
+      <div class="pf-header-brand text-primary">
+        <img class="pf-brand-icon" src="/assets/logo.png?v=brand2" alt="PerchFlow" width="28" height="28">
+        <span class="pf-brand-name">Perch<span class="text-on-surface">Flow</span></span>
+      </div>
+      <div class="hidden md:flex h-full gap-6">
+        <a class="pf-main-nav-link" data-i18n="nav.processes" href="/processes">进程</a>
+        <a class="pf-main-nav-link" data-i18n="nav.tasks" href="/tasks">定时任务</a>
+        <a class="pf-main-nav-link" data-i18n="nav.projects" href="/projects" aria-current="page">项目</a>
+      </div>
+    </div>
+    <div class="pf-process-nav-right pf-top-actions">
+      <div class="pf-top-status" role="status"><span class="pf-top-status-dot"></span><span>Connected</span></div>
+      <div class="pf-lang-picker" data-pf-language-picker>
+        <select id="detail-language" class="pf-top-lang" data-lang-select aria-label="语言 / Language" onchange="setLang(this.value)">
+          <option value="zh">CN 中文</option><option value="en">EN English</option>
+        </select>
+        <button type="button" class="pf-lang-trigger" data-lang-trigger aria-label="Language / 语言" aria-haspopup="listbox" aria-expanded="false" aria-controls="pf-language-menu" hidden><span class="pf-lang-code" data-lang-code>CN</span><span class="pf-lang-label" data-lang-current>中文</span><span class="material-symbols-outlined pf-lang-chevron">keyboard_arrow_down</span></button>
+        <div class="pf-lang-menu" id="pf-language-menu" data-lang-menu role="listbox" aria-label="Language / 语言" hidden>
+          <button type="button" class="pf-lang-option" role="option" data-lang-value="zh" data-lang-code="CN" data-lang-label="中文" aria-selected="true" tabindex="-1"><span class="pf-lang-code">CN</span><span class="pf-lang-option-label">中文</span><span class="material-symbols-outlined pf-lang-check">check</span></button>
+          <button type="button" class="pf-lang-option" role="option" data-lang-value="en" data-lang-code="EN" data-lang-label="English" aria-selected="false" tabindex="-1"><span class="pf-lang-code">EN</span><span class="pf-lang-option-label">English</span><span class="material-symbols-outlined pf-lang-check">check</span></button>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <main class="pf-taskdetail-main">
+    <header class="pf-taskdetail-top">
+      <div class="pf-taskdetail-title">
+        <a class="pf-taskdetail-back" href="/projects"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span><span data-pf-en="Projects">项目</span></a>
+        <div>
+          <p class="pf-taskdetail-breadcrumb"><span id="task-project-name"></span> / <span data-pf-en="Python script">Python 脚本</span></p>
+          <h1 id="task-name">—</h1>
+          <code id="task-path">—</code>
+        </div>
+      </div>
+      <div class="pf-taskdetail-actions">
+        <button id="task-run" class="pf-taskdetail-btn primary" type="button"><span class="material-symbols-outlined">play_arrow</span><span data-pf-en="Run once">运行一次</span></button>
+        <button id="task-stop" class="pf-taskdetail-btn danger" type="button" disabled><span class="material-symbols-outlined">stop</span><span data-pf-en="Stop">停止</span></button>
+        <a href="/tasks" class="pf-taskdetail-btn" data-pf-en="Task settings ↗">任务配置 ↗</a>
+      </div>
+    </header>
+    <p id="task-message" role="status" class="pf-taskdetail-message" hidden></p>
+    <section class="pf-taskdetail-metrics" aria-label="执行指标">
+      <div><small data-pf-en="Status">运行状态</small><strong id="task-status">—</strong></div>
+      <div><small>PID</small><strong id="task-pid">—</strong></div>
+      <div><small data-pf-en="Runtime">运行时长</small><strong id="task-uptime">—</strong></div>
+      <div><small>CPU</small><strong id="task-cpu">—</strong></div>
+      <div><small data-pf-en="Memory">内存</small><strong id="task-memory">—</strong></div>
+      <div><small data-pf-en="Cron schedule">Cron 定时</small><strong id="task-schedule">—</strong></div>
+    </section>
+    <section class="pf-taskdetail-info">
+      <div><span data-pf-en="Python interpreter">Python 解释器</span><code id="task-python">—</code></div>
+      <div><span data-pf-en="Working directory">工作目录</span><code id="task-cwd">—</code></div>
+      <div><span data-pf-en="Arguments">运行参数</span><code id="task-args">—</code></div>
+      <div><span data-pf-en="Last exit code">上次退出码</span><code id="task-exit">—</code></div>
+    </section>
+    <section class="pf-taskdetail-columns">
+      <article class="pf-taskdetail-pane pf-taskdetail-history">
+        <div class="pf-taskdetail-pane-title"><h2 data-pf-en="Run history">执行历史</h2><small data-pf-en="Each run has a separate log; only the last 3 log files remain">每次独立日志 · 仅保留最近三份</small></div>
+        <div id="task-history" class="pf-taskdetail-history-list" aria-label="历史运行记录"></div>
+      </article>
+      <article class="pf-taskdetail-pane pf-taskdetail-log">
+        <div class="pf-taskdetail-pane-title">
+          <div><h2 data-pf-en="Live stdout / stderr">实时日志输出</h2><small id="task-log-count" aria-live="off">0 行</small></div>
+          <button id="task-log-show" class="pf-taskdetail-btn" type="button" data-pf-en="View log">查看日志</button>
+        </div>
+        <p class="pf-taskdetail-notice" data-pf-en="Logs may contain values printed by the script. Opening is optional.">日志可能包含脚本自行打印的敏感信息，需主动点击后查看。</p>
+        <pre id="task-log-content" class="pf-taskdetail-console">等待查看日志…</pre>
+      </article>
+    </section>
+    <section class="pf-taskdetail-pane">
+      <div class="pf-taskdetail-pane-title">
+        <div><h2 data-pf-en="Linked documents">关联文件</h2><small data-pf-en="Bounded static Python inspection; candidates may be incomplete.">有限度分析 Python 代码，动态路径可能识别不全</small></div>
+        <button type="button" id="task-files-refresh" class="pf-taskdetail-btn" data-pf-en="Scan again">重新识别</button>
+      </div>
+      <p class="pf-taskdetail-notice" data-pf-en="Only path metadata is shown; Excel/TXT contents are never read. Opening a document requires your confirmation and runs in the PerchFlow computer's desktop session.">仅展示路径元数据，不读取 Excel/TXT 正文。打开文件需要确认，操作发生在 PerchFlow 所在 Windows 桌面会话。</p>
+      <div id="task-linked-files" class="pf-taskdetail-files"></div>
+    </section>
+  </main>
+  <nav class="fixed bottom-0 left-0 w-full z-50 flex items-center bg-surface/60 backdrop-blur-xl border-t border-white/10 h-14 box-content pb-[env(safe-area-inset-bottom)] md:hidden">
+    <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/processes"><span class="material-symbols-outlined text-[20px]">monitoring</span><span class="text-[10px]" data-i18n="nav.processes_short">进程</span></a>
+    <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/tasks"><span class="material-symbols-outlined text-[20px]">assignment_turned_in</span><span class="text-[10px]" data-i18n="nav.tasks_short">任务</span></a>
+    <a class="flex-1 flex flex-col items-center justify-center text-primary gap-0.5 py-1" href="/projects"><span class="material-symbols-outlined text-[20px]">folder</span><span class="text-[10px]" data-i18n="nav.projects_short">项目</span></a>
+  </nav>
+  <script src="/assets/i18n.js"></script>
+  <script src="/assets/app.js"></script>
+  <script src="/assets/topbar-controls.js"></script>
+  <script src="/assets/task-detail.js"></script>
+</body>
+</html>
