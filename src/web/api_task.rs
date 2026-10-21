@@ -303,7 +303,7 @@ async fn history(State(ctx): State<WebContext>, Path(name): Path<String>) -> Jso
             }
             r
         }).collect();
-    // History stays keyed by the original name; new logs use v2 SHA-256 dirs.
+    // History stays keyed by the original name; new logs use SHA-256 dirs.
     // Legacy reads are allowed only when the old filename stem is unambiguous.
     let config = ctx.state.config.read().await;
     let legacy_ok = task_log_paths::legacy_unique(&name, config.task.iter().map(|t| t.name.as_str()));

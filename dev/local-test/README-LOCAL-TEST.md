@@ -102,8 +102,10 @@
 
 ## Collision-resistant task log storage
 
-- New per-run output goes to task-logs/v2/<sha256-of-exact-UTF8-task-name>/<run_id>.log; output-file metadata uses <run_id>.files.json alongside it. Unicode labels, punctuation and very long names cannot accidentally collapse to the same underscored filename.
+- New per-run output goes to task-logs/<sha256-of-exact-UTF8-task-name>/<run_id>.log; output-file metadata uses <run_id>.files.json alongside it. Unicode labels, punctuation and very long names cannot accidentally collapse to the same underscored filename.
 - The existing perch.toml, task identity, project membership, schedules and task-logs/history.jsonl stay unchanged.
 - Unique legacy paths are still readable: task-logs/<legacy_sanitized_task_name>-<run_id>.log (and .files.json). A legacy filename prefix shared by multiple currently registered tasks is ambiguous: leave it untouched and DO NOT associate it with the wrong task.
-- Log retention counts legacy and new per-run logs together; keep the latest three unambiguous log bodies per task; old ambiguous files are deliberately left untouched to avoid data loss. Per-run .files.json metadata and the JSONL history follow their pre-existing separate retention behavior.
+- Log retention counts the direct-hash directory, previously generated v2 hash files, and unambiguous legacy per-run logs together; keep the latest three unambiguous log bodies per task; old ambiguous files are deliberately left untouched to avoid data loss. Per-run .files.json metadata and the JSONL history follow their pre-existing separate retention behavior.
 - All operations run in the isolated test package, not the active C2 Windows service.
+
+- The v2 directory is no longer created for new runs. Previously generated task-logs/v2/<hash>/ logs and .files.json records remain readable; they are not moved or mass deleted. A pre-existing empty v2 folder, if any, is left untouched for safety.

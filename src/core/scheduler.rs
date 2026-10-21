@@ -267,8 +267,8 @@ impl Scheduler {
     async fn execute_child(&self, task: &TaskDef, log_dir: &std::path::Path, run_id: &str, cancel: CancellationToken) -> Result<i32> {
         std::fs::create_dir_all(log_dir).map_err(|e| PerchError::Process(format!("create task log directory: {e}")))?;
         let log_file = task_log_paths::log_path(log_dir, &task.name, run_id);
-        std::fs::create_dir_all(log_file.parent().expect("v2 task directory"))
-            .map_err(|e| PerchError::Process(format!("create v2 task log directory: {e}")))?;
+        std::fs::create_dir_all(log_file.parent().expect("task hash directory"))
+            .map_err(|e| PerchError::Process(format!("create task hash log directory: {e}")))?;
         let stdout = std::fs::File::create(&log_file).map_err(|e| PerchError::Process(format!("task log file: {e}")))?;
         let stderr = stdout.try_clone().map_err(|e| PerchError::Process(format!("task log clone: {e}")))?;
         let mut cmd = build_command_for_task(task);
@@ -343,20 +343,25 @@ impl Scheduler {
 }
 
 /// Retain only the most recent three log bodies for this task across both
-/// v2 and uniquely identifiable legacy files. Never rewrite history.jsonl
+/// current hash, prior v2 hash, and unique legacy files. Never rewrite history.jsonl
 /// or delete another task's data when legacy stems collide.
 fn prune_run_logs(log_dir: &std::path::Path, task_name: &str, current: &str, legacy_ok: bool) -> std::io::Result<()> {
     let mut files: Vec<(u64, String, std::path::PathBuf)> = Vec::new();
-    let v2_dir = task_log_paths::task_dir(log_dir, task_name);
-    if v2_dir.is_dir() {
-        for entry in std::fs::read_dir(&v2_dir)? {
+    // Include old v2 hash logs in the same three-run retention policy;
+    // only current hash directory receives new writes.
+    for directory in [
+        task_log_paths::task_dir(log_dir,task_name),
+        task_log_paths::prior_v2_dir(log_dir,task_name),
+    ] {
+        if !directory.is_dir() { continue; }
+        for entry in std::fs::read_dir(directory)? {
             let entry = entry?;
             if !entry.file_type()?.is_file() { continue; }
-            let filename = entry.file_name();
-            let Some(run) = filename.to_str().and_then(|s| s.strip_suffix(".log")) else { continue };
+            let filename=entry.file_name();
+            let Some(run)=filename.to_str().and_then(|s|s.strip_suffix(".log")) else { continue };
             if !is_valid_run_id(run) { continue; }
-            let timestamp = run.split('-').next().unwrap_or("0").parse::<u64>().unwrap_or(0);
-            files.push((timestamp, run.to_owned(), entry.path()));
+            let timestamp=run.split('-').next().unwrap_or("0").parse::<u64>().unwrap_or(0);
+            files.push((timestamp,run.to_owned(),entry.path()));
         }
     }
     if legacy_ok {
@@ -487,6 +492,28 @@ mod tests {
         assert!(root.join("legacy-2-3-2.log").exists());
         assert!(task_log_paths::log_path(root,"legacy","3-3-3").exists());
         assert!(task_log_paths::log_path(root,"legacy","4-3-4").exists());
+    }
+
+    #[test]
+    fn retention_includes_prior_v2_and_direct_hash_paths() {
+        let tmp=tempfile::tempdir().unwrap();
+        let root=tmp.path();
+        let name="每日巡检";
+        let old=task_log_paths::prior_v2_dir(root,name);
+        let new=task_log_paths::task_dir(root,name);
+        std::fs::create_dir_all(&old).unwrap();
+        std::fs::create_dir_all(&new).unwrap();
+        for id in ["1-2-1","2-2-2"] {
+            std::fs::write(old.join(format!("{id}.log")),"old").unwrap();
+        }
+        for id in ["3-2-3","4-2-4"] {
+            std::fs::write(new.join(format!("{id}.log")),"new").unwrap();
+        }
+        prune_run_logs(root,name,"4-2-4",false).unwrap();
+        assert!(!old.join("1-2-1.log").exists());
+        assert!(old.join("2-2-2.log").exists());
+        assert!(new.join("3-2-3.log").exists());
+        assert!(new.join("4-2-4.log").exists());
     }
 
     #[test]

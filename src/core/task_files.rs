@@ -222,7 +222,7 @@ pub fn diff(task: &str, run_id: &str, project: &ProjectDef, before: Snapshot, af
 
 pub fn store(log_dir: &Path, changes: &RunFileChanges) -> std::io::Result<()> {
     let target = task_log_paths::sidecar_path(log_dir, &changes.task, &changes.run_id);
-    std::fs::create_dir_all(target.parent().expect("v2 task directory"))?;
+    std::fs::create_dir_all(target.parent().expect("task hash directory"))?;
     let data = serde_json::to_vec(changes)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     if data.len() as u64 > MAX_SIDECAR_BYTES {
@@ -238,11 +238,22 @@ pub fn read(log_dir: &Path, name: &str, run_id: &str, legacy_ok: bool) -> std::i
     if run_id.is_empty() || !run_id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "invalid run id"));
     }
-    let path = task_log_paths::sidecar_path(log_dir, name, run_id);
-    let mut file = match std::fs::File::open(path) {
+    // Read new layout, then the earlier v2 hash layout, then the old name-based
+    // format only when the old prefix belongs unambiguously to this task.
+    let candidates = [
+        task_log_paths::sidecar_path(log_dir,name,run_id),
+        task_log_paths::prior_v2_sidecar_path(log_dir,name,run_id),
+    ];
+    let mut file = match std::fs::File::open(&candidates[0]) {
         Ok(file) => file,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound && legacy_ok => {
-            std::fs::File::open(task_log_paths::legacy_sidecar_path(log_dir, name, run_id))?
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            match std::fs::File::open(&candidates[1]) {
+                Ok(file) => file,
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound && legacy_ok => {
+                    std::fs::File::open(task_log_paths::legacy_sidecar_path(log_dir,name,run_id))?
+                }
+                Err(err) => return Err(err),
+            }
         }
         Err(err) => return Err(err),
     };
@@ -313,6 +324,23 @@ mod tests {
         store(root,&item).unwrap();
         assert!(read(root,"自动发布","1-2-3",false).is_ok());
         assert!(task_log_paths::sidecar_path(root,"自动发布","1-2-3").exists());
+    }
+
+    #[test]
+    fn prior_v2_sidecar_remains_readable() {
+        let folder=tempdir().unwrap();
+        let root=folder.path();
+        let changes=RunFileChanges {
+            task:"每日巡检".into(),run_id:"1-2-3".into(),project:"mock".into(),
+            scanned_paths:0,changes:vec![],finished_at:"now".into(),incomplete_scan:false,
+        };
+        let v2=task_log_paths::prior_v2_sidecar_path(root,&changes.task,&changes.run_id);
+        std::fs::create_dir_all(v2.parent().unwrap()).unwrap();
+        std::fs::write(&v2,serde_json::to_vec(&changes).unwrap()).unwrap();
+        assert!(read(root,"每日巡检","1-2-3",false).is_ok());
+        store(root,&changes).unwrap();
+        assert!(task_log_paths::sidecar_path(root,"每日巡检","1-2-3").exists());
+        assert_eq!(std::fs::read(&v2).unwrap(),serde_json::to_vec(&changes).unwrap());
     }
 
     #[test]

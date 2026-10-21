@@ -136,12 +136,14 @@ def main(exe,report_file):
                 ensure(all(by_id[rid]["log_available"] is True for rid in ids[1:]),
                        "newer three run logs not available")
                 checks["log_retention_three_and_history_preserved"]="PASS"
-                def v2_dir(task_name):
-                    return root/"task-logs"/"v2"/hashlib.sha256(task_name.encode("utf-8")).hexdigest()
-                log_files=list(v2_dir("fake_A").glob("*.log"))
+                def task_log_dir(task_name):
+                    return root/"task-logs"/hashlib.sha256(task_name.encode("utf-8")).hexdigest()
+                log_files=list(task_log_dir("fake_A").glob("*.log"))
                 ensure(len(log_files)==3, f"expected 3 A logs, got {log_files}")
-                ensure((v2_dir("fake_B")/f"{rid_b}.log").is_file(),
+                ensure((task_log_dir("fake_B")/f"{rid_b}.log").is_file(),
                        "A retention affected other task B")
+                ensure(not (root/"task-logs"/"v2").exists(),
+                       "new task runs must not create v2 subdirectory")
                 checks["retention_does_not_cross_task_boundaries"]="PASS"
                 stop=api(base,token,"/api/tasks/fake_A/stop","POST")
                 ensure(stop.get("already_finished") and stop.get("status")=="success",

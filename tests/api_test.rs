@@ -1325,6 +1325,8 @@ async fn chinese_task_names_do_not_collide_in_logs_history_or_file_metadata() {
         assert!(task_log_paths::log_path(&logdir,name,run_id).is_file());
         assert!(task_log_paths::sidecar_path(&logdir,name,run_id).is_file());
     }
+    assert!(!tmp.path().join("task-logs").join("v2").exists(),
+        "running Unicode tasks must not create v2 directory");
     assert_ne!(task_log_paths::task_key(names[0]),task_log_paths::task_key(names[1]));
     let config=perch::config::load(&tmp.path().join("perch.toml")).unwrap();
     assert_eq!(config.task[0].name,names[0]);
