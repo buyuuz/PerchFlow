@@ -99,7 +99,15 @@ const projectTranslationsEn = {
   "等待脚本输出…": "Waiting for script output…",
   "历史记录刷新失败，将自动重试。": "Run history refresh failed; retrying automatically.",
   "任务已经结束，状态已更新。": "Task already finished; status updated.",
-  "详情 ↗": "Details ↗"
+  "尚未执行": "Not run",
+  "最近已执行": "Recently executed",
+  "手动执行": "Manual run",
+  "已启用定时": "Scheduled",
+  "运行": "Run",
+  "详情": "Details",
+  "暂无脚本。点击「Python 脚本」添加第一个执行任务。": "No scripts yet. Choose Python script to add the first task.",
+  "手动运行不受 Cron 开关影响；如有已暂停的定时配置，请在定时任务页面管理。": "Manual runs are available. Manage paused Cron settings on the Tasks page.",
+  "在定时任务页面查看高级设置": "Advanced settings in Tasks",  "详情 ↗": "Details ↗"
 };
 function pfL(zh) {
   return window.getLang && window.getLang() === 'en'
@@ -175,6 +183,7 @@ async function loadProjects(selectName) {
     projects = Array.isArray(responses[0].projects) ? responses[0].projects : [];
     taskViews = Array.isArray(responses[1].tasks) ? responses[1].tasks : [];
     if (selectName !== undefined) currentProjectName = selectName;
+    else if (!currentProjectName) currentProjectName = new URLSearchParams(window.location.search).get('project');
     if (!projects.some(p => p.name === currentProjectName)) {
       currentProjectName = projects.length ? projects[0].name : null;
     }
@@ -223,6 +232,50 @@ function formattedBytes(bytes) {
   return (bytes / 1048576).toFixed(1) + ' MiB';
 }
 
+function taskDisplayName(task, fallback) {
+  const path = task?.args?.find(arg => String(arg).toLowerCase().endsWith('.py')) || '';
+  return path ? String(path).replace(/\\/g, '/').split('/').pop() : fallback;
+}
+function taskDetailHref(name) {
+  return '/task-detail?project=' + encodeURIComponent(currentProjectName) + '&task=' + encodeURIComponent(name);
+}
+function taskLastResult(task) {
+  if (!task || !task.last_run) return {label: pfL('尚未执行'), tone:'none'};
+  const raw = task.status === 'running' ? null : task.status;
+  const status = ['success','failed','cancelled','blocked','timeout','interrupted'].includes(raw)
+    ? raw : (task.last_exit_code === 0 ? 'success' : task.last_exit_code != null ? 'failed' : null);
+  return status
+    ? {label:statusText(status),tone: status === 'success' ? 'success' : 'error'}
+    : {label:pfL('最近已执行'),tone:'none'};
+}
+function updateProjectTaskRow(row, task) {
+  const name = row.dataset.taskName;
+  const running = task?.status === 'running';
+  const status = row.querySelector('[data-task-state]');
+  if (status) {
+    status.textContent = running ? pfL('运行中') : pfL('空闲');
+    status.classList.toggle('running',running);
+  }
+  const result = taskLastResult(task);
+  const outcome = row.querySelector('[data-task-result]');
+  if (outcome) {
+    outcome.textContent = result.label;
+    outcome.dataset.tone = result.tone;
+  }
+  const date = row.querySelector('[data-task-date]');
+  if (date) date.textContent = task?.last_run ? new Date(task.last_run).toLocaleString() : '—';
+  const schedule = row.querySelector('[data-task-mode]');
+  if (schedule) {
+    schedule.textContent = task?.enabled ? pfL('已启用定时') : pfL('手动执行');
+    schedule.dataset.scheduled = String(Boolean(task?.enabled));
+    schedule.title = task?.enabled ? (task.schedule || '') :
+      pfL('手动运行不受 Cron 开关影响；如有已暂停的定时配置，请在定时任务页面管理。');
+  }
+  const run = row.querySelector('[data-task-action="run"]');
+  const stop = row.querySelector('[data-task-action="stop"]');
+  if (run) {run.disabled = !task || running || busyTasks.has(name); run.hidden = running;}
+  if (stop) {stop.disabled = !task || !running || busyTasks.has(name); stop.hidden = !running;}
+}
 async function renderProjectDetail() {
   const placeholder = byId('project-empty'), target = byId('project-detail');
   placeholder.hidden = Boolean(currentProjectName);
@@ -231,98 +284,71 @@ async function renderProjectDetail() {
   const selected = currentProjectName;
   const data = await requestJson('/api/projects/' + encodeURIComponent(selected));
   if (currentProjectName !== selected) return;
-  const project = data.project, files = data.files || [];
+  const project = data.project;
   byId('project-current-name').textContent = project.name;
   byId('project-root-preview').textContent = project.root;
-  byId('project-job-count').textContent = project.tasks.length;
-  byId('project-file-count').textContent = files.length;
-  byId('project-exists-count').textContent = files.filter(f => f.exists).length;
-  const keepRuns = !byId('project-runs').hidden &&
-    runDetailsProject === selected && project.tasks.includes(runDetailsTask);
-  if (!keepRuns) {
-    stopRunDetailsPolling();
-    byId('project-runs').hidden = true;
-    historyRequestId += 1;
-    fileRequestId += 1;
-    selectedRunId = null;
-  }
-  const readiness = byId('project-preflight-state');
-  readiness.textContent = pfL('正在检查输入依赖…');
-  try {
-    const check = await requestJson('/api/projects/' + encodeURIComponent(selected) + '/preflight');
-    if (currentProjectName !== selected) return;
-    const report = check.preflight;
-    readiness.textContent = !report.enabled ? pfL('输入预检：未开启（旧任务行为保持不变）') :
-      report.ready ? pfL('输入预检：已就绪 · 已检查 ') + report.checked + pfL(' 项') :
-      pfL('输入预检：未就绪 · ') + (report.reason || (pfL('不可用 ') + report.unavailable.length + pfL(' 项'))) +
-      (report.unavailable.length ? ' · ' + report.unavailable.slice(0, 4).join('、') : '');
-    readiness.classList.toggle('pf-project-not-ready', report.enabled && !report.ready);
-  } catch (_) { readiness.textContent = pfL('输入预检状态暂不可用'); }
+  byId('project-actions-menu').hidden = true;
+  byId('project-more').setAttribute('aria-expanded','false');
+  stopRunDetailsPolling();
+  byId('project-runs').hidden = true;
   const jobs = byId('project-jobs');
   jobs.replaceChildren();
-  if (!project.tasks.length) jobs.append(el('p', 'pf-project-muted', pfL('暂无关联任务。可先在「定时任务」创建，再编辑项目进行关联。')));
+  if (!project.tasks.length) {
+    jobs.append(el('p','pf-project-empty-scripts',pfL('暂无脚本。点击「Python 脚本」添加第一个执行任务。')));
+    return;
+  }
   project.tasks.forEach(name => {
-    const row = el('div', 'pf-project-task-item');
-    row.dataset.taskName = name;
     const task = taskViews.find(t => t.name === name);
-    const running = task?.status === 'running';
-    const detailUrl = '/task-detail?project=' + encodeURIComponent(currentProjectName) + 
-      '&task=' + encodeURIComponent(name);
-    const left = el('div', 'pf-project-task-main');
-    const script = task?.args?.find(arg => String(arg).toLowerCase().endsWith('.py')) || '';
-    const scriptName = script ? String(script).replace(/\\/g,'/').split('/').pop() : name;
-    const detailAnchor = el('a', 'pf-project-task-link', scriptName);
-    detailAnchor.href = detailUrl;
-    detailAnchor.title = name + (script ? ' · ' + script : '');
-    left.append(detailAnchor);
-    const indicator = el('span', 'pf-project-status',
-      task ? pfL('状态：') + statusText(task.status) + ' · Cron：' + (task.enabled ? pfL('已启用') : pfL('已暂停')) : pfL('任务未找到'));
-    indicator.dataset.taskState = 'true';
-    left.append(indicator);
-    if (task) left.append(el('code', 'pf-project-task-cron', task.schedule || pfL('未设置调度')));
-    const actions = el('div', 'pf-project-action-row pf-project-task-actions');
-    const run = actionButton(pfL('运行一次'), 'pf-project-primary', () => operateProjectTask(name, 'run'));
-    run.disabled = !task || running || busyTasks.has(name);
+    const row = el('div','pf-project-task-item');
+    row.role = 'row';
+    row.dataset.taskName = name;
+    const info = el('div','pf-project-task-main');
+    info.role = 'cell';
+    const scriptIcon = el('span','material-symbols-outlined pf-project-script-icon','description');
+    scriptIcon.setAttribute('aria-hidden','true');
+    const anchor = el('a','pf-project-task-link',taskDisplayName(task,name));
+    anchor.href = taskDetailHref(name);
+    anchor.title = name;
+    info.append(scriptIcon,anchor);
+    const state = el('div','pf-project-cell pf-project-status-cell');
+    state.role = 'cell';
+    state.append(el('span','pf-project-status-dot'));
+    const label = el('span','pf-project-status');
+    label.dataset.taskState = 'true';
+    state.append(label);
+    const last = el('div','pf-project-cell pf-project-last-result');
+    last.role = 'cell';
+    const result = el('span','pf-project-result');
+    result.dataset.taskResult = 'true';
+    const when = el('small','pf-project-result-date');
+    when.dataset.taskDate = 'true';
+    last.append(result,when);
+    const mode = el('div','pf-project-cell pf-project-mode-cell');
+    mode.role = 'cell';
+    const modeValue = el('span','pf-project-mode');
+    modeValue.dataset.taskMode = 'true';
+    mode.append(el('span','material-symbols-outlined','schedule'),modeValue);
+    const actions = el('div','pf-project-action-row pf-project-task-actions');
+    actions.role = 'cell';
+    const run = actionButton(pfL('运行'),'pf-project-primary',() => operateProjectTask(name,'run'));
     run.dataset.taskAction = 'run';
-    const stop = actionButton(pfL('停止'), 'pf-project-danger', () => operateProjectTask(name, 'stop'));
-    stop.disabled = !running || busyTasks.has(name);
+    const stop = actionButton(pfL('停止'),'pf-project-danger',() => operateProjectTask(name,'stop'));
     stop.dataset.taskAction = 'stop';
-    const schedule = actionButton(task?.enabled ? pfL('暂停定时') : pfL('启用定时'), 'pf-project-secondary',
-      () => operateProjectTask(name, 'schedule'));
-    schedule.disabled = !task || busyTasks.has(name);
-    schedule.dataset.taskAction = 'schedule';
-    const history = actionButton(pfL('执行详情'), 'pf-project-secondary', () => { void showProjectRuns(name); });
-    const fullDetail = el('a', 'pf-project-detail-link', pfL('详情 ↗'));
-    fullDetail.href = detailUrl;
-    row.addEventListener('click', event => {
-      if (!event.target.closest('button,a,input')) window.location.assign(detailUrl);
+    const detail = el('a','pf-project-secondary pf-project-detail-link',pfL('详情'));
+    detail.href = taskDetailHref(name);
+    const more = el('a','pf-project-row-more material-symbols-outlined','more_horiz');
+    more.href = '/tasks';
+    more.title = pfL('在定时任务页面查看高级设置');
+    more.setAttribute('aria-label', more.title);
+    actions.append(run,stop,detail,more);
+    row.append(info,state,last,mode,actions);
+    row.addEventListener('click',event=>{
+      if(!event.target.closest('button,a,input')) window.location.assign(taskDetailHref(name));
     });
-    const config = el('a', 'pf-project-config-link', pfL('任务配置 ↗'));
-    config.href = '/tasks';
-    actions.append(run, stop, schedule, history, fullDetail, config);
-    row.append(left, actions);
     jobs.append(row);
-  });
-  const output = byId('project-files');
-  output.replaceChildren();
-  if (!files.length) output.append(el('p', 'pf-project-muted', pfL('尚未配置输入或输出文件。')));
-  files.forEach(file => {
-    const row = el('div', 'pf-project-file-item');
-    const left = el('div');
-    const name = el('div', 'file-name');
-    name.append(el('span', 'pf-project-file-role', ({input:pfL('输入'),output:pfL('输出'),output_dir:pfL('自动扫描目录')})[file.role] || pfL('文件')));
-    name.append(document.createTextNode(file.path));
-    left.append(name);
-    if (file.exists) {
-      const modified = file.modified_unix ? new Date(file.modified_unix * 1000).toLocaleString() : '—';
-      left.append(el('small', '', pfL('大小 ') + formattedBytes(file.size_bytes) + pfL(' · 修改 ') + modified));
-    }
-    const right = el('span', 'pf-project-status ' + (file.exists ? 'ok' : 'missing'), file.exists ? pfL('存在') : pfL('未找到'));
-    row.append(left, right);
-    output.append(row);
+    updateProjectTaskRow(row,task);
   });
 }
-
 const TASK_STATUSES = {
   idle:'空闲', running:'运行中', success:'成功', failed:'失败',
   cancelled:'已取消', blocked:'预检阻止', timeout:'超时', interrupted:'意外中断'
@@ -346,37 +372,17 @@ async function syncVisibleProjectTasks() {
     const result = await requestJson('/api/tasks');
     if (selected !== currentProjectName) return;
     taskViews = Array.isArray(result.tasks) ? result.tasks : [];
-    for (const row of document.querySelectorAll('.pf-project-task-item')) {
-      const name = row.dataset.taskName;
-      const task = taskViews.find(item => item.name === name);
-      if (!task) continue;
-      const running = task.status === 'running';
-      const indicator = row.querySelector('[data-task-state]');
-      if (indicator) indicator.textContent = pfL('状态：') + statusText(task.status) +
-        ' · Cron：' + (task.enabled ? pfL('已启用') : pfL('已暂停')) +
-        (task.pid != null && running ? ' · PID ' + task.pid : '');
-      const run = row.querySelector('[data-task-action="run"]');
-      const stop = row.querySelector('[data-task-action="stop"]');
-      if (run) run.disabled = running || busyTasks.has(name);
-      if (stop) stop.disabled = !running || busyTasks.has(name);
-    }
-  } catch (_) { /* Surface network errors on the explicit refresh action. */ }
+    document.querySelectorAll('.pf-project-task-item').forEach(row => {
+      const task = taskViews.find(item => item.name === row.dataset.taskName);
+      updateProjectTaskRow(row,task);
+    });
+  } catch (_) { /* Use manual refresh for error details. */ }
   finally { taskStatusPolling = false; }
 }
-
-async function refreshProjectState(taskName) {
-  const project = currentProjectName;
-  if (!project) return;
-  await loadProjects(project);
-  if (taskName && currentProjectName === project) {
-    if (runDetailsTask === taskName && !byId('project-runs').hidden) {
-      await refreshRunDetails();
-    } else {
-      await showProjectRuns(taskName);
-    }
-  }
+async function refreshProjectState() {
+  const selected = currentProjectName;
+  if (selected) await loadProjects(selected);
 }
-
 async function operateProjectTask(name, action) {
   const projectName = currentProjectName;
   const project = projects.find(p => p.name === projectName);
@@ -430,21 +436,14 @@ async function monitorTaskRun(projectName, name, runId, generation) {
       const task = await requestJson('/api/tasks/' + encodeURIComponent(name));
       const row = Array.from(document.querySelectorAll('.pf-project-task-item'))
         .find(node => node.dataset.taskName === name);
-      const indicator = row?.querySelector('[data-task-state]');
-      if (indicator) indicator.textContent = pfL('状态：') + statusText(task.status) +
-        ' · Cron：' + (task.enabled ? pfL('已启用') : pfL('已暂停'));
-      const runButton = row?.querySelector('[data-task-action="run"]');
-      const stopButton = row?.querySelector('[data-task-action="stop"]');
-      if (runButton) runButton.disabled = task.status === 'running';
-      if (stopButton) stopButton.disabled = task.status !== 'running';
+      if (row) updateProjectTaskRow(row,task);
       if (task.run_id === runId && task.status !== 'running') {
-        await refreshProjectState(name);
+        await refreshProjectState();
         return;
       }
     } catch (_) { return; }
   }
 }
-
 function lines(id) {
   return byId(id).value.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
 }
@@ -785,7 +784,7 @@ async function savePythonTask(event) {
     python:byId('project-python-exe').value.trim(),
     script:byId('project-python-script').value.trim(),
     args:lines('project-python-args'),
-    schedule:byId('project-python-cron').value.trim(), timeout_secs:timeout
+    schedule:'0 0 0 * * *', timeout_secs:timeout
   };
   const button = byId('project-python-submit');
   button.disabled = true;
@@ -811,6 +810,22 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   byId('project-new').addEventListener('click', () => openProjectForm(null));
+  const menuButton = byId('project-more');
+  const menu = byId('project-actions-menu');
+  menuButton.addEventListener('click', () => {
+    menu.hidden = !menu.hidden;
+    menuButton.setAttribute('aria-expanded',String(!menu.hidden));
+  });
+  menu.addEventListener('click',() => {
+    menu.hidden = true;
+    menuButton.setAttribute('aria-expanded','false');
+  });
+  document.addEventListener('click',event => {
+    if (!event.target.closest('.pf-project-menu-wrap')) {
+      menu.hidden = true;
+      menuButton.setAttribute('aria-expanded','false');
+    }
+  });
   byId('project-add-python').addEventListener('click', openPythonForm);
   byId('project-python-form').addEventListener('submit', savePythonTask);
   byId('project-python-close').addEventListener('click', closePythonForm);

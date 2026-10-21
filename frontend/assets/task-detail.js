@@ -7,6 +7,9 @@ const en = {
   '空闲':'Idle','运行中':'Running','成功':'Success','失败':'Failed','已取消':'Cancelled',
   '超时':'Timed out','预检阻止':'Preflight blocked','意外中断':'Interrupted',
   '当前未运行':'Not running','启用':'Enabled','停用':'Disabled',
+  '手动执行':'Manual run','手动 + 定时':'Manual + scheduled',
+  '定时已启用':'Schedule active','Cron 已暂停':'Cron paused','未设置定时':'No schedule',
+  '尚未执行':'Not run','查看更多 →':'View more →','收起':'Collapse',
   '等待查看日志…':'Click View log to read output…',
   '等待脚本输出…':'Waiting for script output…',
   '日志不存在、尚未生成，或已按三次保留规则清理。':'Log missing, not created, or removed under 3-run retention.',
@@ -65,45 +68,74 @@ function duration(sec) {
 function renderTask(task) {
   latestTask=task;
   const script=(task.args||[]).find(a=>String(a).toLowerCase().endsWith('.py')) || task.name;
-  node('task-name').textContent=String(script).replace(/\\/g,'/').split('/').pop();
+  const name=String(script).replace(/\\/g,'/').split('/').pop();
+  node('task-name').textContent=name;
+  node('task-breadcrumb-name').textContent=name;
   node('task-path').textContent=String(script);
   node('task-project-name').textContent=projectName;
+  node('task-project-name').href='/projects?project='+encodeURIComponent(projectName);
+  node('task-back').href='/projects?project='+encodeURIComponent(projectName);
   const active=task.status==='running';
-  node('task-status').textContent=tx(({blocked:'预检阻止',cancelled:'已取消',timeout:'超时',
-    interrupted:'意外中断',failed:'失败',success:'成功',running:'运行中',idle:'空闲'})[task.status]||task.status);
+  node('task-status').textContent=tx(active?'运行中':'空闲');
   node('task-pid').textContent=active && task.pid!=null ? task.pid : '—';
-  node('task-uptime').textContent=active?duration(task.uptime_secs):'—';
+  if(active) node('task-uptime').textContent=duration(task.uptime_secs);
   node('task-cpu').textContent=active?(Number(task.cpu_percent)||0).toFixed(1)+'%':'—';
   node('task-memory').textContent=active?(Number(task.mem_bytes||0)/1048576).toFixed(1)+' MB':'—';
-  node('task-schedule').textContent=tx(task.enabled?'启用':'停用');
+  node('task-schedule').textContent=tx(task.enabled?'手动 + 定时':'手动执行');
+  node('task-schedule-hint').textContent=task.enabled?tx('定时已启用') :
+    (task.schedule?tx('Cron 已暂停'):tx('未设置定时'));
   node('task-python').textContent=task.cmd||'—';
   node('task-cwd').textContent=task.cwd||'—';
   node('task-args').textContent=(task.args||[]).slice(1).join(' ')||'—';
   node('task-exit').textContent=task.last_exit_code==null?'—':task.last_exit_code;
   node('task-run').disabled=active||actionBusy;
   node('task-stop').disabled=!active||actionBusy;
-}
-function logReset() {
+}function logReset() {
   activeLogRequest++;
   shownLog='';
   lastLogId=null;
   node('task-log-content').textContent=tx('等待查看日志…');
   node('task-log-count').textContent='0 '+(getLang()==='en'?'lines':'行');
 }
+let showAllHistory=false;
+function runStateLabel(status) {
+  return tx(({running:'运行中',success:'成功',failed:'失败',cancelled:'已取消',timeout:'超时',
+    blocked:'预检阻止',interrupted:'意外中断'})[status]||status||'未知');
+}
 function renderHistory(runs) {
   historyRuns=runs;
   const list=node('task-history');
   list.replaceChildren();
-  if(!runs.length) {list.append(make('p','pf-taskdetail-notice',tx('没有执行记录')));return;}
-  for(const run of runs.slice(0,12)) {
+  if(!runs.length){
+    list.append(make('p','pf-taskdetail-notice',tx('没有执行记录')));
+    node('task-last-result').textContent=tx('尚未执行');
+    node('task-last-time').textContent='—';
+    if(latestTask?.status!=='running')node('task-uptime').textContent='—';
+    return;
+  }
+  const latest=runs[0];
+  const result=node('task-last-result');
+  result.textContent=runStateLabel(latest.status);
+  result.dataset.tone=latest.status==='success'?'success':
+    (['failed','cancelled','blocked','timeout','interrupted'].includes(latest.status)?'error':'none');
+  node('task-last-time').textContent=latest.started_at?
+    new Date(latest.started_at).toLocaleString():'—';
+  if(latestTask?.status!=='running')node('task-uptime').textContent=
+    latest.duration_ms==null?'—':duration(latest.duration_ms/1000);
+  node('task-history-more').hidden=runs.length<=3;
+  node('task-history-more').textContent=tx(showAllHistory?'收起':'查看更多 →');
+  for(const run of runs.slice(0,showAllHistory?12:3)) {
     const item=make('button','pf-taskdetail-history-item');
     item.type='button';
     item.setAttribute('aria-current',String(run.run_id===selectedId));
-    item.append(make('span','',String(run.started_at||'—')+' · '+tx(
-      ({running:'运行中',success:'成功',failed:'失败',cancelled:'已取消',timeout:'超时',
-        blocked:'预检阻止',interrupted:'意外中断'})[run.status]||run.status)));
-    item.append(make('small','',String(run.duration_ms==null?'—':(run.duration_ms/1000).toFixed(2)+'s')+
-      ' · '+tx(run.log_available?'已保留日志':'旧日志可能已清理')));
+    const when=make('span','',run.started_at?
+      new Date(run.started_at).toLocaleString():'—');
+    const state=make('span','pf-taskdetail-history-state',runStateLabel(run.status));
+    state.dataset.tone=run.status==='success'?'success':
+      (run.status==='running'?'none':'error');
+    const timing=make('small','',run.duration_ms==null?'—':duration(run.duration_ms/1000));
+    item.append(when,state,timing);
+    item.title=tx(run.log_available?'已保留日志':'旧日志可能已清理');
     item.addEventListener('click',()=>{
       followLatest=false;
       selectedId=run.run_id;
@@ -111,11 +143,11 @@ function renderHistory(runs) {
       node('task-log-show').disabled=false;
       logReset();
       renderHistory(historyRuns);
+      document.getElementById('task-log-panel').scrollIntoView({block:'nearest',behavior:'smooth'});
     });
     list.append(item);
   }
-}
-function pickLatest(runs) {
+}function pickLatest(runs) {
   if(!runs.length)return;
   const wanted=followLatest||!selectedId?runs[0].run_id:selectedId;
   if(wanted!==selectedId) {
@@ -163,7 +195,7 @@ async function poll() {
     const runs=Array.isArray(history.runs)?history.runs:[];
     pickLatest(runs);
     renderHistory(runs);
-    if(logOpted) await readLog();
+    if(logOpted && node('task-log-auto').checked) await readLog();
   }catch(error){message(error.message);}
   finally{polling=false;}
 }
@@ -227,7 +259,34 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(latestTask)renderTask(latestTask);
     renderHistory(historyRuns);
   });
-  node('task-run').addEventListener('click',()=>{void act('run');});
+  const more=node('task-more'), menu=node('task-more-menu');
+  more.addEventListener('click',()=>{
+    menu.hidden=!menu.hidden;
+    more.setAttribute('aria-expanded',String(!menu.hidden));
+  });
+  document.addEventListener('click',event=>{
+    if(!event.target.closest('.pf-taskdetail-menu-wrap')){
+      menu.hidden=true;
+      more.setAttribute('aria-expanded','false');
+    }
+  });
+  node('task-refresh').addEventListener('click',()=>{
+    menu.hidden=true;
+    void poll();
+  });
+  node('task-show-files').addEventListener('click',()=>{
+    menu.hidden=true;
+    document.getElementById('task-files-panel').scrollIntoView({behavior:'smooth',block:'center'});
+  });
+  node('task-history-more').addEventListener('click',()=>{
+    showAllHistory=!showAllHistory;
+    renderHistory(historyRuns);
+  });
+  node('task-log-clear').addEventListener('click',()=>{
+    // Clear the visible console only; never remove retained log files.
+    logOpted=false;
+    logReset();
+  });  node('task-run').addEventListener('click',()=>{void act('run');});
   node('task-stop').addEventListener('click',()=>{void act('stop');});
   node('task-log-show').addEventListener('click',()=>{
     logOpted=true;

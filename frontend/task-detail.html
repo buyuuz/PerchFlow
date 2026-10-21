@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh" class="dark">
 <head>
   <meta charset="utf-8">
@@ -40,57 +40,94 @@
     </div>
   </nav>
   <main class="pf-taskdetail-main">
+    <nav class="pf-taskdetail-breadcrumb" aria-label="Breadcrumb">
+      <a id="task-back" href="/projects" data-pf-en="Projects">项目</a>
+      <span>/</span><a id="task-project-name" href="/projects">—</a>
+      <span>/</span><span id="task-breadcrumb-name">—</span>
+    </nav>
     <header class="pf-taskdetail-top">
       <div class="pf-taskdetail-title">
-        <a class="pf-taskdetail-back" href="/projects"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span><span data-pf-en="Projects">项目</span></a>
-        <div>
-          <p class="pf-taskdetail-breadcrumb"><span id="task-project-name"></span> / <span data-pf-en="Python script">Python 脚本</span></p>
+        <span class="pf-taskdetail-script-icon material-symbols-outlined" aria-hidden="true">description</span>
+        <div class="pf-taskdetail-title-content">
           <h1 id="task-name">—</h1>
           <code id="task-path">—</code>
         </div>
       </div>
       <div class="pf-taskdetail-actions">
-        <button id="task-run" class="pf-taskdetail-btn primary" type="button"><span class="material-symbols-outlined">play_arrow</span><span data-pf-en="Run once">运行一次</span></button>
-        <button id="task-stop" class="pf-taskdetail-btn danger" type="button" disabled><span class="material-symbols-outlined">stop</span><span data-pf-en="Stop">停止</span></button>
-        <a href="/tasks" class="pf-taskdetail-btn" data-pf-en="Task settings ↗">任务配置 ↗</a>
+        <button id="task-run" class="pf-taskdetail-btn primary" type="button"><span class="material-symbols-outlined" aria-hidden="true">play_arrow</span><span data-pf-en="Run once">运行一次</span></button>
+        <button id="task-stop" class="pf-taskdetail-btn danger" type="button" disabled><span class="material-symbols-outlined" aria-hidden="true">stop</span><span data-pf-en="Stop">停止</span></button>
+        <a href="/tasks" class="pf-taskdetail-btn" id="task-settings"><span class="material-symbols-outlined" aria-hidden="true">settings</span><span data-pf-en="Script settings">脚本设置</span></a>
+        <div class="pf-taskdetail-menu-wrap">
+          <button type="button" id="task-more" class="pf-taskdetail-btn" aria-expanded="false" aria-controls="task-more-menu" aria-label="更多"><span class="material-symbols-outlined" aria-hidden="true">more_horiz</span><span data-pf-en="More">更多</span></button>
+          <div id="task-more-menu" class="pf-taskdetail-dropdown" hidden>
+            <button id="task-refresh" type="button" data-pf-en="Refresh status">刷新状态</button>
+            <button id="task-show-files" type="button" data-pf-en="Go to linked files">查看关联文件</button>
+          </div>
+        </div>
       </div>
     </header>
     <p id="task-message" role="status" class="pf-taskdetail-message" hidden></p>
     <section class="pf-taskdetail-metrics" aria-label="执行指标">
-      <div><small data-pf-en="Status">运行状态</small><strong id="task-status">—</strong></div>
+      <div><small data-pf-en="Current status">当前状态</small><strong id="task-status">—</strong></div>
+      <div><small data-pf-en="Last result">最近结果</small><div class="pf-taskdetail-result"><strong id="task-last-result">—</strong><span id="task-last-time">—</span></div></div>
       <div><small>PID</small><strong id="task-pid">—</strong></div>
-      <div><small data-pf-en="Runtime">运行时长</small><strong id="task-uptime">—</strong></div>
-      <div><small>CPU</small><strong id="task-cpu">—</strong></div>
-      <div><small data-pf-en="Memory">内存</small><strong id="task-memory">—</strong></div>
-      <div><small data-pf-en="Cron schedule">Cron 定时</small><strong id="task-schedule">—</strong></div>
-    </section>
-    <section class="pf-taskdetail-info">
-      <div><span data-pf-en="Python interpreter">Python 解释器</span><code id="task-python">—</code></div>
-      <div><span data-pf-en="Working directory">工作目录</span><code id="task-cwd">—</code></div>
-      <div><span data-pf-en="Arguments">运行参数</span><code id="task-args">—</code></div>
-      <div><span data-pf-en="Last exit code">上次退出码</span><code id="task-exit">—</code></div>
+      <div><small data-pf-en="Last runtime">最近运行时长</small><strong id="task-uptime">—</strong></div>
+      <div><small data-pf-en="Execution mode">执行方式</small><strong id="task-schedule">—</strong><span class="pf-taskdetail-schedule-caption" id="task-schedule-hint"></span></div>
     </section>
     <section class="pf-taskdetail-columns">
-      <article class="pf-taskdetail-pane pf-taskdetail-history">
-        <div class="pf-taskdetail-pane-title"><h2 data-pf-en="Run history">执行历史</h2><small data-pf-en="Each run has a separate log; only the last 3 log files remain">每次独立日志 · 仅保留最近三份</small></div>
-        <div id="task-history" class="pf-taskdetail-history-list" aria-label="历史运行记录"></div>
-      </article>
       <article class="pf-taskdetail-pane pf-taskdetail-log">
-        <div class="pf-taskdetail-pane-title">
-          <div><h2 data-pf-en="Live stdout / stderr">实时日志输出</h2><small id="task-log-count" aria-live="off">0 行</small></div>
-          <button id="task-log-show" class="pf-taskdetail-btn" type="button" data-pf-en="View log">查看日志</button>
+        <div class="pf-taskdetail-log-head">
+          <div class="pf-taskdetail-tabs" aria-label="脚本详情导航">
+            <a href="#task-log-panel" aria-current="page" data-pf-en="Run logs">运行日志</a>
+            <a href="#task-history-panel" data-pf-en="Run history">执行历史</a>
+            <a href="#task-files-panel" data-pf-en="Linked files">关联文件</a>
+          </div>
+          <div class="pf-taskdetail-log-toolbar">
+            <button id="task-log-clear" class="pf-taskdetail-btn subtle" type="button" data-pf-en="Clear view">清空显示</button>
+            <label class="pf-taskdetail-auto-refresh"><span data-pf-en="Live refresh">实时刷新</span><input id="task-log-auto" type="checkbox" checked></label>
+          </div>
         </div>
-        <p class="pf-taskdetail-notice" data-pf-en="Logs may contain values printed by the script. Opening is optional.">日志可能包含脚本自行打印的敏感信息，需主动点击后查看。</p>
-        <pre id="task-log-content" class="pf-taskdetail-console">等待查看日志…</pre>
+        <div id="task-log-panel" class="pf-taskdetail-console-wrap">
+          <div class="pf-taskdetail-console-head">
+            <small id="task-log-count" aria-live="off">0 行</small>
+            <button id="task-log-show" class="pf-taskdetail-btn" type="button" data-pf-en="View this run log">查看本次日志</button>
+          </div>
+          <p class="pf-taskdetail-notice" data-pf-en="Logs are loaded only after you click View; script output may contain sensitive information.">仅点击查看后才会读取日志；脚本输出可能包含敏感信息。</p>
+          <pre id="task-log-content" class="pf-taskdetail-console">等待查看日志…</pre>
+        </div>
       </article>
-    </section>
-    <section class="pf-taskdetail-pane">
-      <div class="pf-taskdetail-pane-title">
-        <div><h2 data-pf-en="Linked documents">关联文件</h2><small data-pf-en="Bounded static Python inspection; candidates may be incomplete.">有限度分析 Python 代码，动态路径可能识别不全</small></div>
-        <button type="button" id="task-files-refresh" class="pf-taskdetail-btn" data-pf-en="Scan again">重新识别</button>
-      </div>
-      <p class="pf-taskdetail-notice" data-pf-en="Only path metadata is shown; Excel/TXT contents are never read. Opening a document requires your confirmation and runs in the PerchFlow computer's desktop session.">仅展示路径元数据，不读取 Excel/TXT 正文。打开文件需要确认，操作发生在 PerchFlow 所在 Windows 桌面会话。</p>
-      <div id="task-linked-files" class="pf-taskdetail-files"></div>
+      <aside class="pf-taskdetail-sidebar">
+        <section id="task-history-panel" class="pf-taskdetail-pane pf-taskdetail-history">
+          <div class="pf-taskdetail-pane-title">
+            <h2 data-pf-en="Run history">执行历史</h2>
+            <button id="task-history-more" class="pf-taskdetail-text-btn" type="button" data-pf-en="View more">查看更多 →</button>
+          </div>
+          <div class="pf-taskdetail-history-labels"><span data-pf-en="Run time">运行时间</span><span data-pf-en="Result">结果</span><span data-pf-en="Duration">运行时长</span></div>
+          <div id="task-history" class="pf-taskdetail-history-list" aria-label="历史运行记录"></div>
+        </section>
+        <section id="task-files-panel" class="pf-taskdetail-pane pf-taskdetail-files-pane">
+          <div class="pf-taskdetail-pane-title">
+            <h2 data-pf-en="Linked files">关联文件</h2>
+            <button type="button" id="task-files-refresh" class="pf-taskdetail-text-btn" data-pf-en="Rescan">重新识别 +</button>
+          </div>
+          <div id="task-linked-files" class="pf-taskdetail-files"></div>
+        </section>
+        <section class="pf-taskdetail-pane pf-taskdetail-info-pane">
+          <div class="pf-taskdetail-pane-title">
+            <h2 data-pf-en="Script information">脚本信息</h2>
+            <a class="pf-taskdetail-text-btn" href="/tasks" data-pf-en="Edit">编辑 ↗</a>
+          </div>
+          <div class="pf-taskdetail-info">
+            <div><span data-pf-en="Python interpreter">Python 解释器</span><code id="task-python">—</code></div>
+            <div><span data-pf-en="Working directory">工作目录</span><code id="task-cwd">—</code></div>
+            <div><span data-pf-en="Arguments">参数</span><code id="task-args">—</code></div>
+            <div><span data-pf-en="Last exit code">上次退出码</span><code id="task-exit">—</code></div>
+            <div><span>CPU</span><code id="task-cpu">—</code></div>
+            <div><span data-pf-en="Memory">内存</span><code id="task-memory">—</code></div>
+            <div><span data-pf-en="Scheduled task">定时计划</span><a id="task-schedule-link" href="/tasks" data-pf-en="Open schedules">前往定时任务 →</a></div>
+          </div>
+        </section>
+      </aside>
     </section>
   </main>
   <nav class="fixed bottom-0 left-0 w-full z-50 flex items-center bg-surface/60 backdrop-blur-xl border-t border-white/10 h-14 box-content pb-[env(safe-area-inset-bottom)] md:hidden">
