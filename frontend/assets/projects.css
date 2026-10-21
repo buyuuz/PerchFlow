@@ -10,10 +10,10 @@
 .pf-project-titlebar{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:24px}
 .pf-project-titlebar h1{font-weight:700;font-size:21px;color:#e8edf5;margin:0 0 5px}
 .pf-project-titlebar p{font-size:12px;color:#929ead;margin:0}
-.pf-project-layout{display:grid;grid-template-columns:minmax(230px,30%) minmax(0,1fr);gap:17px}
-.pf-project-list-column,.pf-project-detail-column{border:1px solid rgba(255,255,255,.09);background:rgba(28,35,46,.55);border-radius:17px;padding:20px;min-height:360px}
+.pf-project-layout{display:grid;grid-template-columns:minmax(240px,28%) minmax(0,1fr);gap:17px;align-items:start}
+.pf-project-list-column,.pf-project-detail-column{border:1px solid rgba(255,255,255,.09);background:rgba(28,35,46,.55);border-radius:17px;padding:20px;min-width:0}.pf-project-detail-column{min-height:320px}
 .pf-project-column-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}.pf-project-column-title h2{font-size:14px;font-weight:650}.pf-project-column-title span{font-size:12px;color:#94a4ba}
-.pf-project-list{display:flex;flex-direction:column;gap:9px}
+.pf-project-list{display:flex;flex-direction:column;gap:9px;max-height:min(64vh,720px);overflow-y:auto}
 .pf-project-entry{width:100%;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.026);text-align:left;border-radius:11px;padding:13px;color:#e2eaf7;cursor:pointer;display:flex;justify-content:space-between;gap:12px}
 .pf-project-entry:hover,.pf-project-entry[aria-selected=true]{border-color:rgba(138,174,255,.6);background:rgba(100,140,220,.11)}
 .pf-project-entry strong{font-size:13px;display:block}.pf-project-entry small{font-size:11px;color:#92a1b5;display:block;margin-top:5px;word-break:break-all}.pf-project-entry .material-symbols-outlined{font-size:19px;color:#8ba9ee}
@@ -27,7 +27,7 @@
 .pf-project-section{margin-top:21px}.pf-project-section-title{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:11px}.pf-project-section-title h3{font-weight:650;font-size:13px}.pf-project-section-title>a,.pf-project-section-title>span{font-size:11px;color:#91b5f2}
 .pf-project-task-item,.pf-project-file-item{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.06);margin:6px 0;background:rgba(255,255,255,.018)}
 .pf-project-task-item a{color:#accbff;text-decoration:none;font-weight:600;font-size:12px}
-.pf-project-file-item .file-name{overflow-wrap:anywhere;font-size:12px;color:#e1e8f2}.pf-project-file-item small{display:block;font-size:10px;color:#8a9daf;margin-top:5px}
+.pf-project-file-item .file-name{overflow-wrap:anywhere;font-size:12px;color:#e1e8f2}.pf-project-file-item small{display:block;font-size:11px;color:#8a9daf;margin-top:5px}
 .pf-project-file-role{display:inline-block;font-size:10px;color:#9cb6d3;border:1px solid rgba(150,185,220,.2);border-radius:5px;padding:1px 5px;margin-right:7px}
 .pf-project-status{font-size:11px;color:#8baccc;white-space:nowrap}.pf-project-status.ok{color:#9bcea9}.pf-project-status.missing{color:#e0af83}
 .pf-project-empty{min-height:320px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:10px}.pf-project-empty>.material-symbols-outlined{font-size:43px;color:#8ca4c8}.pf-project-empty h2{font-size:16px}.pf-project-empty p{font-size:12px;color:#8b9bae;max-width:360px}
@@ -40,7 +40,7 @@
 .pf-project-form input[type=text],.pf-project-form input:not([type]),.pf-project-form textarea{width:100%;background:#121a26;border:1px solid rgba(255,255,255,.14);border-radius:8px;color:#eff4ff;padding:10px;font-family:inherit;font-size:12px;outline:none}
 .pf-project-form input:focus,.pf-project-form textarea:focus{border-color:#8daffd}.pf-project-form fieldset{border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px}.pf-project-form legend{padding:0 5px;font-size:12px}.pf-project-task-options{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.pf-project-task-options label{flex-direction:row;align-items:center;border:1px solid rgba(255,255,255,.11);padding:6px 9px;border-radius:7px}
 .pf-project-form-error{font-size:12px;color:#ff9696}.pf-project-form-footer{display:flex;justify-content:flex-end;gap:10px}
-@media(max-width:800px){.pf-project-header{padding:0 16px;gap:13px}.pf-project-tag{display:none}.pf-project-nav{gap:13px}.pf-project-main{padding:20px 13px}.pf-project-layout{grid-template-columns:1fr}.pf-project-list-column,.pf-project-detail-column{padding:15px}.pf-project-detail-head{flex-direction:column}.pf-project-titlebar h1{font-size:18px}.pf-project-titlebar p{max-width:245px}}
+@media(max-width:800px){.pf-project-header{padding:0 16px;gap:13px}.pf-project-tag{display:none}.pf-project-nav{gap:13px}.pf-project-main{padding:20px 13px}.pf-project-layout{grid-template-columns:minmax(0,1fr)}.pf-project-list-column,.pf-project-detail-column{padding:15px}.pf-project-list{max-height:248px}.pf-project-detail-head{flex-direction:column}.pf-project-titlebar h1{font-size:18px}.pf-project-titlebar p{max-width:245px}}
 
 .pf-project-runs{margin-top:18px;padding:14px;border:1px solid rgba(150,174,205,.15);border-radius:12px;background:rgba(10,15,24,.2)}
 .pf-project-runs[hidden]{display:none!important}
@@ -48,7 +48,7 @@
 .pf-project-run-item:hover{border-color:rgba(145,180,250,.5);color:#e4edff}
 #project-run-changes{margin-top:12px;border-top:1px solid rgba(255,255,255,.08);padding-top:12px}
 .pf-project-task-item .pf-project-action-row{align-items:center}
-.pf-project-task-item .pf-project-secondary{padding:5px 9px;font-size:11px}
+.pf-project-task-item .pf-project-secondary{padding:7px 10px;font-size:12px}
 .pf-project-form input[type=number]{width:100%;background:#121a26;border:1px solid rgba(255,255,255,.14);border-radius:8px;color:#eff4ff;padding:10px;font-size:12px}
 .pf-project-primary:disabled{opacity:.5;cursor:wait}
 
@@ -67,8 +67,19 @@
 .pf-project-task-main strong{font-size:13px;font-weight:650;color:#e1eaf9;overflow-wrap:anywhere}
 .pf-project-task-cron{font-size:11px;color:#92a6c4;overflow-wrap:anywhere}
 .pf-project-task-actions{align-items:center;justify-content:flex-end;row-gap:7px}
-.pf-project-task-actions .pf-project-primary,.pf-project-task-actions .pf-project-secondary,.pf-project-task-actions .pf-project-danger{font-size:11px;padding:6px 9px}
+.pf-project-task-actions .pf-project-primary,.pf-project-task-actions .pf-project-secondary,.pf-project-task-actions .pf-project-danger{font-size:12px;padding:7px 11px}
 .pf-project-task-actions button:disabled{opacity:.35;cursor:not-allowed}
 .pf-project-config-link{color:#a7c4ff;text-decoration:none;font-size:11px;white-space:nowrap}
 .pf-project-task-actions button:focus-visible,.pf-project-config-link:focus-visible{outline:2px solid #a8c2ff;outline-offset:2px}
 @media(max-width:800px){.pf-project-task-item{flex-direction:column;align-items:stretch}.pf-project-task-actions{justify-content:flex-start;flex-wrap:wrap}}
+
+/* Acceptance fixes: retain a compact list pane and readable controls on mobile. */
+.pf-project-list-column{min-height:0;max-height:calc(100vh - 180px);overflow:hidden}
+.pf-project-task-main,.pf-project-task-actions{min-width:0}
+.pf-project-section-title{flex-wrap:wrap}
+.pf-project-file-item .file-name{line-height:1.5}
+.pf-project-run-item{font-size:12px}
+.pf-project-status{white-space:normal;overflow-wrap:anywhere}
+.pf-project-header select{color:#b7cbed;background:#182231;border:1px solid #354358;border-radius:7px;padding:5px 7px;font-size:12px}
+.pf-project-nav{margin-left:auto}
+@media(max-width:800px){.pf-project-list-column{max-height:320px}.pf-project-header{flex-wrap:wrap;min-height:60px;height:auto;padding-top:10px;padding-bottom:9px}.pf-project-nav{order:3;margin:0;flex-basis:100%;height:32px;justify-content:center}.pf-project-nav a{font-size:12px}.pf-project-main{padding-top:16px}}
