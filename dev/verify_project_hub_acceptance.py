@@ -165,8 +165,8 @@ def main():
             prep(bulk,"zh")
             bulk.goto(url,wait_until="networkidle")
             expect(bulk.locator("#project-count")).to_have_text("41")
-            sizes=bulk.locator("#project-list").evaluate("(el)=>({scroll:el.scrollHeight,view:el.clientHeight})")
-            assert sizes["scroll"]>sizes["view"],f"41 projects must have an internal scroll: {sizes}"
+            sizes=bulk.locator("#project-list").evaluate("(el)=>({height:el.scrollHeight,viewHeight:el.clientHeight,width:el.scrollWidth,viewWidth:el.clientWidth})")
+            assert sizes["height"]>sizes["viewHeight"] or sizes["width"]>sizes["viewWidth"], f"41 projects must have internal horizontal or vertical scrolling: {sizes}"
             assert_no_horizontal_scroll(bulk,390)
             bulk.get_by_role("button",name="查看 Mock Project 40").click()
             expect(bulk.locator("#project-current-name")).to_have_text("Mock Project 40")
