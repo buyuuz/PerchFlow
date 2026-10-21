@@ -69,75 +69,98 @@ async fn detail(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json
     }
 }
 
+/// Persist task configuration *before* exposing its changes in memory.
+/// A disk write failure must not change the active scheduler or task registry.
+fn save_task_config(
+    current: &mut crate::config::model::Config,
+    next: crate::config::model::Config,
+    ctx: &WebContext,
+) -> crate::error::Result<()> {
+    writer::save(&ctx.state.config_path, &next)?;
+    *current = next;
+    Ok(())
+}
+
 async fn create(State(ctx): State<WebContext>, Json(def): Json<TaskDef>) -> Json<serde_json::Value> {
     if cron::Schedule::from_str(&def.schedule).is_err() {
-        return Json(json!({ "ok": false, "error": "bad cron" }));
+        return Json(json!({"ok":false,"error":"bad cron"}));
     }
-    {
-        let mut cfg = ctx.state.config.write().await;
-        if cfg.task.iter().any(|t| t.name == def.name) {
-            return Json(json!({ "ok": false, "error": "name exists" }));
-        }
-        cfg.task.push(def.clone());
+    let mut cfg = ctx.state.config.write().await;
+    if cfg.task.iter().any(|t| t.name == def.name) {
+        return Json(json!({"ok":false,"error":"name exists"}));
     }
+    let mut next = cfg.clone();
+    next.task.push(def.clone());
+    let result = save_task_config(&mut cfg, next, &ctx);
+    drop(cfg);
+    if result.is_err() { return op_result(result); }
     ctx.state.tasks.write().await.insert(
         def.name.clone(),
         std::sync::Arc::new(tokio::sync::RwLock::new(
-            crate::core::state::TaskRuntime { last_run: None, last_exit_code: None, status: "idle".into(), started_at: None, finished_at: None, run_id: None },
+            crate::core::state::TaskRuntime {
+                last_run:None, last_exit_code:None, status:"idle".into(),
+                started_at:None, finished_at:None, run_id:None,
+            }
         )),
     );
-    let r = persist(&ctx).await;
     ctx.scheduler.reload().await;
-    op_result(r)
+    Json(json!({"ok":true}))
 }
 
-async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(def): Json<TaskDef>) -> Json<serde_json::Value> {
+async fn update(
+    State(ctx): State<WebContext>, Path(name): Path<String>, Json(def): Json<TaskDef>,
+) -> Json<serde_json::Value> {
     if cron::Schedule::from_str(&def.schedule).is_err() {
-        return Json(json!({ "ok": false, "error": "bad cron" }));
+        return Json(json!({"ok":false,"error":"bad cron"}));
     }
-    let old_name = name;
-    if ctx.scheduler.is_running(&old_name).await {
+    if ctx.scheduler.is_running(&name).await {
         return Json(json!({"ok":false,"error":"task is running; stop it before editing"}));
     }
     let new_name = def.name.clone();
-    if new_name != old_name && ctx.state.config.read().await.project.iter().any(|p| p.tasks.contains(&old_name)) {
+    let mut cfg = ctx.state.config.write().await;
+    if cfg.project.iter().any(|p| p.tasks.contains(&name)) && name != new_name {
         return Json(json!({"ok":false,"error":"task belongs to a project; unlink it before renaming"}));
     }
-    {
-        let mut cfg = ctx.state.config.write().await;
-        if new_name != old_name && cfg.task.iter().any(|t| t.name == new_name) {
-            return Json(json!({ "ok": false, "error": "name exists" }));
-        }
-        match cfg.task.iter_mut().find(|t| t.name == old_name) {
-            Some(t) => *t = def,
-            None => return Json(json!({ "ok": false, "error": "not found" })),
-        }
+    if new_name != name && cfg.task.iter().any(|t| t.name == new_name) {
+        return Json(json!({"ok":false,"error":"name exists"}));
     }
-    // 改名时迁移运行期状态到新 key,否则 run_once 按新名字找不到
-    // TaskRuntime,last_run/last_exit_code 会静默丢失。
-    if new_name != old_name {
+    let mut next = cfg.clone();
+    let Some(task) = next.task.iter_mut().find(|t| t.name == name) else {
+        return Json(json!({"ok":false,"error":"not found"}));
+    };
+    *task = def;
+    let result = save_task_config(&mut cfg, next, &ctx);
+    drop(cfg);
+    if result.is_err() { return op_result(result); }
+    if new_name != name {
         let mut map = ctx.state.tasks.write().await;
-        if let Some(rt) = map.remove(&old_name) {
-            map.insert(new_name.clone(), rt);
+        if let Some(rt) = map.remove(&name) {
+            map.insert(new_name, rt);
         }
     }
-    let r = persist(&ctx).await;
     ctx.scheduler.reload().await;
-    op_result(r)
+    Json(json!({"ok":true}))
 }
 
 async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
     if ctx.scheduler.is_running(&name).await {
         return Json(json!({"ok":false,"error":"task is running; stop it before deleting"}));
     }
-    if ctx.state.config.read().await.project.iter().any(|p| p.tasks.contains(&name)) {
+    let mut cfg = ctx.state.config.write().await;
+    if cfg.project.iter().any(|p| p.tasks.contains(&name)) {
         return Json(json!({"ok":false,"error":"task belongs to a project; unlink it before deleting"}));
     }
-    { ctx.state.config.write().await.task.retain(|t| t.name != name); }
+    if cfg.task.iter().all(|t| t.name != name) {
+        return Json(json!({"ok":false,"error":"not found"}));
+    }
+    let mut next = cfg.clone();
+    next.task.retain(|t| t.name != name);
+    let result = save_task_config(&mut cfg, next, &ctx);
+    drop(cfg);
+    if result.is_err() { return op_result(result); }
     ctx.state.tasks.write().await.remove(&name);
-    let r = persist(&ctx).await;
     ctx.scheduler.reload().await;
-    op_result(r)
+    Json(json!({"ok":true}))
 }
 
 async fn run_now(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
@@ -216,11 +239,6 @@ async fn log(State(ctx): State<WebContext>, Path((name, run_id)): Path<(String, 
         }
         Err(_) => Json(json!({"ok":false,"error":"log not found"})),
     }
-}
-
-async fn persist(ctx: &WebContext) -> crate::error::Result<()> {
-    let cfg = ctx.state.config.read().await;
-    writer::save(&ctx.state.config_path, &cfg)
 }
 
 fn op_result(r: crate::error::Result<()>) -> Json<serde_json::Value> {
