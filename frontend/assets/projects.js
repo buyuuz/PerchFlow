@@ -399,15 +399,15 @@ async function operateProjectTask(name, action) {
         '/tasks/' + encodeURIComponent(name) + '/schedule', 'PUT', {enabled: !task.enabled});
     } else {
       result = await requestJson(url + (action === 'run' ? '/run' : '/stop'), 'POST');
-      if (action === 'stop' && result.already_finished) {
-        byId('project-notice').textContent = pfL('任务已经结束，状态已更新。');
-        byId('project-notice').hidden = false;
-      }
     }
     // Release the pending-action lock before rerendering the task buttons.
     busyTasks.delete(name);
     if (currentProjectName === projectName) {
       await refreshProjectState(action === 'schedule' ? null : name);
+      if (action === 'stop' && result.already_finished) {
+        byId('project-notice').textContent = pfL('任务已经结束，状态已更新。');
+        byId('project-notice').hidden = false;
+      }
       if (action === 'run' && result.run_id) {
         const generation = ++runMonitorGeneration;
         void monitorTaskRun(projectName, name, result.run_id, generation);
