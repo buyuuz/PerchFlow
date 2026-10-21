@@ -51,15 +51,29 @@ def main():
           base=f"http://127.0.0.1:{server.server_port}"
           page.goto(base+"/tasks",wait_until="networkidle")
           nav_font=page.locator(".pf-main-nav-link").first.evaluate("(el)=>getComputedStyle(el).fontFamily")
+          tasks_margin=page.locator("main").evaluate("""(el)=>({
+            constRect:(() => { const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};})(),
+            paddingLeft:getComputedStyle(el).paddingLeft,
+            paddingRight:getComputedStyle(el).paddingRight
+          })""")
           page.goto(base+"/projects",wait_until="networkidle")
           expect(page.locator("#project-current-name")).to_have_text(mock.PROJECT_NAME)
           left=read_box(page,".pf-project-list-column")
           right=read_box(page,".pf-project-detail-column")
           project_font=page.locator(".pf-project-main").evaluate("(el)=>getComputedStyle(el).fontFamily")
+          project_margin=page.locator(".pf-project-main").evaluate("""(el)=>({
+            constRect:(() => { const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};})(),
+            paddingLeft:getComputedStyle(el).paddingLeft,
+            paddingRight:getComputedStyle(el).paddingRight
+          })""")
+          assert tasks_margin["paddingLeft"]==project_margin["paddingLeft"],("left gutter differs",tasks_margin,project_margin)
+          assert tasks_margin["paddingRight"]==project_margin["paddingRight"],("right gutter differs",tasks_margin,project_margin)
           assert nav_font==project_font,("font mismatch",nav_font,project_font)
           if width>850:
             assert left["x"]+left["width"] < right["x"],("not side-by-side",width,left,right)
             assert abs(left["y"]-right["y"])<=1,(left,right)
+            assert abs(right["width"]/left["width"]-3)<.04,("not 1:3 split",width,left,right)
+            assert abs(left["x"]-(project_margin["constRect"]["left"]+16))<1
           if width==1600:
             page.screenshot(path=str(DEST/"project-overview-1600.png"),full_page=True)
           # Large project counts stay inside the left navigator, not a wide top strip.
@@ -81,6 +95,20 @@ def main():
             assert details["bodyScroll"]<=1,("body overflows",details)
             assert details["paneBottom"] <=height-2,("script info clipped",details)
           assert page.locator(".pf-taskdetail-sidebar .pf-taskdetail-pane").count()==3
+          assert page.locator(".pf-taskdetail-tabs").count()==0,("obsolete duplicate tabs remain")
+          assert page.locator(".pf-detail-logs .pf-log-toolbar").count()==1
+          assert page.locator("#task-log-content.pf-terminal-content.terminal-scroll").count()==1
+          assert page.locator(".pf-terminal-chrome .pf-terminal-dots i").count()==3
+          assert page.locator('link[href="/assets/process-detail.css"]').count()==1
+          if width>980 and height>615:
+            heights=page.evaluate("""() => ({
+              history:document.querySelector('.pf-taskdetail-history').getBoundingClientRect().height,
+              files:document.querySelector('.pf-taskdetail-files-pane').getBoundingClientRect().height,
+              info:document.querySelector('.pf-taskdetail-info-pane').getBoundingClientRect().height
+            })""")
+            assert heights["files"]>heights["info"],("files should get more space",heights)
+            assert heights["info"]<.40*details["cols"],("info panel too tall",heights)
+            print("PF011-RIGHT",width,height,heights)
           print("LAYOUT",width,height,details,"projects",left["x"],right["x"])
           if width==1600 and height==900:
             page.screenshot(path=str(DEST/"project-detail-1600.png"),full_page=True)
@@ -91,6 +119,24 @@ def main():
           page.locator("#task-log-show").click()
           expect(page.locator("#task-log-content")).to_contain_text("FAKE_START",timeout=5000)
           assert len(mock_detail.LOG_READS)>previously_read
+          # The Python output uses process terminal colors; no HTML injection.
+          page.locator("#task-log-lines").select_option("100")
+          page.evaluate("""() => {
+            shownLog=Array.from({length:125},(_,i)=>'[INFO] synthetic '+i).join('\\n')+
+              '\\n[WARN] caution\\n[ERROR] failed\\n<script>NOT_EXECUTED</script>';
+            renderScriptLog(shownLog);
+          }""")
+          assert page.locator("#task-log-content .pf-log-line").count()==100
+          page.locator("#task-log-lines").select_option("500")
+          assert page.locator("#task-log-content .pf-log-line").count()==128
+          assert page.locator("#task-log-content .pf-log-line--warn").count()==1
+          assert page.locator("#task-log-content .pf-log-line--error").count()==1
+          assert page.locator("#task-log-content script").count()==0
+          assert "<script>NOT_EXECUTED</script>" in page.locator("#task-log-content").inner_text()
+          page.locator("#task-log-live").click()
+          assert page.locator("#task-log-live").get_attribute("aria-checked")=="false"
+          page.locator("#task-log-live").click()
+          assert page.locator("#task-log-live").get_attribute("aria-checked")=="true"
           page.locator("#task-log-clear").click()
           expect(page.locator("#task-log-count")).to_have_text("0 行")
           page.locator("#task-more").click()
@@ -126,5 +172,5 @@ def main():
         browser.close()
     finally:
       server.shutdown()
-    print("PF005-PF009 EDGE UI PASS")
+    print("PF005-PF011 EDGE UI PASS")
 if __name__=="__main__":main()

@@ -71,6 +71,7 @@ function renderTask(task) {
   const name=String(script).replace(/\\/g,'/').split('/').pop();
   node('task-name').textContent=name;
   node('task-breadcrumb-name').textContent=name;
+  node('task-log-script-name').textContent=name;
   node('task-path').textContent=String(script);
   node('task-path').title=String(script);
   node('task-project-name').textContent=projectName;
@@ -94,12 +95,54 @@ function renderTask(task) {
   node('task-schedule-remove').hidden=!task.schedule;
   node('task-run').disabled=active||actionBusy;
   node('task-stop').disabled=!active||actionBusy;
-}function logReset() {
+}function logLineCount(value) {
+  return value + ' ' + (getLang() === 'en' ? 'lines' : '\u884c');
+}
+function updateLogLiveButton() {
+  const enabled = node('task-log-auto').checked;
+  const toggle = node('task-log-live');
+  toggle.classList.toggle('is-on', enabled);
+  toggle.setAttribute('aria-checked',String(enabled));
+  const mode = node('task-log-view-mode');
+  mode.dataset.live=String(enabled);
+  mode.textContent=enabled
+    ? (getLang()==='en' ? 'Live mode' : '\u5b9e\u65f6\u6a21\u5f0f')
+    : (getLang()==='en' ? 'Paused' : '\u5df2\u6682\u505c');
+}
+function logReset() {
   activeLogRequest++;
   shownLog='';
   lastLogId=null;
-  node('task-log-content').textContent=tx('等待查看日志…');
-  node('task-log-count').textContent='0 '+(getLang()==='en'?'lines':'行');
+  const view=node('task-log-content');
+  view.replaceChildren();
+  view.dataset.empty=tx('\u7b49\u5f85\u67e5\u770b\u65e5\u5fd7\u2026');
+  view.scrollTop=0;
+  node('task-log-count').textContent=logLineCount(0);
+}
+function renderScriptLog(raw) {
+  // Uses the Process Detail terminal's pf-log-line and color classes,
+  // but never inserts untrusted script output as HTML.
+  const view=node('task-log-content');
+  const nearEnd=view.scrollHeight-view.scrollTop-view.clientHeight<60;
+  const oldScroll=view.scrollTop;
+  const all=raw ? raw.split(/\r?\n/) : [];
+  if(all.length && all[all.length-1]==='')all.pop();
+  const limit=Number(node('task-log-lines').value)||500;
+  const lines=all.slice(-limit);
+  const fragment=document.createDocumentFragment();
+  for (const line of lines) {
+    const item=document.createElement('div');
+    item.className='pf-log-line';
+    if(/\b(?:ERROR|FATAL|CRITICAL)\b|\[ERR\]/i.test(line))item.classList.add('pf-log-line--error');
+    else if(/\b(?:WARN|WARNING)\b/i.test(line))item.classList.add('pf-log-line--warn');
+    else if(/\bINFO\b/i.test(line))item.classList.add('pf-log-line--info');
+    item.textContent=line;
+    fragment.appendChild(item);
+  }
+  view.replaceChildren(fragment);
+  view.dataset.empty=tx('\u7b49\u5f85\u811a\u672c\u8f93\u51fa\u2026');
+  node('task-log-count').textContent=logLineCount(lines.length);
+  view.scrollTop=nearEnd?view.scrollHeight:oldScroll;
 }
 let showAllHistory=false;
 function runStateLabel(status) {
@@ -161,27 +204,24 @@ function renderHistory(runs) {
   }
 }
 async function readLog() {
-  if(!logOpted||!selectedId)return;
+  if(!logOpted || !selectedId)return;
   const forId=selectedId;
-  const req=++activeLogRequest;
-  try {
+  const request=++activeLogRequest;
+  try{
     const data=await get(apiTask+'/log/'+encodeURIComponent(forId));
-    if(req!==activeLogRequest||selectedId!==forId)return;
-    const next=String(data.content||'');
-    if(next!==shownLog || lastLogId!==forId){
-      const view=node('task-log-content');
-      const atEnd=view.scrollHeight-view.scrollTop-view.clientHeight<60;
-      const priorTop=view.scrollTop;
-      view.textContent=next||tx('等待脚本输出…');
-      view.scrollTop=atEnd?view.scrollHeight:priorTop;
-      shownLog=next;lastLogId=forId;
-      node('task-log-count').textContent=(next?next.trimEnd().split(/\r?\n/).length:0)+
-        ' '+(getLang()==='en'?'lines':'行');
+    if(request!==activeLogRequest || selectedId!==forId)return;
+    const raw=String(data.content||'');
+    if(raw!==shownLog || lastLogId!==forId){
+      shownLog=raw;
+      lastLogId=forId;
+      renderScriptLog(raw);
     }
-  } catch (_) {
-    if(req===activeLogRequest && forId===selectedId){
-      node('task-log-content').textContent=tx('日志不存在、尚未生成，或已按三次保留规则清理。');
-      node('task-log-count').textContent='0 '+(getLang()==='en'?'lines':'行');
+  }catch(_){
+    if(request===activeLogRequest && selectedId===forId){
+      const view=node('task-log-content');
+      view.replaceChildren();
+      view.dataset.empty=tx('\u65e5\u5fd7\u4e0d\u5b58\u5728\u3001\u5c1a\u672a\u751f\u6210\uff0c\u6216\u5df2\u6309\u4e09\u6b21\u4fdd\u7559\u89c4\u5219\u6e05\u7406\u3002');
+      node('task-log-count').textContent=logLineCount(0);
     }
   }
 }
@@ -262,6 +302,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     localizeStatic();
     if(latestTask)renderTask(latestTask);
     renderHistory(historyRuns);
+    updateLogLiveButton();
+    if(logOpted)renderScriptLog(shownLog);
   });
   const more=node('task-more'), menu=node('task-more-menu');
   more.addEventListener('click',()=>{
@@ -311,6 +353,15 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
   node('task-run').addEventListener('click',()=>{void act('run');});
   node('task-stop').addEventListener('click',()=>{void act('stop');});
+  node('task-log-live').addEventListener('click',()=>{
+    node('task-log-auto').checked=!node('task-log-auto').checked;
+    updateLogLiveButton();
+    if(logOpted && node('task-log-auto').checked)void readLog();
+  });
+  node('task-log-lines').addEventListener('change',()=>{
+    if(logOpted && lastLogId===selectedId)renderScriptLog(shownLog);
+  });
+  updateLogLiveButton();
   node('task-log-show').addEventListener('click',()=>{
     logOpted=true;
     void readLog();

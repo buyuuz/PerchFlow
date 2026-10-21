@@ -70,7 +70,7 @@ body:has(.pf-taskdetail-main){background:#0e1519}
   font:11.5px/1.6 "JetBrains Mono",Consolas,monospace;
   white-space:pre-wrap;overflow-wrap:anywhere;scrollbar-width:thin;
 }
-.pf-taskdetail-sidebar{min-width:0;min-height:0;display:grid;grid-template-rows:minmax(98px,.8fr) minmax(115px,1.12fr) minmax(155px,1.65fr);gap:9px;overflow:hidden}
+.pf-taskdetail-sidebar{min-width:0;min-height:0;display:grid;grid-template-rows:minmax(98px,27fr) minmax(120px,40fr) minmax(132px,33fr);gap:9px;overflow:hidden}
 .pf-taskdetail-sidebar .pf-taskdetail-pane{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:9px 11px 10px}
 .pf-taskdetail-pane-title{display:flex;align-items:center;justify-content:space-between;flex:0 0 24px;min-height:0;margin:0 0 4px;gap:8px}
 .pf-taskdetail-pane-title h2{display:flex;align-items:center;gap:7px;margin:0;font-size:12.5px;font-weight:700;line-height:1.35;color:#e4f0f6}
@@ -125,4 +125,47 @@ body:has(.pf-taskdetail-main){background:#0e1519}
 }
 @media(min-width:981px){
  body:has(.pf-taskdetail-main){overflow:hidden}
+}
+
+/* PF-011: the Process Detail terminal component is reused directly.
+   Only geometry adapts to the script's one-screen layout. */
+.pf-taskdetail-log.pf-detail-logs {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.pf-taskdetail-log .pf-log-toolbar {
+  padding: 3px 2px 0;
+  gap: 8px;
+  min-height: 45px;
+}
+.pf-taskdetail-log .pf-log-heading {gap:3px}
+.pf-taskdetail-log .pf-log-title-line h2 {font-size:14px}
+.pf-taskdetail-log .pf-log-heading p {font-size:10px}
+.pf-taskdetail-log .pf-log-tools {gap:6px}
+.pf-taskdetail-log .pf-log-clear,
+.pf-taskdetail-log .pf-live-toggle {height:30px;min-height:30px;font-size:11px}
+.pf-taskdetail-log .pf-log-lines-wrapper {height:30px;width:88px}
+.pf-taskdetail-log .pf-log-lines-wrapper select {font-size:11px}
+.pf-taskdetail-log .pf-log-lines-wrapper .material-symbols-outlined {top:7px}
+.pf-taskdetail-log .pf-live-toggle {min-width:80px}
+.pf-taskdetail-log .pf-terminal-window {min-height:0;flex:1 1 0;border-radius:10px}
+.pf-taskdetail-log .pf-terminal-content {min-height:0;flex:1 1 0}
+.pf-taskdetail-log .pf-log-counter {font-size:10px}
+.pf-taskdetail-log .pf-log-view-only {color:#77a0b1}
+@media(max-width:1100px) and (min-width:981px) {
+ .pf-taskdetail-log .pf-log-heading p {display:none}
+ .pf-taskdetail-log .pf-log-toolbar {min-height:39px}
+ .pf-taskdetail-log .pf-log-tools {gap:4px}
+ .pf-taskdetail-log .pf-log-clear {padding:0 7px}
+ .pf-taskdetail-log .pf-log-lines-wrapper {width:79px}
+ .pf-taskdetail-log .pf-live-toggle {min-width:75px;padding:0 7px}
+}
+@media(max-width:980px),(max-height:615px) {
+ .pf-taskdetail-log .pf-log-toolbar {flex-wrap:wrap;align-items:flex-start}
+ .pf-taskdetail-log .pf-terminal-window {min-height:290px}
 }
