@@ -11,6 +11,7 @@
 | 编号 | 优先级 | 状态 | 问题 | 首次发现 |
 | --- | --- | --- | --- | --- |
 | PF-001 | P1 | 已记录／待复核／未修复 | 任务卡显示「运行中」，点停止却提示 task is not running | 2026-10-21 |
+| PF-002 | P2（体验/视觉） | 已记录／源码对比完成／未修复 | 项目管理整页设计与进程／定时任务界面不统一 | 2026-10-21 |
 
 ---
 
@@ -69,4 +70,54 @@ process error: task Photo_AutoPublisher is not running
 - **不要因页面未刷新而重新点击「运行一次」**，避免重复发布或重复排期。
 
 ---
-后续问题按 PF-002、PF-003… 继续追加；只有用户明确授权后才统一修复。
+
+## PF-002 — 项目管理页面与「进程／定时任务」的整体 UI 设计不一致
+
+- **首次反馈**：2026-10-21，C2 用户在独立 RC 本地测试期间提出。
+- **涉及页面**：`/projects` 对比 `/processes`、`/tasks`。
+- **优先级**：P2（跨页面视觉/交互一致性，非阻断运行故障）；最终依用户确认再调整。
+- **状态**：**已对照当前 GitHub 源码，只记录，不修改任何样式或功能。**
+
+### 用户反映
+
+从「进程」或「定时任务」切换到「项目管理」，整体视觉语言像是不同页面系统，没有统一的导航、按钮、布局、色彩、标题层级与信息密度。
+
+### 代码对照确认的具体差异
+
+| 方面 | 进程／定时任务（既有统一体系） | 项目管理（独立实现） |
+| --- | --- | --- |
+| 顶部导航 | 共用 `.pf-process-topnav`、`.pf-main-nav-link`，固定 56px，使用 `branding.css` 与 `topbar-controls.css` | 自定义 `.pf-project-header` / `.pf-project-nav`，粘性 60px，独立菜单间距和样式 |
+| 导航高亮 / 主色 | 当前页下划线与主要按钮以青色系 `#46d6ed`／`#42d5ed` 为主 | 当前项与主要按钮采用淡蓝 `#7fa7ff`、`#a8c2ff` |
+| 品牌和语言控件 | 共用 `.pf-header-brand`、顶部控件容器与语言选择交互 | `.pf-project-brand` 和原生 `select#project-language` |
+| 页面主容器 | `max-w-[1600px]`，统一顶端留白及响应式边距 | `.pf-project-main` 最大宽度 1440px，独立 padding、留白 |
+| 标题层级 | 页面主标题 17px（`pf-process-page-title`／`pf-management-page-title`） | 页面主标题 21px（`.pf-project-titlebar h1`） |
+| 内容容器 | 进程／定时任务共用表格壳、深青灰渐变与 12px 圆角 | 项目两栏独立卡片容器，17px 圆角及其他蓝灰配色 |
+| 操作按钮 | 进程／定时任务沿用共用顶部主按钮、表格行紧凑图标按钮 | 项目页独立 9px 圆角的蓝色主按钮、文字按钮；按钮字号和密度均另定义 |
+| 移动端 | 进程／定时任务包含一致的底部主导航 | 项目管理单独将顶部导航换行；没有与其相同的移动端底部导航 |
+| 对话框/表单 | 原页面使用同一批设计系统/模态框视觉规范 | 项目页另写 `.pf-project-overlay`、`.pf-project-form` 和输入框配色、间距 |
+
+以上差异来自源代码，不等于用户已逐项确认所有元素都必须相同。其中**项目两栏结构可以保留**，问题主要是这套独立结构没有遵循整站设计规范。
+
+### 相关源文件（仅用于追溯）
+
+- [进程页面](https://github.com/buyuuz/PerchFlow/blob/feature/project-hub-live-runs/frontend/processes.html)
+- [定时任务页面](https://github.com/buyuuz/PerchFlow/blob/feature/project-hub-live-runs/frontend/tasks.html)
+- [项目管理页面](https://github.com/buyuuz/PerchFlow/blob/feature/project-hub-live-runs/frontend/projects.html)
+- [项目独立样式](https://github.com/buyuuz/PerchFlow/blob/feature/project-hub-live-runs/frontend/assets/projects.css)
+- [共享品牌与导航样式](https://github.com/buyuuz/PerchFlow/blob/feature/project-hub-live-runs/frontend/assets/branding.css)
+- [共享顶部控件样式](https://github.com/buyuuz/PerchFlow/blob/feature/project-hub-live-runs/frontend/assets/topbar-controls.css)
+- [进程／任务共用表格样式](https://github.com/buyuuz/PerchFlow/blob/feature/project-hub-live-runs/frontend/assets/process-table.css)
+- [原有设计规范](https://github.com/buyuuz/PerchFlow/blob/feature/project-hub-live-runs/frontend/DESIGN.md)
+
+### 用户诉求与后续修复方向（仅待办）
+
+1. 以**当前「进程／定时任务」**作为已有视觉基准，统一主导航与活动态、顶部品牌、语言切换和移动端导航。
+2. 统一字体层级、最大内容宽度、页面标题与副标题、间距节奏、颜色变量、圆角、按钮交互和弹窗样式。
+3. 保留项目页必须的「项目列表 + 项目详情」信息架构，不为了视觉统一而强行改成普通表格。
+4. 统一成功／失败／运行中的状态视觉及危险操作的提示层级。
+5. 后续修复前最好对三页提供同屏对照设计，先由用户确认，再改组件、验收移动端与功能回归。
+
+**限制**：当前为「记录阶段」，不得执行 UI 改造、修改功能代码、编译/打包或部署。等待用户明确说“可以开始修复”。
+
+---
+后续问题按 PF-003、PF-004… 继续追加；只有用户明确授权后才统一修复。
