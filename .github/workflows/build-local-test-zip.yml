@@ -92,7 +92,7 @@ jobs:
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $smoke 'Stop-Test.ps1')
             if ($LASTEXITCODE -ne 0) { Write-Warning 'Smoke-test stop script exited nonzero' }
           }
-      - name: Verify real-time unbuffered Python task output while running
+      - name: Verify real-time Python log is visible BEFORE child exit
         shell: pwsh
         run: |
           $source = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64'
@@ -100,52 +100,14 @@ jobs:
           Copy-Item -LiteralPath $source -Destination $smoke -Recurse
           try {
             $worker = Join-Path $smoke 'demo/slow_worker.py'
-            @('import time', 'print("LIVE_UNBUFFERED_LINE")', 'time.sleep(9)') | Set-Content -LiteralPath $worker -Encoding UTF8
+            @('import time','print("LIVE_UNBUFFERED_LINE")','time.sleep(9)') | Set-Content -LiteralPath $worker -Encoding UTF8
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $smoke 'Start-Test.ps1') -NoBrowser
-            if ($LASTEXITCODE -ne 0) { throw 'Failed to start test server' }
+            if ($LASTEXITCODE -ne 0) { throw 'Cannot launch test server' }
             $config = Get-Content -LiteralPath (Join-Path $smoke 'perch.toml') -Raw
-            $port = [regex]::Match($config,'(?m)^bind\s*=\s*"127\.0\.0\.1:(\d+)"\s*
-        shell: pwsh
-        run: |
-          $zip = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64.zip'
-          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64'
-          Compress-Archive -Path $folder -DestinationPath $zip -CompressionLevel Optimal -Force
-          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
-          $line = $hash + '  PerchFlow-ProjectHub-RC-Win64.zip'
-          [IO.File]::WriteAllText(($zip + '.sha256.txt'), $line + [Environment]::NewLine)
-          Write-Host ('Release candidate ZIP SHA256: ' + $hash)
-      - name: Upload test ZIP artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: perchflow-projecthub-rc-windows-local-test
-          path: |
-            dist/PerchFlow-ProjectHub-RC-Win64.zip
-            dist/PerchFlow-ProjectHub-RC-Win64.zip.sha256.txt
-          if-no-files-found: error
-          retention-days: 30
-).Groups[1].Value
-            $token = [regex]::Match($config,'(?m)^token\s*=\s*"([^"]+)"\s*
-        shell: pwsh
-        run: |
-          $zip = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64.zip'
-          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-ProjectHub-RC-Win64'
-          Compress-Archive -Path $folder -DestinationPath $zip -CompressionLevel Optimal -Force
-          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
-          $line = $hash + '  PerchFlow-ProjectHub-RC-Win64.zip'
-          [IO.File]::WriteAllText(($zip + '.sha256.txt'), $line + [Environment]::NewLine)
-          Write-Host ('Release candidate ZIP SHA256: ' + $hash)
-      - name: Upload test ZIP artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: perchflow-projecthub-rc-windows-local-test
-          path: |
-            dist/PerchFlow-ProjectHub-RC-Win64.zip
-            dist/PerchFlow-ProjectHub-RC-Win64.zip.sha256.txt
-          if-no-files-found: error
-          retention-days: 30
-).Groups[1].Value
+            $port = [regex]::Match($config,'(?m)^bind\s*=\s*"127\.0\.0\.1:(\d+)"\s*$').Groups[1].Value
+            $token = [regex]::Match($config,'(?m)^token\s*=\s*"([^"]+)"\s*$').Groups[1].Value
             $base = 'http://127.0.0.1:' + $port
-            $headers = @{Authorization='Bearer ' + $token}
+            $headers = @{ Authorization = 'Bearer ' + $token }
             $py = & python -c 'import sys;print(sys.executable)'
             $body = @{
               name='test_live_python'
@@ -157,9 +119,9 @@ jobs:
               enabled=$false
             } | ConvertTo-Json
             $created = Invoke-RestMethod -Uri ($base + '/api/tasks') -Method POST -Headers $headers -ContentType 'application/json' -Body $body
-            if (-not $created.ok) { throw 'Cannot create harmless Python test task' }
+            if (-not $created.ok) { throw 'Cannot add test task' }
             $started = Invoke-RestMethod -Uri ($base + '/api/tasks/test_live_python/run') -Method POST -Headers $headers
-            if (-not $started.ok) { throw 'Cannot start test_live_python' }
+            if (-not $started.ok) { throw 'Cannot start test task' }
             $rid = $started.run_id
             $observed = $false
             $deadline = [DateTime]::UtcNow.AddSeconds(6)
@@ -173,10 +135,10 @@ jobs:
                 } catch {}
               } else { break }
             }
-            if (-not $observed) { throw 'Python log line not available while task is still running' }
-            Write-Host 'PASS Python stdout visible before process finishes'
+            if (-not $observed) { throw 'Unbuffered Python output missing while task running' }
+            Write-Host 'PASS: Live stdout is visible BEFORE process completion'
             $stop = Invoke-RestMethod -Uri ($base + '/api/tasks/test_live_python/stop') -Method POST -Headers $headers
-            if (-not $stop.ok) { throw 'Failed to cancel simulated slow Python task' }
+            if (-not $stop.ok) { throw 'Unable to cancel isolated test task' }
           } finally {
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $smoke 'Stop-Test.ps1')
           }
