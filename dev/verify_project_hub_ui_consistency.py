@@ -96,6 +96,7 @@ def main():
             assert details["paneBottom"] <=height-2,("script info clipped",details)
           assert page.locator(".pf-taskdetail-sidebar .pf-taskdetail-pane").count()==3
           assert page.locator(".pf-taskdetail-tabs").count()==0,("obsolete duplicate tabs remain")
+          expect(page.locator("#task-breadcrumb-name")).to_have_text("mock_job")
           assert page.locator(".pf-detail-logs .pf-log-toolbar").count()==1
           assert page.locator("#task-log-content.pf-terminal-content.terminal-scroll").count()==1
           assert page.locator(".pf-terminal-chrome .pf-terminal-dots i").count()==3

@@ -233,9 +233,9 @@ function formattedBytes(bytes) {
   return (bytes / 1048576).toFixed(1) + ' MiB';
 }
 
-function taskDisplayName(task, fallback) {
+function taskScriptFileName(task) {
   const path = task?.args?.find(arg => String(arg).toLowerCase().endsWith('.py')) || '';
-  return path ? String(path).replace(/\\/g, '/').split('/').pop() : fallback;
+  return path ? String(path).replace(/\\/g, '/').split('/').pop() : '';
 }
 function taskDetailHref(name) {
   return '/task-detail?project=' + encodeURIComponent(currentProjectName) + '&task=' + encodeURIComponent(name);
@@ -307,9 +307,12 @@ async function renderProjectDetail() {
     info.role = 'cell';
     const scriptIcon = el('span','material-symbols-outlined pf-project-script-icon','description');
     scriptIcon.setAttribute('aria-hidden','true');
-    const anchor = el('a','pf-project-task-link',taskDisplayName(task,name));
+    const anchor = el('a','pf-project-task-link');
     anchor.href = taskDetailHref(name);
     anchor.title = name;
+    anchor.append(el('span','pf-project-task-title',name));
+    const scriptName = taskScriptFileName(task);
+    if (scriptName) anchor.append(el('small','pf-project-task-filename',scriptName));
     info.append(scriptIcon,anchor);
     const state = el('div','pf-project-cell pf-project-status-cell');
     state.role = 'cell';
@@ -471,7 +474,8 @@ function openProjectForm(projectName) {
     picker.append(label);
   });
   byId('project-modal').hidden = false;
-  byId('project-name').focus();
+  byId('project-form').scrollTop = 0;
+  byId('project-name').focus({preventScroll:true});
 }
 
 function closeProjectForm() {

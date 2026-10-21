@@ -55,6 +55,7 @@ let checkedOwnership=false;
 let actionBusy=false;
 let activeLogRequest=0;
 let settingsSaving=false;
+let projectRoot='';
 
 function message(text) {
   const label=node('task-message');
@@ -67,13 +68,13 @@ function duration(sec) {
 }
 function renderTask(task) {
   latestTask=task;
-  const script=(task.args||[]).find(a=>String(a).toLowerCase().endsWith('.py')) || task.name;
-  const name=String(script).replace(/\\/g,'/').split('/').pop();
-  node('task-name').textContent=name;
-  node('task-breadcrumb-name').textContent=name;
-  node('task-log-script-name').textContent=name;
-  node('task-path').textContent=String(script);
-  node('task-path').title=String(script);
+  const script=(task.args||[]).find(a=>String(a).toLowerCase().endsWith('.py')) || '';
+  const scriptName=String(script).replace(/\\/g,'/').split('/').pop() || '—';
+  node('task-name').textContent=task.name;
+  node('task-breadcrumb-name').textContent=task.name;
+  node('task-log-script-name').textContent=scriptName;
+  node('task-path').textContent=scriptName;
+  node('task-path').title=scriptName;
   node('task-project-name').textContent=projectName;
   node('task-project-name').href='/projects?project='+encodeURIComponent(projectName);
   node('task-back').href='/projects?project='+encodeURIComponent(projectName);
@@ -236,6 +237,7 @@ async function poll() {
     if(!checkedOwnership){
       const detail=await get('/api/projects/'+encodeURIComponent(projectName));
       if(!detail.project.tasks.includes(taskName))throw Error('Task does not belong to project');
+      projectRoot=String(detail.project.root||'');
       checkedOwnership=true;
     }
     const [task,history]=await Promise.all([get(apiTask),get(apiTask+'/history')]);
@@ -267,20 +269,39 @@ async function act(action) {
   }catch(error){message(error.message);}
   finally{actionBusy=false;await poll();}
 }
+// Presentation only: the verified absolute path is still sent unchanged to
+// open-file. Never mislabel a file outside the project root as a relative file.
+function linkedFileLabel(resolved, root) {
+  const path=String(resolved||'').replace(/\//g,'\\');
+  const base=String(root||'').replace(/\//g,'\\').replace(/\\+$/,'');
+  if(!base)return path;
+  const prefix=base+'\\';
+  return path.toLowerCase().startsWith(prefix.toLowerCase())
+    ? path.slice(prefix.length) : path;
+}
 async function loadFiles() {
   if(fileLoading)return;
   fileLoading=true;
   const list=node('task-linked-files');
   list.replaceChildren(make('p','pf-taskdetail-notice',tx('正在加载…')));
   try {
-    const result=await get(apiFiles+'/files');
+    const [result,projectInfo]=await Promise.all([
+      get(apiFiles+'/files'),
+      projectRoot ? Promise.resolve(null) : get('/api/projects/'+encodeURIComponent(projectName))
+    ]);
+    if(projectInfo?.project?.tasks?.includes(taskName)){
+      projectRoot=String(projectInfo.project.root||'');
+    }
     list.replaceChildren();
     const files=Array.isArray(result.files)?result.files:[];
     if(!files.length)list.append(make('p','pf-taskdetail-notice',
       tx('未发现可识别的文件，动态计算的路径需要人工检查。')));
     for(const file of files){
       const row=make('div','pf-taskdetail-file'),left=make('div','pf-taskdetail-file-info');
-      left.append(make('div','pf-taskdetail-file-name',file.resolved_path));
+      const displayedPath=linkedFileLabel(file.resolved_path,projectRoot);
+      const filename=make('div','pf-taskdetail-file-name',displayedPath);
+      filename.title=displayedPath;
+      left.append(filename);
       const origin={code_candidate:'代码候选',registered_input:'项目输入',
         registered_output:'项目输出'}[file.source]||file.source;
       left.append(make('div','pf-taskdetail-file-meta',tx(origin)+' · '+
@@ -306,7 +327,6 @@ function showScriptSettings() {
   if(!checkedOwnership || !latestTask || latestTask.status==='running')return;
   const task=latestTask;
   const script=(task.args||[]).find(value=>String(value).toLowerCase().endsWith('.py'))||'';
-  node('task-settings-subtitle').textContent=taskName;
   node('task-settings-python').value=task.cmd||'';
   node('task-settings-script').value=script;
   node('task-settings-cwd').value=task.cwd||'';

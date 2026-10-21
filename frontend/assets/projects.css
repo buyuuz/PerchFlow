@@ -246,3 +246,39 @@ body:has(.pf-project-main){background:#0e1519}
  .pf-project-section{padding:12px}
  .pf-project-table-heading,.pf-project-task-item{min-width:750px}
 }
+
+/* PF-018: task identity is the primary label; script filename is secondary. */
+.pf-project-task-main .pf-project-task-link{
+  display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
+  gap:3px;flex:1 1 auto;min-width:0;max-width:100%;overflow:hidden;
+}
+.pf-project-task-title{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;line-height:1.35;font-weight:650}
+.pf-project-task-filename{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:10.5px/1.35 "JetBrains Mono",Consolas,monospace;color:#8baabd;font-weight:400}
+.pf-project-task-link:hover .pf-project-task-filename{color:#9ac6d6}
+
+/* PF-021: full-viewport modal layer is above the fixed top navigation.
+   The form, not the page, scrolls; sticky controls stay accessible. */
+.pf-project-overlay{
+  box-sizing:border-box;position:fixed;inset:0;height:100dvh;
+  z-index:1000;display:flex;align-items:center;justify-content:center;
+  padding:20px 16px;overflow:hidden;
+}
+.pf-project-overlay .pf-project-form{
+  box-sizing:border-box;flex:0 1 590px;min-width:0;
+  width:min(100%,590px);max-height:calc(100dvh - 40px);
+  overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;
+}
+.pf-project-overlay .pf-project-form-head{
+  position:sticky;top:-24px;z-index:2;
+  background:#172126;padding:5px 0 9px;
+}
+.pf-project-overlay .pf-project-form-footer{
+  position:sticky;bottom:-24px;z-index:2;
+  background:#172126;padding:11px 0 5px;
+}
+@media(max-height:620px){
+ .pf-project-overlay{padding:12px}
+ .pf-project-overlay .pf-project-form{max-height:calc(100dvh - 24px);padding:15px;gap:10px}
+ .pf-project-overlay .pf-project-form-head{top:-15px}
+ .pf-project-overlay .pf-project-form-footer{bottom:-15px}
+}

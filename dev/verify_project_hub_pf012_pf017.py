@@ -1,4 +1,4 @@
-﻿"""PF012-PF017 browser regressions using mock APIs; never launches real files."""
+"""PF012-PF017 browser regressions using mock APIs; never launches real files."""
 import json
 import threading
 from http.server import ThreadingHTTPServer
@@ -54,7 +54,8 @@ def run():
             expect(page.locator(".pf-project-task-item")).to_have_count(1)
             assert page.locator(".pf-project-row-more").count()==0, "PF016"
             page.locator(".pf-project-detail-link").click()
-            expect(page.locator("#task-name")).to_have_text("mock_job.py")
+            expect(page.locator("#task-name")).to_have_text("mock_job")
+            expect(page.locator("#task-path")).to_have_text("mock_job.py")
             # PF013 default latest and immediate historical log switching.
             expect(page.locator("#task-log-content")).to_contain_text("SCRIPT_RUN_"+fixture.RUN_ID)
             assert page.locator("#task-log-show").count()==0
