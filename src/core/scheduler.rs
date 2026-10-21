@@ -113,6 +113,9 @@ impl Scheduler {
             r.started_at = Some(Utc::now());
             r.finished_at = None;
             r.run_id = Some(run_id.clone());
+            r.pid = None;
+            r.cpu_percent = 0.0;
+            r.mem_bytes = 0;
         }
         Ok((task, run_id, cancel))
     }
@@ -217,12 +220,27 @@ impl Scheduler {
             r.last_run = Some(started);
             r.last_exit_code = code;
             r.finished_at = Some(finished);
+            r.pid = None;
+            r.cpu_percent = 0.0;
+            r.mem_bytes = 0;
         }
         match result {
             Ok(0) => Ok(()),
             Ok(code) => Err(PerchError::Process(format!("task {name} exited with code {code}"))),
             Err(e) => Err(e),
         }
+    }
+
+    async fn prune_task_logs(&self, log_dir: &std::path::Path, task_name: &str, current: &str) -> std::io::Result<()> {
+        // Existing log names use a sanitized task identifier. If names collide,
+        // decline to delete logs instead of risking cross-task data loss.
+        let config = self.state.config.read().await;
+        let identity = sanitize_task_name(task_name);
+        if config.task.iter().filter(|task| sanitize_task_name(&task.name) == identity).count() > 1 {
+            return Ok(());
+        }
+        drop(config);
+        prune_run_logs(log_dir, &identity, current)
     }
 
     async fn append_history(&self, log_dir: &std::path::Path, record: &serde_json::Value) {
@@ -245,7 +263,7 @@ impl Scheduler {
 
     async fn execute_child(&self, task: &TaskDef, log_dir: &std::path::Path, run_id: &str, cancel: CancellationToken) -> Result<i32> {
         std::fs::create_dir_all(log_dir).map_err(|e| PerchError::Process(format!("create task log directory: {e}")))?;
-        let safe_name: String = task.name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+        let safe_name = sanitize_task_name(&task.name);
         let log_file = log_dir.join(format!("{safe_name}-{run_id}.log"));
         let stdout = std::fs::File::create(&log_file).map_err(|e| PerchError::Process(format!("task log file: {e}")))?;
         let stderr = stdout.try_clone().map_err(|e| PerchError::Process(format!("task log clone: {e}")))?;
@@ -261,6 +279,13 @@ impl Scheduler {
         }
         cmd.stdout(Stdio::from(stdout)).stderr(Stdio::from(stderr)).kill_on_drop(true);
         let mut child = cmd.spawn().map_err(|e| PerchError::Process(format!("spawn task {}: {e}", task.name)))?;
+        if let Some(rt) = self.state.tasks.read().await.get(&task.name).cloned() {
+            let mut guard = rt.write().await;
+            if guard.run_id.as_deref() == Some(run_id) { guard.pid = child.id(); }
+        }
+        if let Err(e) = self.prune_task_logs(log_dir, &task.name, run_id).await {
+            warn!("log retention for task '{}' failed: {e}", task.name);
+        }
         #[cfg(windows)]
         let _job = {
             match crate::core::jobobj::JobObject::create() {
@@ -311,6 +336,39 @@ impl Scheduler {
             task.cancel.cancel();
         }
     }
+}
+
+fn sanitize_task_name(name: &str) -> String {
+    name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect()
+}
+
+/// Retains exactly the latest three run-specific log bodies for one task.
+/// history.jsonl and sidecar metadata are deliberately not part of this policy.
+fn prune_run_logs(log_dir: &std::path::Path, safe_name: &str, current: &str) -> std::io::Result<()> {
+    let prefix = format!("{safe_name}-");
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(log_dir)? {
+        let entry = entry?;
+        if !entry.file_type()?.is_file() { continue; }
+        let filename = entry.file_name();
+        let Some(s) = filename.to_str() else { continue };
+        let Some(run) = s.strip_prefix(&prefix).and_then(|rest| rest.strip_suffix(".log")) else { continue };
+        if !is_valid_run_id(run) { continue; }
+        let timestamp = run.split('-').next().unwrap_or("0").parse::<u64>().unwrap_or(0);
+        files.push((timestamp, run.to_owned(), entry.path()));
+    }
+    files.sort_by(|a,b| b.0.cmp(&a.0).then_with(|| b.1.cmp(&a.1)));
+    // Preserve a running new log even if a clock jump makes it sort older.
+    for (_, run, path) in files.iter().skip(3) {
+        if run == current { continue; }
+        std::fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
+fn is_valid_run_id(value: &str) -> bool {
+    let parts: Vec<&str> = value.split('-').collect();
+    parts.len() == 3 && parts.iter().all(|part| !part.is_empty() && part.bytes().all(|c| c.is_ascii_digit()))
 }
 
 fn build_command_for_task(task: &TaskDef) -> tokio::process::Command {
