@@ -9,6 +9,7 @@ on:
       - feature/project-hub-v5
       - feature/project-hub-acceptance
       - feature/project-hub-pf001-pf004
+      - feature/project-hub-optional-cron
       - feature/project-hub-rc-compat
   pull_request:
     paths:
