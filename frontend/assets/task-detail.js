@@ -72,6 +72,7 @@ function renderTask(task) {
   node('task-name').textContent=name;
   node('task-breadcrumb-name').textContent=name;
   node('task-path').textContent=String(script);
+  node('task-path').title=String(script);
   node('task-project-name').textContent=projectName;
   node('task-project-name').href='/projects?project='+encodeURIComponent(projectName);
   node('task-back').href='/projects?project='+encodeURIComponent(projectName);
@@ -86,6 +87,9 @@ function renderTask(task) {
   node('task-python').textContent=task.cmd||'—';
   node('task-cwd').textContent=task.cwd||'—';
   node('task-args').textContent=(task.args||[]).slice(1).join(' ')||'—';
+  for(const key of ['task-python','task-cwd','task-args']) {
+    node(key).title=node(key).textContent;
+  }
   node('task-exit').textContent=task.last_exit_code==null?'—':task.last_exit_code;
   node('task-schedule-remove').hidden=!task.schedule;
   node('task-run').disabled=active||actionBusy;
