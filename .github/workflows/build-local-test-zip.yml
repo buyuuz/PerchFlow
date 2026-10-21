@@ -26,11 +26,14 @@ jobs:
           cargo test
           node --check frontend/assets/projects.js
           python -m py_compile dev/local-test/demo/mock_worker.py
+          python -m py_compile dev/verify_project_hub_multi_python.py
       - name: Compile 64-bit Windows executable
         shell: pwsh
         run: |
           cargo build --release
           if (-not (Test-Path target/release/perch.exe)) { throw 'Missing built perch.exe' }
+      - name: Real EXE with two FAKE Python scripts and 3-log retention
+        run: python dev/verify_project_hub_multi_python.py --exe target/release/perch.exe --report dev/reports/pf001-pf004-runtime.json
       - name: Assemble clean portable folder
         shell: pwsh
         run: |
