@@ -7,7 +7,13 @@ use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 pub fn task_key(name: &str) -> String {
-    format!("{:x}", Sha256::digest(name.as_bytes()))
+    use std::fmt::Write;
+    let digest = Sha256::digest(name.as_bytes());
+    let mut key = String::with_capacity(64);
+    for byte in digest {
+        write!(&mut key, "{byte:02x}").expect("write SHA-256 hex");
+    }
+    key
 }
 
 pub fn task_dir(log_root: &Path, name: &str) -> PathBuf {
