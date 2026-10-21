@@ -411,6 +411,33 @@ mod tests {
         AppState::new(cfg, PathBuf::from("perch.toml"))
     }
 
+    #[test]
+    fn retention_of_three_logs_is_scoped_to_one_task() {
+        let dir = tempfile::tempdir().unwrap();
+        let folder = dir.path();
+        std::fs::write(folder.join("history.jsonl"), b"run summaries remain").unwrap();
+        std::fs::write(folder.join("Alpha-1-3-1.log"), "one").unwrap();
+        std::fs::write(folder.join("Alpha-2-3-2.log"), "two").unwrap();
+        std::fs::write(folder.join("Alpha-3-3-3.log"), "three").unwrap();
+        std::fs::write(folder.join("Alpha-4-3-4.log"), "four").unwrap();
+        std::fs::write(folder.join("Beta-1-3-1.log"), "untouched").unwrap();
+        std::fs::write(folder.join("Alpha-not-a-run.log"), "not a run").unwrap();
+        prune_run_logs(folder, "Alpha", "4-3-4").unwrap();
+        assert!(!folder.join("Alpha-1-3-1.log").exists());
+        for name in ["Alpha-2-3-2.log","Alpha-3-3-3.log","Alpha-4-3-4.log",
+                     "Beta-1-3-1.log","Alpha-not-a-run.log","history.jsonl"] {
+            assert!(folder.join(name).is_file(), "must keep {name}");
+        }
+    }
+
+    #[test]
+    fn new_run_id_is_not_mistaken_for_old_or_invalid_filename() {
+        assert!(is_valid_run_id("1780000000000-2350-1"));
+        for id in ["../1-2-3","123-a-2","12-3","12-3-4.log","4-3-3-5",""] {
+            assert!(!is_valid_run_id(id), "reject {id}");
+        }
+    }
+
     #[tokio::test]
     async fn run_once_records_exit_code() {
         let state = state_with(vec![sample_task("t", true)]);
