@@ -122,9 +122,7 @@ impl Scheduler {
 
     pub async fn run_once(&self, name: &str) -> Result<()> {
         let (task, run_id, cancel) = self.claim(name).await?;
-        let result = self.execute(&task, &run_id, cancel).await;
-        self.running.lock().await.remove(name);
-        result
+        self.execute(&task, &run_id, cancel).await
     }
 
     pub async fn start_now(self: &Arc<Self>, name: &str) -> Result<String> {
@@ -135,7 +133,6 @@ impl Scheduler {
             if let Err(e) = scheduler.execute(&task, &id, cancel).await {
                 warn!("manual task '{}' failed: {e}", task.name);
             }
-            scheduler.running.lock().await.remove(&task.name);
         });
         Ok(run_id)
     }
@@ -214,16 +211,25 @@ impl Scheduler {
             "error":result.as_ref().err().map(|e| e.to_string())
         });
         self.append_history(&log_dir, &record).await;
+        // Keep running-map + TaskRuntime terminal transition under one lock.
+        // An older finished run must never remove a subsequent run's claim.
+        let mut running = self.running.lock().await;
         if let Some(rt) = rt {
             let mut r = rt.write().await;
-            r.status = status.into();
-            r.last_run = Some(started);
-            r.last_exit_code = code;
-            r.finished_at = Some(finished);
-            r.pid = None;
-            r.cpu_percent = 0.0;
-            r.mem_bytes = 0;
+            if r.run_id.as_deref() == Some(run_id) {
+                r.status = status.into();
+                r.last_run = Some(started);
+                r.last_exit_code = code;
+                r.finished_at = Some(finished);
+                r.pid = None;
+                r.cpu_percent = 0.0;
+                r.mem_bytes = 0;
+            }
         }
+        if running.get(name).is_some_and(|task| task.run_id == run_id) {
+            running.remove(name);
+        }
+        drop(running);
         match result {
             Ok(0) => Ok(()),
             Ok(code) => Err(PerchError::Process(format!("task {name} exited with code {code}"))),
