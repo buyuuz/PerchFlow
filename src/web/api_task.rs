@@ -215,7 +215,7 @@ async fn history(State(ctx): State<WebContext>, Path(name): Path<String>) -> Jso
         }
     }
     let mut ids = std::collections::HashSet::new();
-    let runs: Vec<_> = entries.into_iter().rev()
+    let mut runs: Vec<_> = entries.into_iter().rev()
         .filter(|r| r.get("run_id").and_then(|v| v.as_str()).is_some_and(|id| ids.insert(id.to_owned())))
         .take(100).map(|mut r| {
             if r.get("status").and_then(|v| v.as_str()) == Some("running")
@@ -224,6 +224,15 @@ async fn history(State(ctx): State<WebContext>, Path(name): Path<String>) -> Jso
             }
             r
         }).collect();
+    // Body retention is intentionally separate from the persistent history.
+    let safe: String = name.chars().map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
+    let log_dir = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs");
+    for entry in &mut runs {
+        let available = entry.get("run_id").and_then(|v|v.as_str())
+            .filter(|id| id.chars().all(|c|c.is_ascii_alphanumeric() || c == '-'))
+            .is_some_and(|id| log_dir.join(format!("{safe}-{id}.log")).is_file());
+        entry["log_available"] = json!(available);
+    }
     Json(json!({"ok":true,"runs":runs}))
 }
 
