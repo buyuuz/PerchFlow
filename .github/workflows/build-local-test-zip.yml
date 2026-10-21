@@ -100,11 +100,7 @@ jobs:
           Copy-Item -LiteralPath $source -Destination $smoke -Recurse
           try {
             $worker = Join-Path $smoke 'demo/slow_worker.py'
-            @'
-          import time
-          print("LIVE_UNBUFFERED_LINE")
-          time.sleep(9)
-          '@ | Set-Content -LiteralPath $worker -Encoding UTF8
+            @('import time', 'print("LIVE_UNBUFFERED_LINE")', 'time.sleep(9)') | Set-Content -LiteralPath $worker -Encoding UTF8
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $smoke 'Start-Test.ps1') -NoBrowser
             if ($LASTEXITCODE -ne 0) { throw 'Failed to start test server' }
             $config = Get-Content -LiteralPath (Join-Path $smoke 'perch.toml') -Raw
