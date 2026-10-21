@@ -8,6 +8,7 @@ on:
       - feature/project-hub-v4
       - feature/project-hub-v5
       - feature/project-hub-acceptance
+      - feature/project-hub-rc-compat
     paths:
       - 'frontend/**'
       - 'dev/verify_project_hub_browser.py'
