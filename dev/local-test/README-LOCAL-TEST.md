@@ -1,6 +1,6 @@
 # PerchFlow Project Hub RC — Windows 本地测试版
 
-这个测试包来自 `feature/project-hub-rc-compat` 的 V1–V5 项目管理功能，提供独立的 Windows 64 位可执行程序。**不是正式升级包，暂不替换你正在运行的 PerchFlow。**
+这个测试包来自 `feature/project-hub-pf001-pf004` 的 Windows 64 位开发候选版，包含此前 Project Hub 功能，以及 PF-001～PF-004 改造。**不是正式升级包，不要替换生产 PerchFlow。**
 
 ## 最简单的使用方法
 
@@ -11,6 +11,25 @@
 5. 查看已创建的 `RC Sandbox Demo` 项目。如果能检测到 Python，将自动出现 `rc_mock_python` 任务，**定时调度默认禁用**。先点击“运行一次”进行本地安全测试。
 6. 看看执行状态、输出文件和文件变化是否正常：`demo/results.txt` 与 `demo/output/report.csv` 应在运行后创建，运行日志在 `task-logs`。
 7. 完成测试后双击 **Stop-Test.cmd** 停止**该测试包自身的后台 PerchFlow 进程**。停止前请确保没有任务正在执行。
+
+## 已有 RC 测试目录的升级方法（C2）
+
+如果之前已经在旧测试包里配置好 Photos_AuUp，请**不要解压新版覆盖整个目录**。
+
+1. 确保真实 Python 脚本已结束，再双击旧测试目录的 Stop-Test.cmd。
+2. 先备份该目录，特别是 perch.toml 和 task-logs 文件夹。
+3. 从新版 ZIP 里只提取 perch.exe，复制替换**旧测试目录中的** perch.exe。
+4. 沿用旧的 Start-Test.cmd 和 perch.toml 启动，验证原有项目、Python 路径与历史仍在。
+5. 首次只运行 RC Sandbox Demo 或其他纯模拟脚本，**不要重跑已执行的 TikTok 发布任务**。
+
+## PF-001～PF-004 新功能
+
+- **多脚本整行列表**：选中项目后，每个已登记 Python 任务占一行，点击脚本名或「详情 ↗」查看独立详情。项目文件夹中其他 .py 不会被自动执行；需要通过「+ Python 任务」分别确认添加。
+- **运行指标**：详情页有实时 PID、CPU、内存、运行时间、退出码；正在执行时约每 2 秒更新。
+- **状态一致性**：项目任务卡超过 90 秒仍自动刷新，脚本自然结束时「停止」不会持续可用。
+- **日志三次保留**：每个任务从本次的 0 行开始显示，每次使用独立 run_id 日志。真实执行第四次时，PerchFlow 自动清理该任务最旧日志，仅保留最近三份；历史记录摘要仍在，其他任务日志与业务数据不受影响。**升级或仅打开页面不会自动清理旧日志**。日志可能含敏感信息，请仅在需要时点击「查看日志」。
+- **文件候选发现**：详情页最多读取 128 KiB 的已登记 Python 源码，推断可能引用的 Excel、TXT、CSV 等文档名；不是完整依赖分析，动态路径可能漏检，不读取文档正文。
+- **文件打开**：需用户点击并确认，才能尝试在运行 PerchFlow 的本机 Windows 默认程序中打开文件。若 PerchFlow 在 Windows Service Session 0 运行，无法保证可见的应用窗口；建议仅在 C2 登录的交互桌面测试。
 
 ## 测试功能建议
 
@@ -42,7 +61,7 @@
 
 **Windows 服务与可视化浏览器是否已测试？** CI 对临时 Windows 服务和后台 Python 模拟已通过，但你自己电脑上的系统权限、Python 环境、GUI 浏览器/RPA 仍需单独测试；本包不会自动安装服务。
 
-**版本来源**：`buyuuz/PerchFlow`，独立分支 `feature/project-hub-local-test`。候选版代码不是正式 `main`。
+**版本来源**：`buyuuz/PerchFlow`，独立分支 `feature/project-hub-pf001-pf004`。候选版代码尚未合并正式 `main`。
 
 ## 需要反馈什么
 
