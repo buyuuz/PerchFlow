@@ -27,8 +27,10 @@
 
 ## 验收结论和放行标准
 - 视觉与模拟交互验收：**已通过**（9/9）。
-- V1–V5 原有自动化回归：需以验收分支最新提交的 GitHub Windows CI 为准。
-- 写盘失败回滚验收：需以最新提交的 Cargo/API 结果为准。
-- **在完整 CI 完成前不得合并 main**。即使全部通过，也建议下一步先在隔离的 Windows 测试机上做灰度真实脚本兼容验收，再由用户决定是否合并与部署。
+- V1–V5 原有自动化回归：**PASS**。Rust 共 69 项（35+30+4），Windows Release、JavaScript 检查、调度 EXE 隔离模拟全部通过。证据：[Task runtime CI 39526939911](https://github.com/buyuuz/PerchFlow/actions/runs/39526939911)。
+- 写盘失败回滚：**PASS**。创建、编辑、删除模拟写盘失败测试均通过；不会泄漏到内存配置。
+- Windows SCM 服务兼容：**PASS**。证据：[SCM 39526905212](https://github.com/buyuuz/PerchFlow/actions/runs/39526905212)。
+- 综合浏览器专项验收：**PASS 9/9**。证据：[Acceptance 39526939818](https://github.com/buyuuz/PerchFlow/actions/runs/39526939818)；最终截图包也可参考 [39526674684](https://github.com/buyuuz/PerchFlow/actions/runs/39526674684)。
+- **结论：隔离环境开发预验收通过，尚未进行生产验收。** 建议下一步先在明确授权的隔离 Windows 测试机做真实脚本兼容测试，再由用户决定是否合并与部署；当前不合并 main。
 
 本报告记录代码验收，不声明对用户正在使用电脑进行了实际操作。
