@@ -16,6 +16,7 @@ pub fn routes() -> Router<WebContext> {
     Router::new()
         .route("/", get(|| async { page("login.html") }))
         .route("/processes", get(|| async { page("processes.html") }))
+        .route("/docker", get(|| async { page("docker.html") }))
         .route("/process-detail", get(|| async { page("process-detail.html") }))
         .route("/tasks", get(|| async { page("tasks.html") }))
         .route("/projects", get(|| async { page("projects.html") }))

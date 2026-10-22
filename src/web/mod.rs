@@ -1,3 +1,4 @@
+pub mod api_docker;
 pub mod api_lang;
 pub mod api_logs;
 pub mod api_process;
@@ -27,6 +28,7 @@ pub fn build_router(ctx: WebContext) -> Router {
     // own `?token=` query param instead (see api_logs::stream_logs).
     let api = Router::new()
         .merge(api_process::routes())
+        .merge(api_docker::routes())
         .merge(api_task::routes())
         .merge(api_project::routes())
         .merge(api_logs::routes())

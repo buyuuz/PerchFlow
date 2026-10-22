@@ -1,0 +1,62 @@
+name: Docker V1 isolated Windows validation
+
+on:
+  push:
+    branches: [feature/docker-v1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-v1:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Rust tests and JS syntax
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $PSNativeCommandUseErrorActionPreference=$true
+          cargo test
+          if ($LASTEXITCODE -ne 0) { throw 'cargo test failed' }
+          node --check frontend/assets/docker.js
+          if ($LASTEXITCODE -ne 0) { throw 'docker.js syntax failed' }
+          python -m py_compile dev/verify_docker_v1.py
+      - name: Compile isolated fake Docker CLI and PerchFlow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $PSNativeCommandUseErrorActionPreference=$true
+          New-Item -ItemType Directory -Path target/mock -Force | Out-Null
+          rustc --edition=2021 dev/fake_docker_v1.rs -o target/mock/docker.exe
+          if ($LASTEXITCODE -ne 0) { throw 'fake docker CLI did not compile' }
+          cargo build --release
+          if ($LASTEXITCODE -ne 0) { throw 'Windows PerchFlow build failed' }
+      - name: Verify local Docker V1 API, logs and actions with fake Docker CLI
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $PSNativeCommandUseErrorActionPreference=$true
+          python dev/verify_docker_v1.py --exe target/release/perch.exe --mock target/mock/docker.exe
+          if ($LASTEXITCODE -ne 0) { throw 'Docker V1 mock runtime validation failed' }
+      - name: Edge browser regression for Docker dashboard and dialogs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $PSNativeCommandUseErrorActionPreference=$true
+          python -m pip install playwright
+          if ($LASTEXITCODE -ne 0) { throw 'Playwright installation failed' }
+          python dev/verify_docker_ui_v1.py
+          if ($LASTEXITCODE -ne 0) { throw 'Docker V1 browser regression failed' }
+      - name: Publish isolated Windows EXE for C1 read-only acceptance
+        uses: actions/upload-artifact@v4
+        with:
+          name: perchflow-docker-v1-c1-acceptance
+          path: |
+            target/release/perch.exe
+            dev/DOCKER_V1.md
+          if-no-files-found: error
+          retention-days: 14
