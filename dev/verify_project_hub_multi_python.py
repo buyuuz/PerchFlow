@@ -201,6 +201,79 @@ def main(exe,report_file):
                 ensure(len(list(task_log_dir("fake_A").glob("*.log")))==3,
                     "PF032 must not remove retained execution logs")
                 checks["pf032_project_delete_deregisters_only_and_preserves_files"]="PASS"
+                # PF038: a retired task name can be reused, but its old
+                # log files and run history must not show as the new task.
+                resurrected=api(base,token,"/api/tasks","POST",{
+                    "name":"fake_A","cmd":str(Path(sys.executable).resolve()),
+                    "args":[str(a)],"cwd":str(folder),"schedule":"","enabled":False,
+                    "timeout_secs":20
+                })
+                ensure(resurrected.get("ok"),f"recreate fake_A: {resurrected}")
+                previous=api(base,token,"/api/tasks/fake_A/history")["runs"]
+                ensure(not previous,f"new task inherited old run history: {previous}")
+                old_log=api(base,token,f"/api/tasks/fake_A/log/{ids[-1]}")
+                ensure(old_log.get("ok") is False,
+                    f"new task read a predecessor's log: {old_log}")
+                new_rid=run(base,token,"fake_A")
+                new_history=api(base,token,"/api/tasks/fake_A/history")["runs"]
+                ensure(new_history and new_history[0]["run_id"]==new_rid
+                    and all(row["run_id"] not in ids for row in new_history),
+                    f"recreated task's history not isolated: {new_history}")
+                checks["pf038_recreated_name_has_independent_history_and_logs"]="PASS"
+                # PF039: clean only the auto-linked Python input when deleting
+                # its final owning script, with the source file still on disk.
+                registered=api(base,token,"/api/projects/Fake%20Python%20Project/python-task",
+                    "POST",{"name":"fake_C","python":str(Path(sys.executable).resolve()),
+                             "script":"mock_publisher.py"})
+                ensure(registered.get("ok"),f"register fake_C: {registered}")
+                before=api(base,token,"/api/projects/Fake%20Python%20Project")["project"]
+                ensure("mock_publisher.py" in before["inputs"],
+                    f"expected automatic Python input: {before}")
+                deleted=api(base,token,
+                    "/api/projects/Fake%20Python%20Project/tasks/fake_C","DELETE")
+                ensure(deleted.get("ok"),f"delete fake_C: {deleted}")
+                after=api(base,token,"/api/projects/Fake%20Python%20Project")["project"]
+                ensure("mock_publisher.py" not in after["inputs"]
+                    and "fake_C" not in after["tasks"] and a.is_file(),
+                    f"stale input retained or real file removed: {after}")
+                checks["pf039_remove_exclusive_python_input_without_deleting_file"]="PASS"
+                # PF041: start and delete race on one disposable Python script.
+                # The lifecycle mutex must make these mutually exclusive.
+                created=api(base,token,
+                    "/api/projects/Fake%20Python%20Project/python-task","POST",
+                    {"name":"fake_D","python":str(Path(sys.executable).resolve()),
+                     "script":"mock_publisher.py"})
+                ensure(created.get("ok"),f"register fake_D: {created}")
+                import threading
+                from concurrent.futures import ThreadPoolExecutor
+                gate=threading.Barrier(2)
+                def raced(path,method):
+                    gate.wait(timeout=7)
+                    return api(base,token,path,method)
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    fr=pool.submit(raced,"/api/tasks/fake_D/run","POST")
+                    fd=pool.submit(raced,
+                        "/api/projects/Fake%20Python%20Project/tasks/fake_D","DELETE")
+                    start_response=fr.result(timeout=12)
+                    delete_response=fd.result(timeout=12)
+                ensure(not (start_response.get("ok") and delete_response.get("ok")),
+                    f"delete/start both succeeded; stale running task: {start_response}/{delete_response}")
+                if start_response.get("ok"):
+                    ensure(delete_response.get("ok") is False,
+                        "cannot delete after run was claimed")
+                    wait_status(base,token,"fake_D","success",seconds=12)
+                    deleted=api(base,token,
+                        "/api/projects/Fake%20Python%20Project/tasks/fake_D","DELETE")
+                    ensure(deleted.get("ok"),f"cleanup fake_D: {deleted}")
+                else:
+                    ensure(delete_response.get("ok"),
+                        f"start and delete both failed: {start_response}/{delete_response}")
+                state=api(base,token,"/api/projects/Fake%20Python%20Project")["project"]
+                ensure("fake_D" not in state["tasks"] and a.is_file(),
+                    f"race left ghost task or deleted source: {state}")
+                checks["pf041_run_delete_race_does_not_orphan_task"]="PASS"
+
+
 
             finally:
                 stop_process(process)
@@ -211,7 +284,7 @@ def main(exe,report_file):
             "checks":checks,"real_business_called":False,"real_document_opened":False,
             "environment":"disposable GitHub Windows runner"
         },indent=2),encoding="utf-8")
-    ensure(len(checks)==13, f"Incomplete checks: {checks}")
+    ensure(len(checks)==16, f"Incomplete checks: {checks}")
     print("PASS PF001-PF004 actual EXE with fake scripts",json.dumps(checks,indent=2))
 
 if __name__=="__main__":

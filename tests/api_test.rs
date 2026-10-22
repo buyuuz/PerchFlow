@@ -1201,7 +1201,7 @@ async fn project_script_schedule_lifecycle_preserves_manual_task_and_history() {
     let history: serde_json::Value = client.get(format!("{base}/api/tasks/safe_worker/history"))
         .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
     assert!(history["runs"].as_array().unwrap().is_empty(),
-        "newly created task must not inherit arbitrary older history");    
+        "newly created task must not inherit arbitrary older history");
     let saved = perch::config::load(&tmp.path().join("perch.toml")).unwrap();
     assert!(saved.task[0].schedule.is_empty());
 }
@@ -1349,7 +1349,7 @@ async fn chinese_task_names_do_not_collide_in_logs_history_or_file_metadata() {
 }
 
 #[tokio::test]
-async fn ascii_legacy_task_logs_are_readable_after_v2_upgrade() {
+async fn new_task_does_not_read_legacy_logs_from_retired_identity() {
     let (base, token, tmp)=spawn_server().await;
     let client=reqwest::Client::new();
     let job=serde_json::json!({
@@ -1366,8 +1366,12 @@ async fn ascii_legacy_task_logs_are_readable_after_v2_upgrade() {
         r#"{"task":"old_job","run_id":"1-2-3","started_at":"2026-10-21T00:00:00Z","status":"success"}"#).unwrap();
     let log:serde_json::Value=client.get(format!("{base}/api/tasks/old_job/log/1-2-3"))
         .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
-    assert_eq!(log["content"],"LEGACY_LOG_BODY");
+    assert_eq!(log["ok"],false,"new task must not open old generations' files");
     let history:serde_json::Value=client.get(format!("{base}/api/tasks/old_job/history"))
         .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
-    assert_eq!(history["runs"][0]["log_available"],true);
+    assert!(history["runs"].as_array().unwrap().is_empty(),
+        "pre-existing entries must not leak into a newly created task");
+    // Legacy compatibility for configurations without a generation marker is
+    // covered by core::task_log_paths::tests::legacy_ambiguity_blocks_cross_task_reads
+    // and the v2 fallback resolver tests.
 }

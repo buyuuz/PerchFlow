@@ -31,6 +31,8 @@ jobs:
         run: cargo build --release
       - name: JavaScript syntax and argument tests
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           node --check frontend/assets/tasks.js
           node --check frontend/assets/projects.js
           node dev/test_task_args.js

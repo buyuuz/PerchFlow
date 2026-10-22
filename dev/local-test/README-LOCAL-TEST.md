@@ -1,11 +1,11 @@
 # PerchFlow Project Hub — PF-005～PF-009 界面验收测试版
 
-这个测试包来自 `feature/project-hub-pf026-pf032` 的 Windows 64 位开发候选版，包含此前 Project Hub 功能、项目页重构以及 Cron 与脚本管理的解耦。**不是正式升级包，不要替换生产 PerchFlow。**
+这个测试包来自 `feature/project-hub-pf033-pf041` 的 Windows 64 位开发候选版，包含此前 Project Hub 功能、项目页重构以及 Cron 与脚本管理的解耦。**不是正式升级包，不要替换生产 PerchFlow。**
 
 ## 最简单的使用方法
 
-1. 下载 GitHub Actions 中名为 `perchflow-pf026-pf032-windows-ui-test` 的构建产物，解压外层 ZIP，再解压其中的 `PerchFlow-PF026-PF032-Test-Win64.zip`。
-2. 将 `PerchFlow-PF026-PF032-Test-Win64` 整个文件夹放到新位置，例如 `D:\\Downloads\\PerchFlow-RC-Test`，**不要**解压到原来的 PerchFlow 安装目录。
+1. 下载 GitHub Actions 中名为 `perchflow-pf033-pf041-windows-ui-test` 的构建产物，解压外层 ZIP，再解压其中的 `PerchFlow-PF033-PF041-Test-Win64.zip`。
+2. 将 `PerchFlow-PF033-PF041-Test-Win64` 整个文件夹放到新位置，例如 `D:\\Downloads\\PerchFlow-RC-Test`，**不要**解压到原来的 PerchFlow 安装目录。
 3. 双击 **Start-Test.cmd**。第一次启动会生成独立 `perch.toml`、随机回环端口与随机登录令牌；也会在浏览器中打开该本地地址。
 4. 在启动窗口复制显示的登录令牌，登录网页，然后打开 **项目 / Projects** 页面。
 5. 查看已创建的 `RC Sandbox Demo` 项目。如果能检测到 Python，将自动出现 `rc_mock_python` 任务，**完全没有 Cron 定时计划**。先点击“运行一次”进行本地安全测试；在「定时任务」页面应当看不到这个示例脚本。
@@ -61,7 +61,7 @@
 
 **Windows 服务与可视化浏览器是否已测试？** CI 对临时 Windows 服务和后台 Python 模拟已通过，但你自己电脑上的系统权限、Python 环境、GUI 浏览器/RPA 仍需单独测试；本包不会自动安装服务。
 
-**版本来源**：`buyuuz/PerchFlow`，独立分支 `feature/project-hub-pf026-pf032`。候选版代码尚未合并正式 `main`。
+**版本来源**：`buyuuz/PerchFlow`，独立分支 `feature/project-hub-pf033-pf041`。候选版代码尚未合并正式 `main`。
 
 ## 需要反馈什么
 
@@ -137,3 +137,16 @@
 - Production scripts no longer invoke browser alert, confirm, or prompt. Stop/delete/remove schedule are guarded by unified in-app confirmation; notices and validation are inside the UI.
 - Project Script list has Delete. The new project-scoped DELETE /api/projects/:name/tasks/:task removes only the PerchFlow task definition, scheduler plan, and project task link, without deleting any .py, Excel, TXT, other files, or retained logs. Running tasks are rejected; the UI disables Delete for running scripts.
 - dev/verify_project_hub_pf026_pf032.py uses a mock HTTP API and Microsoft Edge to verify no native dialogs, direct run, Cron creation/update state, searchable binding, log layout, and safe deletion request; no real scripts or source files are touched.
+
+
+## PF-033–PF-041 reliability hardening
+
+- GitHub Actions must fail when a Rust test or any native validation command fails. Previously failed API tests could be masked by a later successful command.
+- Search filtering in Link Existing Script clears a previously selected item if it is no longer visible; changes are applied only to the visibly chosen script.
+- Cron Save locks Cancel/Escape/close until the API completes; an in-flight save must never be misrepresented as cancelled.
+- Scheduled task list Delete on a project-owned script removes only the Cron plan; Enabled switches use the dedicated schedule-only endpoint even during a currently running process.
+- Newly registered task names have a persistent history generation timestamp. Old config without this field keeps compatibility with existing logs; reusing a deleted name cannot inherit old run history or files.
+- Project script Delete removes an exclusive automatically linked Python input from project metadata, while retaining actual source files, unrelated inputs and run logs.
+- Task execution claim and task deletion are mutually serialized by a scheduler lifecycle lock. Real Windows EXE smoke tests use only fake temporary scripts and test a concurrent run/delete race.
+- Small task-edit windows use an internal scroll container above the mobile bottom nav.
+- All changes are additive to the previous RC. Test artifacts are disposable, do not replace existing C2 installations without a separate approved plan.

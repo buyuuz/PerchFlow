@@ -32,6 +32,8 @@ jobs:
       - name: Validate release candidate and launch scripts
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           cargo test
           if ($LASTEXITCODE -ne 0) { throw 'cargo test failed' }
           node --check frontend/assets/projects.js
@@ -45,6 +47,8 @@ jobs:
       - name: Edge mocked UI viewport + interaction regression (PF-005..PF-041)
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           python -m pip install playwright
           python dev/verify_project_hub_ui_consistency.py
           python dev/verify_project_hub_pf012_pf017.py
@@ -56,6 +60,8 @@ jobs:
       - name: Compile 64-bit Windows executable
         shell: pwsh
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           cargo build --release
           if (-not (Test-Path target/release/perch.exe)) { throw 'Missing built perch.exe' }
       - name: Real EXE with two FAKE Python scripts and 3-log retention
