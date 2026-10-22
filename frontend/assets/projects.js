@@ -2,6 +2,10 @@
 const projectTranslationsEn = {
   "还没有项目，点击「新建项目」开始。": "No projects yet. Choose “New project” to get started.",
   "查看 ": "View ",
+  "移除脚本": "Remove script",
+  "确认移除": "Remove",
+  "请先停止脚本": "Stop the script first",
+  "仅移除管理配置和定时计划，不删除 Python 文件": "Remove the managed configuration and schedule; the Python file remains unchanged",
   "正在检查输入依赖…": "Checking required inputs…",
   "输入预检：未开启（旧任务行为保持不变）": "Input preflight: off (legacy behavior unchanged)",
   "输入预检：已就绪 · 已检查 ": "Input preflight: ready · checked ",
@@ -106,7 +110,7 @@ const projectTranslationsEn = {
   "已启用定时": "Scheduled",
   "运行": "Run",
   "详情": "Details",
-  "暂无脚本。点击「Python 脚本」添加第一个执行任务。": "No scripts yet. Choose Python script to add the first task.",
+  "暂无脚本，点击「添加脚本」开始。": "No scripts yet. Choose Add script to get started.",
   "手动运行不受 Cron 开关影响；如有已暂停的定时配置，请在定时任务页面管理。": "Manual runs are available. Manage paused Cron settings on the Tasks page.",
   "在定时任务页面查看高级设置": "Advanced settings in Tasks",  "详情 ↗": "Details ↗"
 };
@@ -297,7 +301,7 @@ async function renderProjectDetail() {
   const jobs = byId('project-jobs');
   jobs.replaceChildren();
   if (!project.tasks.length) {
-    jobs.append(el('p','pf-project-empty-scripts',pfL('暂无脚本。点击「Python 脚本」添加第一个执行任务。')));
+    jobs.append(el('p','pf-project-empty-scripts',pfL('暂无脚本，点击「添加脚本」开始。')));
     return;
   }
   project.tasks.forEach(name => {
@@ -342,10 +346,10 @@ async function renderProjectDetail() {
     stop.dataset.taskAction = 'stop';
     const detail = el('a','pf-project-secondary pf-project-detail-link',pfL('详情'));
     detail.href = taskDetailHref(name);
-    const remove = actionButton('删除','pf-project-danger pf-project-delete-script',
+    const remove = actionButton(pfL('移除脚本'),'pf-project-danger pf-project-delete-script',
       () => {void deleteProjectScript(name);});
     remove.disabled = !task || task.status === 'running';
-    remove.title = task?.status === 'running' ? '请先停止脚本' : '只删除任务配置，不删除 Python 文件';
+    remove.title = task?.status === 'running' ? pfL('请先停止脚本') : pfL('仅移除管理配置和定时计划，不删除 Python 文件');
     actions.append(run,stop,detail,remove);
     row.append(info,state,last,mode,actions);
     row.addEventListener('click',event=>{
@@ -455,6 +459,10 @@ function lines(id) {
 function openProjectForm(projectName) {
   editedProjectName = projectName || null;
   const project = projects.find(p => p.name === editedProjectName);
+  const saveButton = byId('project-save');
+  saveButton.setAttribute('data-pf-zh', project ? '保存修改' : '创建项目');
+  saveButton.setAttribute('data-pf-en', project ? 'Save changes' : 'Create project');
+  saveButton.textContent = window.getLang && window.getLang() === 'en' ? saveButton.getAttribute('data-pf-en') : saveButton.getAttribute('data-pf-zh');
   byId('project-form-title').textContent = project ? pfL('编辑项目') : pfL('新建项目');
   byId('project-name').value = project ? project.name : '';
   byId('project-root').value = project ? project.root : '';
@@ -529,7 +537,7 @@ async function deleteProjectScript(name) {
   if(!selected || !task || busyTasks.has(name) || task.status==='running')return;
   const yes=await PerchDialog.confirm(
     '仅移除「'+name+'」在 PerchFlow 中的任务定义、项目关联及 Cron 计划。不会删除磁盘上的 .py、Excel、TXT 等文件。',
-    {title:'删除执行脚本',ok:'确认删除',danger:true});
+    {title:pfL('移除脚本'),ok:pfL('确认移除'),danger:true});
   if(!yes)return;
   busyTasks.add(name);
   try{

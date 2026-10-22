@@ -133,10 +133,10 @@ window.PerchDialog=(()=>{
     return d.promise;
   }
   async function chooseScript(tasks){
-    const d=build(tt('关联已有脚本','Link existing script'),
+    const d=build(tt('选择要设置定时的脚本','Choose a script to schedule'),
       tt('选择脚本后配置定时计划，不需要输入序号','Choose a script to configure its schedule'));
     const search=tag('input','pf-dialog-input');
-    search.placeholder=tt('搜索任务或 Python 文件名','Search tasks or Python filenames');
+    search.placeholder=tt('搜索脚本名称或 Python 文件名','Search script or Python filename');
     search.setAttribute('aria-label',search.placeholder);
     d.content.append(search);
     const list=tag('div','pf-dialog-choices');

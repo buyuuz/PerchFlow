@@ -88,7 +88,7 @@
 </div>
 <button class="pf-process-add pf-top-add" type="button" onclick="openTaskModal()">
 <span class="pf-top-add-icon" aria-hidden="true"></span>
-                <span class="pf-top-add-text" data-i18n="button.add_task">添加任务</span>
+                <span class="pf-top-add-text" data-i18n="button.add_task">添加定时任务</span>
             </button>
 <div class="pf-lang-picker" data-pf-language-picker>
   <!-- Keep native select as keyboard/JS-off fallback and existing i18n event target. -->
@@ -117,7 +117,7 @@
 <p class="pf-management-page-subtitle text-on-surface-variant" data-i18n="page.tasks_subtitle">管理 cron 调度的任务</p>
 </div>
 <div class="flex gap-2 items-center">
-<button id="task-bind-existing" type="button" class="pf-taskdetail-btn" style="border:1px solid #2c5a6b;border-radius:8px;padding:7px 12px;font-size:12px;color:#31d8ed">关联已有脚本</button>
+<button id="task-bind-existing" type="button" class="pf-taskdetail-btn" style="border:1px solid #2c5a6b;border-radius:8px;padding:7px 12px;font-size:12px;color:#31d8ed">为脚本添加定时计划</button>
 <div class="relative">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
 <input id="task-search" class="bg-surface-container-high border border-white/10 rounded pl-9 pr-3 py-1.5 text-sm font-body-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant/50 w-32 md:w-64 transition-all" data-i18n-placeholder="search.tasks" placeholder="搜索任务..." type="search" autocomplete="off" aria-label="搜索任务"/>
@@ -167,7 +167,7 @@
 <!-- Add/Edit Task Modal -->
 <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden items-center justify-center p-4" id="task-modal">
 <div class="glass-card w-full max-w-md rounded-xl p-6 flex flex-col gap-4">
-<h2 class="font-headline-md text-headline-md text-on-surface" id="task-modal-title" data-i18n="modal.add_task">添加任务</h2>
+<h2 class="font-headline-md text-headline-md text-on-surface" id="task-modal-title" data-i18n="modal.add_task">添加定时任务</h2>
 <div class="flex flex-col gap-2">
 <label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.name">名称</label>
 <input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-name" type="text"/>
@@ -194,12 +194,12 @@
 </div>
 <div class="flex items-center gap-2">
 <input id="task-enabled" type="checkbox"/>
-<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.enabled" for="task-enabled">启用</label>
+<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.schedule_enabled" for="task-enabled">启用定时执行</label>
 </div>
 <p class="font-body-sm text-body-sm text-error hidden" id="task-err"></p>
 <div class="flex justify-end gap-3">
 <button class="px-4 py-2 rounded font-body-md text-body-md border border-primary text-primary hover:bg-primary/10" data-i18n="button.cancel" onclick="closeTaskModal()">取消</button>
-<button class="px-6 py-2 rounded font-body-md text-body-md bg-primary text-on-primary hover:bg-primary-fixed" data-i18n="button.save" onclick="submitTaskModal()">保存</button>
+<button class="px-6 py-2 rounded font-body-md text-body-md bg-primary text-on-primary hover:bg-primary-fixed" id="task-save" data-i18n="button.save" onclick="submitTaskModal()">保存</button>
 </div>
 </div>
 </div>

@@ -2,8 +2,8 @@
    Never synthesise "next run": that field is not provided by the Rust API. */
 
 const TASK_TEXT = {
-  zh: { name:'任务名称', enabled:'状态', schedule:'Cron 表达式', command:'启动命令', last_run:'上次运行', last_exit_code:'运行结果', actions:'操作', on:'已启用', off:'已停用', success:'成功', failed:'失败', never:'尚未运行', run:'立即运行', enable:'启用任务', disable:'停用任务', edit:'编辑', remove:'删除', copy:'复制命令', copied:'已复制', empty:'没有匹配的定时任务', count:'共 {total} 项 · 已启用 {active} 项', selected:'已选择 {count} 项', clear:'取消选择', chooseAll:'选择所有显示的任务', scroll:'左右滑动表格可查看更多列和操作', error:'任务操作失败，请重试' },
-  en: { name:'Task name', enabled:'Status', schedule:'Cron schedule', command:'Command', last_run:'Last run', last_exit_code:'Last result', actions:'Actions', on:'ENABLED', off:'DISABLED', success:'Success', failed:'Failed', never:'Not run', run:'Run now', enable:'Enable task', disable:'Disable task', edit:'Edit', remove:'Delete', copy:'Copy command', copied:'Copied', empty:'No matching scheduled tasks', count:'Total: {total} · Enabled: {active}', selected:'{count} selected', clear:'Clear selection', chooseAll:'Select all visible tasks', scroll:'Scroll horizontally to view more columns and actions', error:'Task operation failed. Please try again' },
+  zh: { name:'任务名称', enabled:'状态', schedule:'Cron 表达式', command:'启动命令', last_run:'上次运行', last_exit_code:'运行结果', actions:'操作', on:'定时已启用', off:'定时已暂停', success:'成功', failed:'失败', never:'尚未运行', run:'立即运行', enable:'启用定时', disable:'暂停定时', edit:'编辑', remove:'删除', copy:'复制命令', copied:'已复制', empty:'没有匹配的定时任务', count:'共 {total} 项 · 已启用 {active} 项', selected:'已选择 {count} 项', clear:'取消选择', chooseAll:'选择所有显示的任务', scroll:'左右滑动表格可查看更多列和操作', error:'任务操作失败，请重试' },
+  en: { name:'Task name', enabled:'Status', schedule:'Cron schedule', command:'Command', last_run:'Last run', last_exit_code:'Last result', actions:'Actions', on:'SCHEDULED', off:'PAUSED', success:'Success', failed:'Failed', never:'Not run', run:'Run now', enable:'Enable schedule', disable:'Pause schedule', edit:'Edit', remove:'Delete', copy:'Copy command', copied:'Copied', empty:'No matching scheduled tasks', count:'Total: {total} · Enabled: {active}', selected:'{count} selected', clear:'Clear selection', chooseAll:'Select all visible tasks', scroll:'Scroll horizontally to view more columns and actions', error:'Task operation failed. Please try again' },
   es: { name:'Tarea', enabled:'Estado', schedule:'Cron', command:'Comando', last_run:'Última ejecución', last_exit_code:'Resultado', actions:'Acciones', on:'ACTIVA', off:'INACTIVA', success:'Correcto', failed:'Error', never:'Sin ejecutar', run:'Ejecutar', enable:'Activar', disable:'Desactivar', edit:'Editar', remove:'Eliminar', copy:'Copiar comando', copied:'Copiado', empty:'No hay tareas coincidentes', count:'Total: {total} · Activas: {active}', selected:'{count} seleccionadas', clear:'Limpiar', chooseAll:'Seleccionar todas las tareas visibles', scroll:'Desplácese horizontalmente para ver más columnas', error:'No se pudo completar la operación' },
   ja: { name:'タスク名', enabled:'状態', schedule:'Cron式', command:'実行コマンド', last_run:'最終実行', last_exit_code:'結果', actions:'操作', on:'有効', off:'無効', success:'成功', failed:'失敗', never:'未実行', run:'今すぐ実行', enable:'有効にする', disable:'無効にする', edit:'編集', remove:'削除', copy:'コマンドコピー', copied:'コピー済み', empty:'一致するタスクがありません', count:'合計 {total} 件 · 有効 {active} 件', selected:'{count} 件選択中', clear:'選択解除', chooseAll:'表示中のタスクを選択', scroll:'横にスクロールして他の列を表示', error:'タスク操作が失敗しました' },
   pt: { name:'Tarefa', enabled:'Estado', schedule:'Cron', command:'Comando', last_run:'Última execução', last_exit_code:'Resultado', actions:'Ações', on:'ATIVA', off:'INATIVA', success:'Sucesso', failed:'Falha', never:'Não executada', run:'Executar agora', enable:'Ativar', disable:'Desativar', edit:'Editar', remove:'Excluir', copy:'Copiar comando', copied:'Copiado', empty:'Nenhuma tarefa encontrada', count:'Total: {total} · Ativas: {active}', selected:'{count} selecionadas', clear:'Limpar seleção', chooseAll:'Selecionar tarefas visíveis', scroll:'Role horizontalmente para ver outras colunas', error:'Falha na operação da tarefa' },
@@ -359,6 +359,9 @@ function parseTaskArgs(raw) {
 function openTaskModal() {
   editingName = null;
   document.getElementById('task-modal-title').textContent = t('modal.add_task');
+  const saveButton = document.getElementById('task-save');
+  saveButton.setAttribute('data-i18n', 'button.add_task');
+  saveButton.textContent = t('button.add_task');
   document.getElementById('task-name').value = '';
   document.getElementById('task-name').disabled = false;
   document.getElementById('task-cmd').value = '';
@@ -377,6 +380,9 @@ function editTask(name) {
   if (!task) return;
   editingName = task.name;
   document.getElementById('task-modal-title').textContent = t('modal.edit_task');
+  const saveButton = document.getElementById('task-save');
+  saveButton.setAttribute('data-i18n', 'button.save_changes');
+  saveButton.textContent = t('button.save_changes');
   document.getElementById('task-name').value = task.name;
   document.getElementById('task-name').disabled = false;
   document.getElementById('task-cmd').value = task.cmd;
@@ -465,7 +471,7 @@ async function bindExistingScript() {
     if(result.ok===false)throw Error(result.error||'获取已有脚本失败');
     const options=(result.tasks||[]).filter(task=>Boolean(task.project));
     if(!options.length){
-      await PerchDialog.notice('没有可关联的项目脚本。请先在「项目」页面添加 Python 脚本。');
+      await PerchDialog.notice('没有可设置定时计划的项目脚本。请先在「项目」页面添加脚本。');
       return;
     }
     const selected=await PerchDialog.chooseScript(options);

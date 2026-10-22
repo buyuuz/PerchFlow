@@ -94,7 +94,7 @@ class BrandAssetsTest(unittest.TestCase):
         for route, active in (("processes.html", "/processes"),
                               ("tasks.html", "/tasks")):
             html = (FRONTEND / route).read_text(encoding="utf-8")
-            self.assertEqual(html.count('class="pf-main-nav-link"'), 2)
+            self.assertEqual(html.count('class="pf-main-nav-link"'), 4)
             self.assertIn(f'href="{active}" aria-current="page"', html)
             self.assertIn('/assets/branding.css?v=brand4', html)
             self.assertNotIn('border-b-2 border-primary pb-1 font-bold" data-i18n="nav.', html)

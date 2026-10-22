@@ -81,8 +81,8 @@
               <code id="project-root-preview" class="pf-project-path"></code>
             </div>
             <div class="pf-project-action-row pf-project-header-actions">
-              <button type="button" id="project-add-python" class="pf-project-primary"><span class="material-symbols-outlined" aria-hidden="true">add</span><span data-pf-en="Python script">Python 脚本</span></button>
-              <a href="/tasks" class="pf-project-secondary pf-project-schedule-link"><span class="material-symbols-outlined" aria-hidden="true">calendar_month</span><span data-pf-en="View schedules">查看定时计划</span></a>
+              <button type="button" id="project-add-python" class="pf-project-primary"><span class="material-symbols-outlined" aria-hidden="true">add</span><span data-pf-en="Add script">添加脚本</span></button>
+              <a href="/tasks" class="pf-project-secondary pf-project-schedule-link"><span class="material-symbols-outlined" aria-hidden="true">calendar_month</span><span data-pf-en="Manage schedules">管理定时计划</span></a>
               <div class="pf-project-menu-wrap">
                 <button id="project-more" class="pf-project-secondary pf-project-more" type="button" aria-expanded="false" aria-controls="project-actions-menu" aria-label="更多项目操作"><span class="material-symbols-outlined" aria-hidden="true">more_horiz</span></button>
                 <div id="project-actions-menu" class="pf-project-dropdown" hidden>
@@ -103,7 +103,7 @@
             </div>
             <div class="pf-project-table" role="table" aria-label="Python 执行脚本">
               <div class="pf-project-table-heading" role="row">
-                <span role="columnheader" data-pf-en="Task / script">任务名称 / 脚本</span>
+                <span role="columnheader" data-pf-en="Script name">脚本名称</span>
                 <span role="columnheader" data-pf-en="Current status">当前状态</span>
                 <span role="columnheader" data-pf-en="Last result">最近结果</span>
                 <span role="columnheader" data-pf-en="Execution">执行方式</span>
@@ -159,10 +159,10 @@
   </div>
   <div id="project-python-modal" class="pf-project-overlay" hidden>
     <form id="project-python-form" class="pf-project-form">
-      <div class="pf-project-form-head"><h2 data-pf-en="Create Python task">创建 Python 执行任务</h2>
+      <div class="pf-project-form-head"><h2 data-pf-en="Add Python script">添加 Python 脚本</h2>
         <button type="button" id="project-python-close" aria-label="关闭">×</button></div>
-      <p class="pf-project-muted" data-pf-en="Saves a disabled task without executing it. Review the schedule in Tasks before enabling.">只保存脚本，不会立即执行或启用定时。需要自动运行时可另行设置计划。</p>
-      <label><span data-pf-en="Task name">任务名称</span><input id="project-python-name" required maxlength="100" placeholder="firecrawl_mock"></label>
+      <p class="pf-project-muted" data-pf-en="After adding, you can run the script manually or set up a schedule. The script does not run automatically when added.">添加后可手动运行，也可按需设置定时计划。添加时不会自动运行。</p>
+      <label><span data-pf-en="Script name">脚本名称</span><input id="project-python-name" required maxlength="100" placeholder="firecrawl_mock"></label>
       <label><span data-pf-en="Absolute Python interpreter path">Python 解释器绝对路径</span><input id="project-python-exe" required placeholder="D:\Scoop\apps\python312\current\python.exe"></label>
       <label><span data-pf-en="Main script (relative to project directory)">主脚本（相对于项目目录）</span><input id="project-python-script" required placeholder="worker.py"></label>
       <label><span data-pf-en="Launch arguments (one per line)">启动参数（每行一个参数）</span><textarea id="project-python-args" rows="2" placeholder="--limit&#10;10"></textarea></label>
@@ -171,7 +171,7 @@
       <p id="project-python-error" class="pf-project-form-error" role="alert" hidden></p>
       <div class="pf-project-form-footer">
         <button type="button" id="project-python-cancel" class="pf-project-secondary">取消</button>
-        <button type="submit" id="project-python-submit" class="pf-project-primary" data-pf-en="Save disabled task">保存停用任务</button>
+        <button type="submit" id="project-python-submit" class="pf-project-primary" data-pf-en="Add script">添加脚本</button>
       </div>
     </form>
   </div>
