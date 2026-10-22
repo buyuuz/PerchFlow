@@ -71,6 +71,18 @@ with tempfile.TemporaryDirectory(prefix="perch-docker-v1-") as tmp:
         assert body["ok"] is False and body["error"]=="invalid_state",body
         # Docker disconnect is not equivalent to all containers having stopped.
         proc.terminate();proc.wait(timeout=10);proc=None
+        env["DOCKER_HOST"]="tcp://192.168.50.10:2375"
+        proc=subprocess.Popen([str(root/"perch.exe"),"run"],cwd=root,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        deadline=time.time()+12
+        while time.time()<deadline:
+            try:
+                code,body=req("/api/docker/containers")
+                if code==200 and not body["ok"]:break
+            except (OSError,TimeoutError):time.sleep(.2)
+        else:raise AssertionError("Remote Docker host not blocked")
+        assert body["error"]=="remote_engine_blocked" and body["connected"] is False,body
+        proc.terminate();proc.wait(timeout=10);proc=None
+        env.pop("DOCKER_HOST",None)
         env["PF_DOCKER_MOCK_DISCONNECTED"]="1"
         proc=subprocess.Popen([str(root/"perch.exe"),"run"],cwd=root,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
         deadline=time.time()+12

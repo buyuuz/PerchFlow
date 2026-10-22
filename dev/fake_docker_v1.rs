@@ -10,6 +10,7 @@ fn main(){
  let running=fs::read_to_string(&file).unwrap_or("running".into()).trim()=="running";
  match cmd{
   "--version"=>println!("Docker version 27.1.0, build mocked"),
+  "context"=>println!("npipe:////./pipe/docker_engine"),
   "info"=>{
    if env::var("PF_DOCKER_MOCK_DISCONNECTED").ok().as_deref()==Some("1"){
     eprintln!("error during connect: open //./pipe/docker_engine: access is denied");process::exit(1)

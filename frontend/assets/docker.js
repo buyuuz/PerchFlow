@@ -23,7 +23,7 @@
     e.hidden = !msg;
     e.textContent = msg || '';
   }
-  function badge(status) {
+  function badge(status, exitCode) {
     const values = {
       running:[t('运行中','Running'),'is-running'],
       exited:[t('已停止','Stopped'),''],
@@ -33,6 +33,7 @@
       dead:[t('异常退出','Dead'),'is-bad'],
       removing:[t('移除中','Removing'),''],
     };
+    if (status==='exited' && Number(exitCode||0)!==0) return el('span','pf-docker-status is-bad',t('异常退出','Exited with error'));
     const [text,cls] = values[status] || [status||'—','is-bad'];
     return el('span', 'pf-docker-status '+cls, text);
   }
@@ -80,7 +81,7 @@
         first.append(el('div','pf-docker-name',c.name||c.short_id||c.id));
         first.append(el('small','',String(c.image||'')+' · '+String(c.short_id||'')));
         row.append(first);
-        const second=el('td');second.append(badge(c.status));row.append(second);
+        const second=el('td');second.append(badge(c.status,c.exit_code));row.append(second);
         row.append(el('td','',c.cpu_percent===null?t('—','—'):Number(c.cpu_percent).toFixed(2)+'%'));
         row.append(el('td','',c.memory_mib===null?'—':Number(c.memory_mib).toFixed(1)+' MiB'));
         row.append(el('td','',formatUptime(c.uptime_seconds)));
@@ -117,7 +118,7 @@
   function updateOverview(c,info) {
     $('docker-name').textContent=c.name||'—';$('docker-image').textContent=c.image||'—';
     const root=$('docker-info');root.replaceChildren();
-    root.append(item(t('运行状态','Status'), badge(c.status).textContent));
+    root.append(item(t('运行状态','Status'), badge(c.status,c.exit_code).textContent));
     root.append(item(t('CPU 使用率','CPU'),c.cpu_percent===null?'—':Number(c.cpu_percent).toFixed(2)+'%'));
     root.append(item(t('内存使用量','Memory'),c.memory_mib===null?'—':Number(c.memory_mib).toFixed(1)+' MiB'));
     root.append(item(t('运行时长','Uptime'),formatUptime(c.uptime_seconds)));

@@ -19,7 +19,7 @@ pub fn routes()->Router<WebContext>{
 #[derive(Debug)] struct DockerError{code:&'static str,message:String}
 type Result<T>=std::result::Result<T,DockerError>;
 fn error(code:&'static str,message:impl Into<String>)->DockerError{DockerError{code,message:message.into()}}
-fn failed(e:DockerError)->Value{json!({"ok":false,"connected":!matches!(e.code,"cli_not_found"|"engine_unavailable"),"error":e.code,"message":e.message})}
+fn failed(e:DockerError)->Value{json!({"ok":false,"connected":!matches!(e.code,"cli_not_found"|"engine_unavailable"|"remote_engine_blocked"),"error":e.code,"message":e.message})}
 fn cli_path()->Result<PathBuf>{
  for key in ["PERCHFLOW_DOCKER_CLI","DOCKER_CLI_PATH"]{
    if let Some(v)=std::env::var_os(key){let p=PathBuf::from(v);
@@ -47,8 +47,26 @@ async fn cli(path:&PathBuf,args:&[&str],secs:u64)->Result<(String,String)>{
  if !o.status.success(){return Err(error("docker_error",format!("Docker exited {:?}: {}",o.status.code(),stderr.trim()).chars().take(1100).collect::<String>()))}
  Ok((stdout,stderr))
 }
+fn local_endpoint(host:&str)->bool{
+ let host=host.trim().trim_matches('"').to_ascii_lowercase();
+ host.starts_with("npipe:////./pipe/") || host.starts_with("npipe://./pipe/") ||
+ host.starts_with("tcp://127.0.0.1:") || host.starts_with("tcp://localhost:") ||
+ host.starts_with("tcp://[::1]:") || host=="unix:///var/run/docker.sock"
+}
 async fn engine()->Result<PathBuf>{
  let path=cli_path()?;
+ // Docker CLI uses contexts and DOCKER_HOST, which may point to remote hosts.
+ // V1 must never operate on a remote Docker daemon.
+ if let Ok(v)=std::env::var("DOCKER_HOST"){
+  if !v.trim().is_empty() && !local_endpoint(&v){
+   return Err(error("remote_engine_blocked","Remote DOCKER_HOST is not supported; only local Docker Engine can be managed"));
+  }
+ }
+ let endpoint=cli(&path,&["context","inspect","--format","{{.Endpoints.docker.Host}}"],6)
+     .await.map_err(|e|error("engine_unavailable",format!("Cannot read current Docker context: {}",e.message)))?.0;
+ if !local_endpoint(&endpoint){
+  return Err(error("remote_engine_blocked",format!("Remote Docker context refused (endpoint: {})",endpoint.trim())));
+ }
  match cli(&path,&["info","--format","{{.ServerVersion}}"],7).await{
   Ok((version,_)) if !version.trim().is_empty()=>Ok(path),
   Ok(_)=>Err(error("engine_unavailable","Docker Engine did not return a server version")),
@@ -231,4 +249,5 @@ async fn restart(Path(id):Path<String>)->Json<Value>{operation(id,"restart").awa
  #[test]fn safe_ids(){assert!(id_ok(&"a".repeat(64)));assert!(!id_ok("mysql"));assert!(!id_ok(&"a".repeat(12)));assert!(!id_ok(&format!("{};","a".repeat(63))))}
  #[test]fn resource_units(){assert_eq!(parse_mem("100.8MiB / 2GiB"),Some(105696460));assert_eq!(parse_mem("1.5GiB"),Some(1610612736));assert_eq!(cpu("0.20%"),Some(0.2));assert_eq!(cpu("—"),None)}
  #[test]fn exited_not_running(){assert!(uptime("2026-10-20T00:00:00Z","exited").is_none())}
+ #[test]fn local_context_only(){assert!(local_endpoint("npipe:////./pipe/docker_engine"));assert!(local_endpoint("tcp://127.0.0.1:2375"));assert!(!local_endpoint("ssh://root@server"));assert!(!local_endpoint("tcp://192.168.1.2:2375"));}
 }
