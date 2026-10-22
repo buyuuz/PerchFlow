@@ -26,7 +26,7 @@ fn cli_path()->Result<PathBuf>{
      return if p.is_absolute()&&p.is_file(){Ok(p)}else{Err(error("cli_not_found",format!("{key} must be an existing absolute file")))}
    }
  }
- #[cfg(windows)] for p in [r"C:\Program Files\Docker\Docker\resources\bin\docker.exe",r"C:\Program Files\Docker\docker.exe"]{
+ #[cfg(windows)] for p in [r"C:\Program Files\ContainerDesktop\cli\docker.exe",r"C:\Program Files\Docker\Docker\resources\bin\docker.exe",r"C:\Program Files\Docker\docker.exe"]{
    let path=PathBuf::from(p);if path.is_file(){return Ok(path)}
  }
  if let Some(paths)=std::env::var_os("PATH"){
