@@ -13,6 +13,7 @@ on:
       - feature/project-hub-safe-log-naming
       - feature/project-hub-pf018-pf021
       - feature/project-hub-pf022-pf025
+      - feature/project-hub-pf026-pf032
   workflow_dispatch:
 
 permissions:
@@ -34,15 +35,18 @@ jobs:
           node --check frontend/assets/projects.js
           node --check frontend/assets/tasks.js
           node --check frontend/assets/task-detail.js
+          node --check frontend/assets/pf-dialog.js
+          node --check frontend/assets/processes.js
           python -m py_compile dev/local-test/demo/mock_worker.py
           python -m py_compile dev/verify_project_hub_multi_python.py
-      - name: Edge mocked UI viewport + interaction regression (PF-005..PF-025)
+      - name: Edge mocked UI viewport + interaction regression (PF-005..PF-032)
         shell: pwsh
         run: |
           python -m pip install playwright
           python dev/verify_project_hub_ui_consistency.py
           python dev/verify_project_hub_pf012_pf017.py
           python dev/verify_project_hub_pf018_pf021.py
+          python dev/verify_project_hub_pf026_pf032.py
       - name: Compile 64-bit Windows executable
         shell: pwsh
         run: |
@@ -53,7 +57,7 @@ jobs:
       - name: Assemble clean portable folder
         shell: pwsh
         run: |
-          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-PF022-PF025-UI-Test-Win64'
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-PF026-PF032-Test-Win64'
           New-Item -ItemType Directory -Path $folder -Force | Out-Null
           Copy-Item -LiteralPath 'target/release/perch.exe' -Destination $folder
           Copy-Item -LiteralPath 'dev/local-test/Start-Test.ps1' -Destination $folder
@@ -68,7 +72,7 @@ jobs:
       - name: Smoke-test local launcher and disabled demo in temporary directory
         shell: pwsh
         run: |
-          $source = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-PF022-PF025-UI-Test-Win64'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-PF026-PF032-Test-Win64'
           $smoke = Join-Path $env:RUNNER_TEMP 'perch-rc-localtest-smoke'
           Copy-Item -LiteralPath $source -Destination $smoke -Recurse
           try {
@@ -135,7 +139,7 @@ jobs:
       - name: Verify real-time Python log is visible BEFORE child exit
         shell: pwsh
         run: |
-          $source = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-PF022-PF025-UI-Test-Win64'
+          $source = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-PF026-PF032-Test-Win64'
           $smoke = Join-Path $env:RUNNER_TEMP 'perch-rc-live-output-smoke'
           Copy-Item -LiteralPath $source -Destination $smoke -Recurse
           try {
@@ -185,19 +189,19 @@ jobs:
       - name: Zip portable test folder and publish SHA-256
         shell: pwsh
         run: |
-          $zip = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-PF022-PF025-UI-Test-Win64.zip'
-          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-PF022-PF025-UI-Test-Win64'
+          $zip = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-PF026-PF032-Test-Win64.zip'
+          $folder = Join-Path $env:GITHUB_WORKSPACE 'dist/PerchFlow-PF026-PF032-Test-Win64'
           Compress-Archive -Path $folder -DestinationPath $zip -CompressionLevel Optimal -Force
           $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
-          $line = $hash + '  PerchFlow-PF022-PF025-UI-Test-Win64.zip'
+          $line = $hash + '  PerchFlow-PF026-PF032-Test-Win64.zip'
           [IO.File]::WriteAllText(($zip + '.sha256.txt'), $line + [Environment]::NewLine)
           Write-Host ('Release candidate ZIP SHA256: ' + $hash)
       - name: Upload test ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: perchflow-pf022-pf025-windows-ui-test
+          name: perchflow-pf026-pf032-windows-ui-test
           path: |
-            dist/PerchFlow-PF022-PF025-UI-Test-Win64.zip
-            dist/PerchFlow-PF022-PF025-UI-Test-Win64.zip.sha256.txt
+            dist/PerchFlow-PF026-PF032-Test-Win64.zip
+            dist/PerchFlow-PF026-PF032-Test-Win64.zip.sha256.txt
           if-no-files-found: error
           retention-days: 30

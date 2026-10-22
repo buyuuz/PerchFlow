@@ -95,6 +95,8 @@ let taskSortKey = null;
 let taskSortAsc = true;
 let taskRequestSequence = 0;
 const selectedTasks = new Set();
+const runningTaskRequests = new Set();
+let activeHistoryLogRequest=0;
 
 function visibleTasks() {
   const needle = taskSearch.trim().toLocaleLowerCase();
@@ -197,60 +199,98 @@ async function executeTaskOperation(path, options) {
 }
 
 async function runNow(name) {
-  try { await executeTaskOperation(`/api/tasks/${name}/run`, {method:'POST'}); }
-  catch (error) { taskError(error); }
+  if(runningTaskRequests.has(name))return;
+  runningTaskRequests.add(name);
+  try {await executeTaskOperation('/api/tasks/'+name+'/run',{method:'POST'});}
+  catch(error){taskError(error);}
+  finally{runningTaskRequests.delete(name);}
 }
 
-async function showTaskHistory(name) {
-  try {
-    const data = await apiJson(`/api/tasks/${encodeURIComponent(name)}/history`);
-    if (!data.ok) throw new Error(data.error || 'History unavailable');
-    const modal = document.getElementById('task-history-modal');
-    const list = document.getElementById('task-history-list');
-    const log = document.getElementById('task-run-log');
-    document.getElementById('task-history-title').textContent = name + ' · 执行历史';
+function historyTimestamp(time){
+  if(!time)return '—';
+  const d=new Date(time);
+  if(!Number.isFinite(d.valueOf()))return '—';
+  return d.toLocaleString(typeof getLang==='function'&&getLang()==='en'?'en-US':'zh-CN',
+    {year:'numeric',month:'2-digit',day:'2-digit',
+     hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+function historyStatus(status){
+  const map={success:'成功',failed:'失败',running:'运行中',cancelled:'已取消',
+    blocked:'预检阻止',timeout:'超时',interrupted:'中断'};
+  return map[status]||status||'—';
+}
+async function showTaskHistory(name){
+  try{
+    const data=await apiJson('/api/tasks/'+encodeURIComponent(name)+'/history');
+    if(!data.ok)throw Error(data.error||'History unavailable');
+    const modal=document.getElementById('task-history-modal');
+    const list=document.getElementById('task-history-list');
+    const log=document.getElementById('task-run-log');
+    document.getElementById('task-history-title').textContent=name+' · 执行历史';
     list.replaceChildren();
-    log.textContent = '选择一条记录查看日志';
-    const runs = (data.runs || []).slice(0, 30);
-    if (!runs.length) list.textContent = '尚无执行历史';
-    for (const run of runs) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'text-left border border-white/10 rounded p-2 text-sm hover:bg-white/10';
-      b.textContent = `${run.started_at || '-'} · ${run.status} · Exit ${run.exit_code ?? '-'}`;
-      b.onclick = () => { void showTaskLog(name, run.run_id); };
-      list.appendChild(b);
+    log.textContent='选择上方一条记录查看对应的日志';
+    const runs=Array.isArray(data.runs)?data.runs.slice(0,30):[];
+    if(!runs.length)list.textContent='暂无执行记录';
+    for(const run of runs){
+      const b=document.createElement('button');
+      b.type='button';b.className='pf-task-history-record';
+      b.dataset.runId=run.run_id;
+      const heading=document.createElement('span');
+      heading.className='pf-task-history-record-top';
+      const time=document.createElement('strong');
+      time.textContent=historyTimestamp(run.started_at);
+      const state=document.createElement('span');
+      state.className='pf-task-history-state';
+      state.dataset.status=run.status||'none';
+      state.textContent=historyStatus(run.status);
+      heading.append(time,state);
+      const detail=document.createElement('small');
+      detail.textContent='退出码：'+(run.exit_code??'—')+'  ·  时长：'+
+        (run.duration_ms!=null?(Number(run.duration_ms)/1000).toFixed(1)+'s':'—');
+      b.append(heading,detail);
+      b.addEventListener('click',()=>{
+        list.querySelectorAll('.pf-task-history-record').forEach(row=>{
+          row.setAttribute('aria-current',String(row===b));
+        });
+        void showTaskLog(name,run.run_id);
+      });
+      list.append(b);
     }
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    if (runs.length) void showTaskLog(name, runs[0].run_id);
-  } catch (error) { taskError(error); }
+    modal.classList.remove('hidden');modal.classList.add('flex');
+    if(runs.length)list.querySelector('.pf-task-history-record').click();
+  }catch(error){taskError(error);}
 }
 
-async function showTaskLog(name, runId) {
-  const log = document.getElementById('task-run-log');
-  log.textContent = '正在读取日志...';
-  try {
-    const data = await apiJson(`/api/tasks/${encodeURIComponent(name)}/log/${encodeURIComponent(runId)}`);
-    if (!data.ok) throw new Error(data.error || 'No log');
-    log.textContent = (data.truncated ? '[输出过长，已截取末尾内容]\\n' : '') + (data.content || '（没有输出）');
-  } catch (error) { log.textContent = error.message || String(error); }
+async function showTaskLog(name,runId){
+  const request=++activeHistoryLogRequest;
+  const log=document.getElementById('task-run-log');
+  log.textContent='正在读取日志…';
+  try{
+    const data=await apiJson('/api/tasks/'+encodeURIComponent(name)+'/log/'+encodeURIComponent(runId));
+    if(request!==activeHistoryLogRequest)return;
+    if(!data.ok)throw Error(data.error||'No log');
+    log.textContent=(data.truncated?'[日志过长，仅显示末尾内容]\n':'')+(data.content||'（没有输出）');
+    log.scrollTop=0;
+  }catch(error){
+    if(request===activeHistoryLogRequest)log.textContent=error.message||String(error);
+  }
 }
 
 function closeTaskHistory() {
+  ++activeHistoryLogRequest;
   const modal = document.getElementById('task-history-modal');
   modal.classList.add('hidden');
   modal.classList.remove('flex');
 }
 
 async function stopTask(name) {
-  if (!confirm('确认停止正在运行的任务？')) return;
+  if (!await PerchDialog.confirm('确认停止正在运行的任务？',{title:'停止任务',danger:true})) return;
   try { await executeTaskOperation(`/api/tasks/${encodeURIComponent(name)}/stop`, {method:'POST'}); }
   catch (error) { taskError(error); }
 }
 
 async function deleteTask(name) {
-  if (!confirm(t('confirm.delete_task'))) return;
+  if (!await PerchDialog.confirm(t('confirm.delete_task'),{title:'删除定时任务',danger:true})) return;
   try { await executeTaskOperation(`/api/tasks/${name}`, {method:'DELETE'}); }
   catch (error) { taskError(error); }
 }
@@ -414,21 +454,24 @@ async function submitTaskModal() {
 }
 
 async function bindExistingScript() {
-  try {
+  try{
     const result=await apiJson('/api/tasks?scope=unscheduled');
-    const options=(result.tasks||[]).filter(task=>task.project);
-    if(!options.length){alert('没有可关联的项目脚本。先在「项目」页面添加 Python 脚本。');return;}
-    const names=options.map(item=>item.name);
-    const name=prompt('选择要添加定时计划的项目脚本：\\n'+names.map((v,i)=>(i+1)+'. '+v).join('\\n')+'\\n输入序号');
-    if(name===null)return;
-    const i=Number(name)-1;
-    if(!Number.isInteger(i)||i<0||i>=names.length){alert('序号无效');return;}
-    const schedule=prompt('Cron 表达式（含秒，6/7 段）。保存后默认暂停：','0 0 0 * * *');
-    if(schedule===null)return;
-    if(!schedule.trim()){alert('请输入 Cron 表达式');return;}
-    if(!confirm('为「'+names[i]+'」添加定时计划（默认暂停）？'))return;
-    await executeTaskOperation('/api/tasks/'+encodeURIComponent(names[i])+'/schedule',
-      {method:'PUT',body:JSON.stringify({schedule:schedule.trim(),enabled:false})});
+    if(result.ok===false)throw Error(result.error||'获取已有脚本失败');
+    const options=(result.tasks||[]).filter(task=>Boolean(task.project));
+    if(!options.length){
+      await PerchDialog.notice('没有可关联的项目脚本。请先在「项目」页面添加 Python 脚本。');
+      return;
+    }
+    const selected=await PerchDialog.chooseScript(options);
+    if(!selected)return;
+    await PerchDialog.cron({
+      title:'为「'+selected.name+'」添加定时计划',
+      editing:false,initial:'0 0 0 * * *',
+      onSave:async schedule=>{
+        await executeTaskOperation('/api/tasks/'+encodeURIComponent(selected.name)+'/schedule',
+          {method:'PUT',body:JSON.stringify({schedule,enabled:true})});
+      }
+    });
   }catch(error){taskError(error);}
 }
 

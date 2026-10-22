@@ -22,6 +22,7 @@ pub fn routes() -> Router<WebContext> {
         .route("/projects", get(list).post(create))
         .route("/projects/:name", get(detail).put(update).delete(remove))
         .route("/projects/:name/python-task", axum::routing::post(add_python_task))
+        .route("/projects/:name/tasks/:task", axum::routing::delete(delete_project_task))
         .route("/projects/:name/tasks/:task/files", get(task_file_candidates))
         .route("/projects/:name/tasks/:task/settings", axum::routing::put(update_script_settings))
         .route("/projects/:name/tasks/:task/open-file", axum::routing::post(open_task_file))
@@ -377,6 +378,40 @@ async fn add_python_task(
     Json(json!({"ok":true,"task":body.name,"enabled":false}))
 }
 
+
+
+/// Removes a project-owned *task definition*, not the Python source, project
+/// inputs/outputs, external documents, or retained execution log files.
+async fn delete_project_task(
+    State(ctx): State<WebContext>, Path((project_name, task_name)): Path<(String, String)>,
+) -> Json<Value> {
+    if ctx.scheduler.is_running(&task_name).await {
+        return Json(json!({"ok":false,"error":"task is running; stop it before deleting"}));
+    }
+    let mut current=ctx.state.config.write().await;
+    let Some(project_index)=current.project.iter().position(|p|
+        p.name==project_name && p.tasks.iter().any(|name| name==&task_name)) else {
+        return Json(json!({"ok":false,"error":"project/task not found"}));
+    };
+    if current.task.iter().all(|t|t.name!=task_name) {
+        return Json(json!({"ok":false,"error":"task not found"}));
+    }
+    let mut next=current.clone();
+    next.task.retain(|t|t.name!=task_name);
+    next.project[project_index].tasks.retain(|t|t!=&task_name);
+    if let Err(err)=config::validate(&next) {
+        return Json(json!({"ok":false,"error":err.to_string()}));
+    }
+    if let Err(err)=writer::save(&ctx.state.config_path,&next) {
+        return Json(json!({"ok":false,"error":err.to_string()}));
+    }
+    *current=next;
+    drop(current);
+    ctx.state.tasks.write().await.remove(&task_name);
+    ctx.scheduler.reload().await;
+    Json(json!({"ok":true,"project":project_name,"task":task_name,
+        "source_files_deleted":false}))
+}
 
 /// Read-only current readiness check. Does not launch the task or open file bodies.
 /// Uses the same bearer-token protection as other /api routes.

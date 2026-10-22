@@ -172,7 +172,7 @@ async fn update(
 struct ScheduleRequest {
     schedule: String,
     #[serde(default)]
-    enabled: bool,
+    enabled: Option<bool>,
 }
 
 /// Add/update a Cron plan without touching the script's identity, command,
@@ -190,15 +190,18 @@ async fn set_schedule(
     };
     let mut next = current.clone();
     next.task[idx].schedule = req.schedule.trim().to_owned();
-    next.task[idx].enabled = req.enabled;
+    // A newly attached Cron defaults to enabled; editing keeps its state unless specified.
+    let was_scheduled = !current.task[idx].schedule.trim().is_empty();
+    next.task[idx].enabled = req.enabled.unwrap_or(if was_scheduled { current.task[idx].enabled } else { true });
     if let Err(err) = crate::config::validate(&next) {
         return Json(json!({"ok":false,"error":err.to_string()}));
     }
+    let resolved_enabled=next.task[idx].enabled;
     let result = save_task_config(&mut current,next,&ctx);
     drop(current);
     if result.is_err() { return op_result(result); }
     ctx.scheduler.reload().await;
-    Json(json!({"ok":true,"name":name,"schedule":req.schedule.trim(),"enabled":req.enabled}))
+    Json(json!({"ok":true,"name":name,"schedule":req.schedule.trim(),"enabled":resolved_enabled}))
 }
 
 /// Only project-linked tasks can remove a schedule without losing their

@@ -56,6 +56,7 @@
             background: rgba(255, 255, 255, 0.2);
         }
     </style>
+<link rel="stylesheet" href="/assets/pf-dialog.css">
 </head>
 <body class="bg-background text-on-background min-h-screen font-body-md selection:bg-primary-container/30">
 <!-- TopNavBar (与 processes.html 一致) -->
@@ -202,7 +203,7 @@
 </div>
 </div>
 <!-- Task history and bounded output viewer -->
-<div id="task-history-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+<div id="task-history-modal" role="dialog" aria-modal="true" aria-labelledby="task-history-title" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4">
   <div class="glass-card w-full max-w-3xl rounded-xl p-5 flex flex-col gap-3" style="max-height:85vh">
     <div class="flex items-center justify-between gap-3">
       <h2 id="task-history-title" class="font-headline-md text-headline-md text-on-surface">执行历史</h2>
@@ -227,6 +228,7 @@
 </nav>
 <script src="/assets/i18n.js"></script>
 <script src="/assets/app.js"></script>
+<script src="/assets/pf-dialog.js"></script>
 <script src="/assets/topbar-controls.js?v=top2"></script>
 <script src="/assets/tasks.js"></script>
 </body></html>

@@ -252,10 +252,11 @@ async function poll() {
 }
 async function act(action) {
   if(!checkedOwnership || actionBusy)return;
-  const confirmed=window.confirm(tx(action==='run'?
-    '点击确定会在 PerchFlow 所在电脑上执行真实 Python 脚本。继续？':'停止当前运行的 Python 脚本？'));
-  if(!confirmed)return;
+  if(action==='stop'&&!await PerchDialog.confirm('停止当前运行的 Python 脚本？',
+      {title:'停止脚本',danger:true}))return;
   actionBusy=true;
+  node('task-run').disabled=true;
+  node('task-stop').disabled=true;
   try {
     const result=await get(apiTask+(action==='run'?'/run':'/stop'),{method:'POST'});
     if(result.already_finished) message('任务已经结束，状态已同步。');
@@ -409,22 +410,24 @@ document.addEventListener('DOMContentLoaded',()=>{
     // Clear the visible console only; never remove retained log files.
     logOpted=false;
     logReset();
-  });  node('task-schedule-add').addEventListener('click',async()=>{
+  });
+  node('task-schedule-add').addEventListener('click',async()=>{
     if(!checkedOwnership||!latestTask)return;
-    const value=window.prompt('Cron 表达式（含秒，6/7 段）。保存后默认暂停，需在「定时任务」页面启用：',
-      latestTask.schedule||'0 0 0 * * *');
-    if(value===null)return;
-    const schedule=value.trim();
-    if(!schedule){message('请输入 Cron 表达式');return;}
-    if(!window.confirm('将为该脚本保存定时计划（默认暂停）。确认？'))return;
-    try {
-      await get(apiTask+'/schedule',{method:'PUT',body:JSON.stringify({schedule,enabled:false})});
-      await poll();
-    }catch(e){message(e.message);}
+    const wasScheduled=Boolean(latestTask.schedule);
+    await PerchDialog.cron({
+      title:wasScheduled?'修改定时计划':'添加定时计划',
+      initial:latestTask.schedule||'0 0 0 * * *', editing:wasScheduled,
+      onSave:async schedule=>{
+        await get(apiTask+'/schedule',{method:'PUT',
+          body:JSON.stringify({schedule,enabled:wasScheduled?latestTask.enabled:true})});
+        await poll();
+      }
+    });
   });
   node('task-schedule-remove').addEventListener('click',async()=>{
     if(!checkedOwnership||!latestTask||!latestTask.schedule)return;
-    if(!window.confirm('仅移除这个脚本的 Cron 计划，保留脚本和日志；运行中的任务不会被停止。确认？'))return;
+    if(!await PerchDialog.confirm('仅移除该脚本的 Cron 计划，保留脚本及日志，运行中的任务不受影响。',
+      {title:'移除定时计划',danger:true}))return;
     try{await get(apiTask+'/schedule',{method:'DELETE'});await poll();}
     catch(e){message(e.message);}
   });

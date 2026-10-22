@@ -276,6 +276,8 @@ function updateProjectTaskRow(row, task) {
   const stop = row.querySelector('[data-task-action="stop"]');
   if (run) {run.disabled = !task || running || busyTasks.has(name); run.hidden = running;}
   if (stop) {stop.disabled = !task || !running || busyTasks.has(name); stop.hidden = !running;}
+  const remove = row.querySelector('.pf-project-delete-script');
+  if(remove)remove.disabled = !task || running || busyTasks.has(name);
 }
 async function renderProjectDetail() {
   const placeholder = byId('project-empty'), target = byId('project-detail');
@@ -340,7 +342,11 @@ async function renderProjectDetail() {
     stop.dataset.taskAction = 'stop';
     const detail = el('a','pf-project-secondary pf-project-detail-link',pfL('详情'));
     detail.href = taskDetailHref(name);
-    actions.append(run,stop,detail);
+    const remove = actionButton('删除','pf-project-danger pf-project-delete-script',
+      () => {void deleteProjectScript(name);});
+    remove.disabled = !task || task.status === 'running';
+    remove.title = task?.status === 'running' ? '请先停止脚本' : '只删除任务配置，不删除 Python 文件';
+    actions.append(run,stop,detail,remove);
     row.append(info,state,last,mode,actions);
     row.addEventListener('click',event=>{
       if(!event.target.closest('button,a,input')) window.location.assign(taskDetailHref(name));
@@ -389,14 +395,12 @@ async function operateProjectTask(name, action) {
   const task = taskViews.find(t => t.name === name);
   if (!project?.tasks.includes(name) || !task || busyTasks.has(name)) return;
   const url = '/api/tasks/' + encodeURIComponent(name);
-  if (action === 'run' && !window.confirm(
-    pfL('现在执行「') + name + pfL('」？这将启动配置的真实脚本，即使定时调度已暂停。')
+  if (action === 'schedule' && !await PerchDialog.confirm(
+    (task.enabled ? '暂停' : '启用') + '「' + name + '」的 Cron 定时？',
+    {title:'定时计划状态'}
   )) return;
-  if (action === 'schedule' && !window.confirm(
-    (task.enabled ? pfL('暂停') : pfL('启用')) + '「' + name + pfL('」的 Cron 定时？') +
-    (task.enabled ? pfL(' 正在运行的任务不会被终止。') : pfL(' 启用后将根据 Cron 自动执行脚本。'))
-  )) return;
-  if (action === 'stop' && !window.confirm(pfL('停止「') + name + pfL('」当前正在运行的任务？'))) return;
+  if (action === 'stop' && !await PerchDialog.confirm('停止「' + name + '」当前运行的任务？',
+    {title:'停止脚本',danger:true})) return;
   busyTasks.add(name);
   try {
     let result;
@@ -519,10 +523,27 @@ async function saveProject(event) {
   } finally { button.disabled = false; }
 }
 
+async function deleteProjectScript(name) {
+  const selected=currentProjectName;
+  const task=taskViews.find(item=>item.name===name);
+  if(!selected || !task || busyTasks.has(name) || task.status==='running')return;
+  const yes=await PerchDialog.confirm(
+    '仅移除「'+name+'」在 PerchFlow 中的任务定义、项目关联及 Cron 计划。不会删除磁盘上的 .py、Excel、TXT 等文件。',
+    {title:'删除执行脚本',ok:'确认删除',danger:true});
+  if(!yes)return;
+  busyTasks.add(name);
+  try{
+    await requestJson('/api/projects/'+encodeURIComponent(selected)+
+      '/tasks/'+encodeURIComponent(name),'DELETE');
+    if(currentProjectName===selected)await loadProjects(selected);
+  }catch(error){displayError(error);}
+  finally{busyTasks.delete(name);}
+}
+
 async function deleteProject() {
   if (!currentProjectName) return;
   const name = currentProjectName;
-  if (!window.confirm(pfL('删除项目「') + name + pfL('」的管理关联？不会删除关联任务和任何文件。'))) return;
+  if (!await PerchDialog.confirm(pfL('删除项目「') + name + pfL('」的管理关联？不会删除关联任务和任何文件。'),{title:'删除项目',danger:true})) return;
   try {
     await requestJson('/api/projects/' + encodeURIComponent(name), 'DELETE');
     await loadProjects(null);
