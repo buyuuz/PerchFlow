@@ -42,3 +42,12 @@ jobs:
           $PSNativeCommandUseErrorActionPreference=$true
           python dev/verify_docker_v1.py --exe target/release/perch.exe --mock target/mock/docker.exe
           if ($LASTEXITCODE -ne 0) { throw 'Docker V1 mock runtime validation failed' }
+      - name: Edge browser regression for Docker dashboard and dialogs
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $PSNativeCommandUseErrorActionPreference=$true
+          python -m pip install playwright
+          if ($LASTEXITCODE -ne 0) { throw 'Playwright installation failed' }
+          python dev/verify_docker_ui_v1.py
+          if ($LASTEXITCODE -ne 0) { throw 'Docker V1 browser regression failed' }

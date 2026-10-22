@@ -140,7 +140,7 @@
     if (c) {updateButtons(c);updateOverview(c);}
     else {updateButtons({status:'unknown'});$('docker-info').replaceChildren();}
     await Promise.all([refreshDetail(),refreshLogs()]);
-    window.scrollTo({top:0,behavior:'instant'});
+    window.scrollTo({top:0,behavior:'auto'});
   }
   function back() {
     state.selected=null;$('docker-detail-screen').hidden=true;$('docker-list-screen').hidden=false;
