@@ -1,0 +1,48 @@
+name: Task runtime reliability CI
+on:
+  push:
+    branches:
+      - feature/task-runtime-reliability
+      - feature/project-hub-v2
+      - feature/project-hub-v3
+      - feature/project-hub-v4
+      - feature/project-hub-v5
+      - feature/project-hub-acceptance
+      - feature/project-hub-pf001-pf004
+      - feature/project-hub-optional-cron
+      - feature/project-hub-rc-compat
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'frontend/**'
+      - '.github/workflows/task-runtime-ci.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Cargo tests
+        run: cargo test
+      - name: Release build
+        run: cargo build --release
+      - name: JavaScript syntax and argument tests
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          node --check frontend/assets/tasks.js
+          node --check frontend/assets/projects.js
+          node dev/test_task_args.js
+      - name: Isolated Windows EXE mock simulation
+        run: python dev/simulate_task_runtime_binary.py --exe target/release/perch.exe
+      - name: Upload mock simulation summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perchflow-mock-only-verification
+          path: dev/reports/mock-runtime-ci.json
+          if-no-files-found: warn
+          retention-days: 14

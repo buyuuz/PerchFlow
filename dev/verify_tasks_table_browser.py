@@ -2,12 +2,13 @@
 Only http://127.0.0.1:9011 mock mode; never touches actual Perch process API.
 """
 from pathlib import Path
+import os
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 SCREEN = ROOT / "dev" / "screenshots"
 SCREEN.mkdir(exist_ok=True)
-BASE = "http://127.0.0.1:9011"
+BASE = os.environ.get("PERCH_PREVIEW_URL", "http://127.0.0.1:9011")
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 
 
@@ -21,6 +22,7 @@ def main():
         page.on("pageerror", lambda exc: errors.append(str(exc)))
         state = page.request.get(BASE + "/_dev/status").json()
         assert state["app"] == "perchflow-dev-preview" and state["mode"] == "mock", state
+        assert Path(state["frontend"]).resolve() == (ROOT / "frontend").resolve(), "Wrong frontend served for browser QA"
 
         for width in (1648, 1440, 390):
             page.set_viewport_size({"width": width, "height": 900})
@@ -99,6 +101,22 @@ def main():
             return r && r.querySelector('.pf-task-status--enabled');
         }""")
 
+        # The new history modal is read-only; mocked routes avoid launching real tasks.
+        page.route("**/api/tasks/*/history", lambda route: route.fulfill(
+            status=200, content_type="application/json",
+            body='{"ok":true,"runs":[{"run_id":"100-1-1","started_at":"2026-10-20T01:00:00Z","status":"success","exit_code":0}]}'
+        ))
+        page.route("**/api/tasks/*/log/*", lambda route: route.fulfill(
+            status=200, content_type="application/json",
+            body='{"ok":true,"content":"SAMPLE TASK OUTPUT","truncated":false}'
+        ))
+        row.locator('[data-task-action="history"]').click()
+        page.locator("#task-history-modal").wait_for(state="visible")
+        page.wait_for_function("() => document.querySelector('#task-run-log').textContent.includes('SAMPLE TASK OUTPUT')")
+        assert page.locator("#task-history-list button").count() == 1
+        page.locator('button[onclick="closeTaskHistory()"]').click()
+        assert not page.locator("#task-history-modal").is_visible()
+
         row.locator('[data-task-action="edit"]').click()
         assert page.locator("#task-modal").is_visible()
         assert page.locator("#task-name").input_value() == "Morning Check (DEMO)"
@@ -149,7 +167,7 @@ def main():
         page.wait_for_url("**/tasks")
         page.locator("tr[data-task-name]").first.wait_for()
         assert not errors, errors
-        print("TASK_TABLE_BROWSER=PASS: search/sort/selection/copy/toggle/edit/run/add/delete/lang/polling/navigation",flush=True)
+        print("TASK_TABLE_BROWSER=PASS: search/sort/selection/copy/toggle/edit/run/history/log/add/delete/lang/polling/navigation",flush=True)
         browser.close()
 
 

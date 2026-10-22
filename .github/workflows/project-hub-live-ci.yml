@@ -1,0 +1,40 @@
+name: Project Hub live run/log Edge regression
+
+on:
+  push:
+    branches:
+      - feature/project-hub-live-runs
+    paths:
+      - 'frontend/**'
+      - 'dev/verify_project_hub_live.py'
+      - 'dev/verify_project_hub_browser.py'
+      - '.github/workflows/project-hub-live-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  edge-live:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated Playwright
+        run: python -m pip install playwright
+      - name: Check browser JavaScript and Python test syntax
+        run: |
+          node --check frontend/assets/projects.js
+          python -m py_compile dev/verify_project_hub_live.py
+      - name: Run mock-only live-log and history UI tests
+        run: python dev/verify_project_hub_live.py
+      - name: Upload UI evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perchflow-live-run-ui-verification
+          path: |
+            dev/reports/project-hub-live.json
+            dev/reports/project-hub-live-details.png
+          retention-days: 14
+          if-no-files-found: warn

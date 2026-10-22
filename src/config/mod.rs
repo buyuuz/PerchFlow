@@ -40,8 +40,70 @@ pub fn validate(cfg: &Config) -> Result<()> {
         if !seen.insert(("t", t.name.as_str())) {
             return Err(PerchError::Config(format!("duplicate task name: {}", t.name)));
         }
-        cron::Schedule::from_str(&t.schedule)
-            .map_err(|e| PerchError::Config(format!("bad cron for {}: {e}", t.name)))?;
+        if t.schedule.trim().is_empty() {
+            if t.enabled {
+                return Err(PerchError::Config(format!("task {} has no schedule; enabled must be false", t.name)));
+            }
+        } else {
+            cron::Schedule::from_str(&t.schedule)
+                .map_err(|e| PerchError::Config(format!("bad cron for {}: {e}", t.name)))?;
+        }
+    }
+    // Project identities and file paths are metadata, never arbitrary filesystem routes.
+    // Restrict references to relative, normal path components under the project root.
+    let mut names = HashSet::new();
+    let mut assigned = HashSet::new();
+    for project in &cfg.project {
+        if project.name.trim().is_empty() || project.name.len() > 100 {
+            return Err(PerchError::Config("project name must be 1-100 characters".into()));
+        }
+        if !names.insert(project.name.as_str()) {
+            return Err(PerchError::Config(format!("duplicate project: {}", project.name)));
+        }
+        let root = Path::new(&project.root);
+        // Missing/offline project drives should not stop the whole PerchFlow service.
+        // The read-only file-status API reports unavailable files instead.
+        if !root.is_absolute() {
+            return Err(PerchError::Config(format!("project {} needs an absolute directory path", project.name)));
+        }
+        let mut local = HashSet::new();
+        for name in &project.tasks {
+            if !cfg.task.iter().any(|t| &t.name == name) {
+                return Err(PerchError::Config(format!("unknown task {} in project {}", name, project.name)));
+            }
+            if !local.insert(name.as_str()) || !assigned.insert(name.as_str()) {
+                return Err(PerchError::Config(format!("task {} cannot belong to multiple projects", name)));
+            }
+        }
+        if project.output_dirs.len() > 8 {
+            return Err(PerchError::Config(format!("project {} has more than 8 output directories", project.name)));
+        }
+        for path in project.inputs.iter().chain(project.outputs.iter()).chain(project.output_dirs.iter()) {
+            if path.len() > 512 || !safe_relative_path(path) {
+                return Err(PerchError::Config(format!("unsafe or oversized path in project {}", project.name)));
+            }
+        }
+        let mut dir_set = HashSet::new();
+        for dir in &project.output_dirs {
+            if !dir_set.insert(dir.to_lowercase()) {
+                return Err(PerchError::Config(format!("duplicate output directory in project {}", project.name)));
+            }
+        }
     }
     Ok(())
+}
+
+/// Relative paths only. Block parent, absolute, UNC and drive-prefixed paths.
+pub fn safe_relative_path(raw: &str) -> bool {
+    if raw.is_empty() || raw.contains('\\') && !cfg!(windows) {
+        return false;
+    }
+    // Path components alone on Unix do not treat backslashes as separators;
+    // reject traversal through either platform's separator convention.
+    if raw.replace('\\', "/").split('/').any(|part| part == ".." || part.is_empty()) {
+        return false;
+    }
+    let path = Path::new(raw);
+    !raw.contains(':') && !path.is_absolute() &&
+        path.components().all(|part| matches!(part, std::path::Component::Normal(_)))
 }

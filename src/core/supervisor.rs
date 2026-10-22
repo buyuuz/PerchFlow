@@ -255,6 +255,7 @@ mod tests {
             server: ServerConfig { bind: "127.0.0.1:0".into(), token: "t".into(), lang: "en".into() },
             process: vec![def],
             task: vec![],
+            project: vec![],
         }
     }
 

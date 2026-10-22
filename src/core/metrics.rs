@@ -76,6 +76,26 @@ pub fn spawn_metrics_collector(state: SharedState) {
                 r.cpu_percent = cpu;
                 r.mem_bytes = mem;
             }
+            // Sample the running Python task process trees from the same
+            // sysinfo snapshot as normal processes.
+            let task_entries = {
+                let tasks = state.tasks.read().await;
+                let mut entries = Vec::with_capacity(tasks.len());
+                for rt in tasks.values() {
+                    entries.push((rt.clone(), rt.read().await.pid));
+                }
+                entries
+            };
+            for (rt, pid) in task_entries {
+                let (cpu, mem) = pid
+                    .map(|p| process_tree_metrics(Pid::from_u32(p), &children, &resources))
+                    .unwrap_or((0.0, 0));
+                let mut guard = rt.write().await;
+                if guard.pid == pid && guard.status == "running" {
+                    guard.cpu_percent = cpu;
+                    guard.mem_bytes = mem;
+                }
+            }
             tokio::time::sleep(Duration::from_secs(2)).await;
         }
     });

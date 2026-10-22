@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PerchFlow · 脚本详情</title>
+  <link rel="stylesheet" href="/assets/fonts.css">
+  <link rel="stylesheet" href="/assets/tailwind.css">
+  <link rel="stylesheet" href="/assets/branding.css">
+  <link rel="stylesheet" href="/assets/process-table.css">
+  <link rel="stylesheet" href="/assets/topbar-controls.css">
+  <link rel="stylesheet" href="/assets/process-detail.css">
+  <link rel="stylesheet" href="/assets/task-detail.css">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/pf-dialog.css">
+</head>
+<body class="bg-background text-on-background min-h-screen font-body-md selection:bg-primary-container/30">
+  <nav class="pf-process-topnav fixed top-0 w-full z-50 h-14 bg-surface/60 backdrop-blur-[30px] border-b border-white/10 shadow-sm flex justify-between items-center px-4 md:px-container-padding">
+    <div class="flex items-center gap-8 h-full">
+      <div class="pf-header-brand text-primary">
+        <img class="pf-brand-icon" src="/assets/logo.png?v=brand2" alt="PerchFlow" width="28" height="28">
+        <span class="pf-brand-name">Perch<span class="text-on-surface">Flow</span></span>
+      </div>
+      <div class="hidden md:flex h-full gap-6">
+        <a class="pf-main-nav-link" data-i18n="nav.processes" href="/processes">进程</a>
+        <a class="pf-main-nav-link" data-i18n="nav.tasks" href="/tasks">定时任务</a>
+        <a class="pf-main-nav-link" data-i18n="nav.projects" href="/projects" aria-current="page">项目</a>
+      </div>
+    </div>
+    <div class="pf-process-nav-right pf-top-actions">
+      <div class="pf-top-status" role="status"><span class="pf-top-status-dot"></span><span>Connected</span></div>
+      <div class="pf-lang-picker" data-pf-language-picker>
+        <select id="detail-language" class="pf-top-lang" data-lang-select aria-label="语言 / Language" onchange="setLang(this.value)">
+          <option value="zh">CN 中文</option><option value="en">EN English</option>
+        </select>
+        <button type="button" class="pf-lang-trigger" data-lang-trigger aria-label="Language / 语言" aria-haspopup="listbox" aria-expanded="false" aria-controls="pf-language-menu" hidden><span class="pf-lang-code" data-lang-code>CN</span><span class="pf-lang-label" data-lang-current>中文</span><span class="material-symbols-outlined pf-lang-chevron">keyboard_arrow_down</span></button>
+        <div class="pf-lang-menu" id="pf-language-menu" data-lang-menu role="listbox" aria-label="Language / 语言" hidden>
+          <button type="button" class="pf-lang-option" role="option" data-lang-value="zh" data-lang-code="CN" data-lang-label="中文" aria-selected="true" tabindex="-1"><span class="pf-lang-code">CN</span><span class="pf-lang-option-label">中文</span><span class="material-symbols-outlined pf-lang-check">check</span></button>
+          <button type="button" class="pf-lang-option" role="option" data-lang-value="en" data-lang-code="EN" data-lang-label="English" aria-selected="false" tabindex="-1"><span class="pf-lang-code">EN</span><span class="pf-lang-option-label">English</span><span class="material-symbols-outlined pf-lang-check">check</span></button>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <main class="pf-taskdetail-main">
+    <nav class="pf-taskdetail-breadcrumb" aria-label="Breadcrumb">
+      <a id="task-back" href="/projects" data-pf-en="Projects">项目</a>
+      <span>/</span><a id="task-project-name" href="/projects">—</a>
+      <span>/</span><span id="task-breadcrumb-name">—</span>
+    </nav>
+    <header class="pf-taskdetail-top">
+      <div class="pf-taskdetail-title">
+        <span class="pf-taskdetail-script-icon material-symbols-outlined" aria-hidden="true">description</span>
+        <div class="pf-taskdetail-title-content">
+          <h1 id="task-name">—</h1>
+          <code id="task-path">—</code>
+        </div>
+      </div>
+      <div class="pf-taskdetail-actions">
+        <button id="task-run" class="pf-taskdetail-btn primary" type="button"><span class="material-symbols-outlined" aria-hidden="true">play_arrow</span><span data-pf-en="Run once">运行一次</span></button>
+        <button id="task-stop" class="pf-taskdetail-btn danger" type="button" disabled><span class="material-symbols-outlined" aria-hidden="true">stop</span><span data-pf-en="Stop">停止</span></button>
+        <button type="button" class="pf-taskdetail-btn" id="task-settings"><span class="material-symbols-outlined" aria-hidden="true">settings</span><span data-pf-en="Script settings">脚本设置</span></button>
+        <div class="pf-taskdetail-menu-wrap">
+          <button type="button" id="task-more" class="pf-taskdetail-btn" aria-expanded="false" aria-controls="task-more-menu" aria-label="更多"><span class="material-symbols-outlined" aria-hidden="true">more_horiz</span><span data-pf-en="More">更多</span></button>
+          <div id="task-more-menu" class="pf-taskdetail-dropdown" hidden>
+            <button id="task-refresh" type="button" data-pf-en="Refresh status">刷新状态</button>
+            <button id="task-show-files" type="button" data-pf-en="Go to linked files">查看关联文件</button>
+          </div>
+        </div>
+      </div>
+    </header>
+    <p id="task-message" role="status" class="pf-taskdetail-message" hidden></p>
+    <section class="pf-taskdetail-metrics" aria-label="执行指标">
+      <div><small data-pf-en="Current status">当前状态</small><strong id="task-status">—</strong></div>
+      <div><small data-pf-en="Last result">最近结果</small><div class="pf-taskdetail-result"><strong id="task-last-result">—</strong><span id="task-last-time">—</span></div></div>
+      <div><small>PID</small><strong id="task-pid">—</strong></div>
+      <div><small data-pf-en="Last runtime">最近运行时长</small><strong id="task-uptime">—</strong></div>
+      <div><small data-pf-en="Execution mode">执行方式</small><strong id="task-schedule">—</strong><span class="pf-taskdetail-schedule-caption" id="task-schedule-hint"></span></div>
+    </section>
+    <section class="pf-taskdetail-columns">
+      <article class="pf-taskdetail-pane pf-taskdetail-log pf-detail-logs">
+        <!-- Shared Process Detail terminal structure/styles; Script log API stays separate. -->
+        <header class="pf-log-toolbar">
+          <div class="pf-log-heading">
+            <div class="pf-log-title-line">
+              <span class="pf-log-title-icon material-symbols-outlined" aria-hidden="true">terminal</span>
+              <h2 data-pf-en="Log output">运行日志</h2>
+              <span id="task-log-count" class="pf-log-counter" aria-live="off">0 行</span>
+            </div>
+            <p data-pf-en="Shows output from the selected run.">显示选中执行记录的日志</p>
+          </div>
+          <div class="pf-log-tools">
+            <button id="task-log-clear" class="pf-log-clear" type="button">
+              <span class="material-symbols-outlined" aria-hidden="true">delete_sweep</span>
+              <span data-pf-en="Clear">清屏</span>
+            </button>
+            <div class="pf-log-lines-wrapper">
+              <select id="task-log-lines" aria-label="日志行数">
+                <option value="100">100 行</option>
+                <option value="500" selected>500 行</option>
+                <option value="1000">1000 行</option>
+              </select>
+              <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
+            </div>
+            <button id="task-log-live" class="pf-live-toggle is-on" type="button" role="switch" aria-checked="true">
+              <span data-pf-en="Live">实时</span>
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </button>
+            <input type="checkbox" id="task-log-auto" checked hidden aria-hidden="true" tabindex="-1">
+          </div>
+        </header>
+        <div id="task-log-panel" class="pf-terminal-window">
+          <div class="pf-terminal-chrome">
+            <span class="pf-terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="pf-terminal-chrome-title">stdout <span class="pf-terminal-chrome-sep">/</span> <span id="task-log-script-name">Python</span></span>
+            <span class="pf-terminal-chrome-right">UTF-8</span>
+          </div>
+          <div id="task-log-content" class="pf-terminal-content terminal-scroll"
+               data-empty="暂无执行日志" role="log" aria-label="Python 脚本日志" aria-live="off" tabindex="0"></div>
+          <div class="pf-terminal-footer">
+            <span class="material-symbols-outlined" aria-hidden="true">subdirectory_arrow_right</span>
+            <span data-pf-en="Output from the selected run">所选运行的标准输出</span>
+            <span class="pf-terminal-footer-spacer"></span>
+            <span id="task-log-view-mode" class="pf-terminal-footer-indicator" data-pf-en="Live mode">实时模式</span>
+          </div>
+        </div>
+      </article>
+      <aside class="pf-taskdetail-sidebar">
+        <section id="task-history-panel" class="pf-taskdetail-pane pf-taskdetail-history">
+          <div class="pf-taskdetail-pane-title">
+            <h2 data-pf-en="Run history">执行历史</h2>
+            <button id="task-history-more" class="pf-taskdetail-text-btn" type="button" data-pf-en="View more">查看更多 →</button>
+          </div>
+          <div class="pf-taskdetail-history-labels"><span data-pf-en="Run time">运行时间</span><span data-pf-en="Result">结果</span><span data-pf-en="Duration">运行时长</span></div>
+          <div id="task-history" class="pf-taskdetail-history-list" aria-label="历史运行记录"></div>
+        </section>
+        <section id="task-files-panel" class="pf-taskdetail-pane pf-taskdetail-files-pane">
+          <div class="pf-taskdetail-pane-title">
+            <h2 data-pf-en="Linked files">关联文件</h2>
+            <button type="button" id="task-files-refresh" class="pf-taskdetail-text-btn" data-pf-en="Rescan">重新识别 +</button>
+          </div>
+          <div id="task-linked-files" class="pf-taskdetail-files"></div>
+        </section>
+        <section class="pf-taskdetail-pane pf-taskdetail-info-pane">
+          <div class="pf-taskdetail-pane-title">
+            <h2 data-pf-en="Script information">脚本信息</h2>
+          </div>
+          <div class="pf-taskdetail-info">
+            <div><span data-pf-en="Python interpreter">Python 解释器</span><code id="task-python">—</code></div>
+            <div><span data-pf-en="Working directory">工作目录</span><code id="task-cwd">—</code></div>
+            <div><span data-pf-en="Arguments">参数</span><code id="task-args">—</code></div>
+            <div><span data-pf-en="Scheduled task">定时计划</span><button type="button" class="pf-taskdetail-text-btn" id="task-schedule-add">添加/修改计划</button><button type="button" class="pf-taskdetail-text-btn" id="task-schedule-remove" hidden>移除计划</button><a id="task-schedule-link" href="/tasks">前往定时任务 →</a></div>
+          </div>
+        </section>
+      </aside>
+    </section>
+  </main>
+  <dialog id="task-settings-dialog" class="pf-taskdetail-settings-dialog" aria-labelledby="task-settings-heading">
+    <form id="task-settings-form" class="pf-taskdetail-settings-form">
+      <div class="pf-taskdetail-settings-header">
+        <div>
+          <h2 id="task-settings-heading" data-pf-en="Script settings">脚本设置</h2>
+        </div>
+        <button id="task-settings-close" class="pf-taskdetail-settings-close" type="button" aria-label="关闭" data-pf-en="Close">×</button>
+      </div>
+      <div class="pf-taskdetail-settings-fields">
+        <label><span data-pf-en="Python interpreter">Python 解释器</span><input id="task-settings-python" type="text" autocomplete="off" required spellcheck="false"></label>
+        <label><span data-pf-en="Script path">脚本路径</span><input id="task-settings-script" type="text" autocomplete="off" required spellcheck="false"></label>
+        <label><span data-pf-en="Working directory">工作目录</span><input id="task-settings-cwd" type="text" autocomplete="off" required spellcheck="false"></label>
+        <label><span data-pf-en="Arguments (one per line)">启动参数（每行一个参数）</span><textarea id="task-settings-args" rows="3" spellcheck="false" placeholder="--example"></textarea></label>
+        <label><span data-pf-en="Execution timeout (seconds; 0 means unlimited)">执行超时（秒，0 表示不限制）</span><input id="task-settings-timeout" type="number" min="0" step="1" required></label>
+        <p data-pf-en="These settings do not change the Cron schedule or execution history.">此处仅修改脚本执行配置，不影响 Cron 计划或执行历史。</p>
+      </div>
+      <p id="task-settings-error" class="pf-taskdetail-settings-error" role="alert" hidden></p>
+      <div class="pf-taskdetail-settings-footer">
+        <button id="task-settings-cancel" type="button" class="pf-taskdetail-btn" data-pf-en="Cancel">取消</button>
+        <button id="task-settings-save" type="submit" class="pf-taskdetail-btn primary" data-pf-en="Save settings">保存设置</button>
+      </div>
+    </form>
+  </dialog>
+  <nav class="fixed bottom-0 left-0 w-full z-50 flex items-center bg-surface/60 backdrop-blur-xl border-t border-white/10 h-14 box-content pb-[env(safe-area-inset-bottom)] md:hidden">
+    <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/processes"><span class="material-symbols-outlined text-[20px]">monitoring</span><span class="text-[10px]" data-i18n="nav.processes_short">进程</span></a>
+    <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/tasks"><span class="material-symbols-outlined text-[20px]">assignment_turned_in</span><span class="text-[10px]" data-i18n="nav.tasks_short">任务</span></a>
+    <a class="flex-1 flex flex-col items-center justify-center text-primary gap-0.5 py-1" href="/projects"><span class="material-symbols-outlined text-[20px]">folder</span><span class="text-[10px]" data-i18n="nav.projects_short">项目</span></a>
+  </nav>
+  <script src="/assets/i18n.js"></script>
+  <script src="/assets/app.js"></script>
+<script src="/assets/pf-dialog.js"></script>
+  <script src="/assets/topbar-controls.js"></script>
+  <script src="/assets/task-detail.js"></script>
+</body>
+</html>

@@ -1,0 +1,210 @@
+/* PF-005/006/008/009: common PerchFlow typography and true one-screen
+   desktop script detail. Large datasets scroll within their own sections. */
+:root{color-scheme:dark}
+body:has(.pf-taskdetail-main){background:#0e1519}
+.pf-taskdetail-main{
+  box-sizing:border-box;position:relative;max-width:1600px;width:100%;
+  height:100dvh;min-height:0;margin:0 auto;padding:75px 24px 12px;
+  display:grid;grid-template-rows:20px 66px 72px minmax(0,1fr);
+  gap:9px;overflow:hidden;font-family:inherit;color:#e3edf2;
+}
+.pf-taskdetail-breadcrumb{display:flex;align-items:center;gap:11px;min-width:0;min-height:0;color:#8faabc;font-size:11px;line-height:1.35}
+.pf-taskdetail-breadcrumb a{color:#98b7c9;text-decoration:none}
+.pf-taskdetail-breadcrumb a:hover{color:#45d9ee}
+.pf-taskdetail-breadcrumb span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d5e7f1}
+.pf-taskdetail-top{
+  box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;min-width:0;padding:8px 15px;
+  border:1px solid rgba(135,172,198,.16);border-radius:11px;
+  background:linear-gradient(135deg,#131f29,#101a23);
+}
+.pf-taskdetail-title{display:flex;align-items:center;gap:12px;min-width:0;flex:1}
+.pf-taskdetail-script-icon{display:flex;align-items:center;justify-content:center;flex:0 0 44px;width:44px;height:44px;border-radius:9px;background:#1a303f;color:#42d9f0;font-size:23px}
+.pf-taskdetail-title-content{flex:1 1 auto;min-width:0}
+#task-name{margin:0;font-size:17px;line-height:1.35;font-weight:700;color:#edf5fa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#task-path{display:block;min-width:0;margin-top:4px;color:#8faabc;font:11px/1.35 "JetBrains Mono",Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-taskdetail-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex:0 0 auto}
+.pf-taskdetail-btn{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:32px;padding:6px 11px;border:1px solid rgba(135,172,198,.23);border-radius:7px;background:rgba(14,26,35,.3);color:#d7e7f0;font-family:inherit;font-size:11.5px;font-weight:600;line-height:1.3;white-space:nowrap;text-decoration:none;cursor:pointer}
+.pf-taskdetail-btn .material-symbols-outlined{font-size:17px}
+.pf-taskdetail-btn:hover:not(:disabled){color:#48dcef;border-color:#48dcef}
+.pf-taskdetail-btn.primary{min-width:115px;background:linear-gradient(180deg,#42d5ed,#30c4e0);border-color:rgba(92,236,254,.55);color:#09212c}
+.pf-taskdetail-btn.primary:hover{color:#09212c;background:#65e5f6}
+.pf-taskdetail-btn.danger{color:#f5a3ad;border-color:rgba(247,126,143,.25)}
+.pf-taskdetail-btn:disabled{opacity:.33;cursor:not-allowed}
+.pf-taskdetail-btn.subtle{padding:5px 8px;min-height:28px;font-size:11px}
+.pf-taskdetail-menu-wrap{position:relative}
+.pf-taskdetail-dropdown{position:absolute;top:calc(100% + 6px);right:0;z-index:20;min-width:138px;padding:6px;border:1px solid #355067;border-radius:8px;background:#1a303d;box-shadow:0 18px 36px rgba(0,0,0,.3)}
+.pf-taskdetail-dropdown[hidden],.pf-taskdetail-message[hidden]{display:none!important}
+.pf-taskdetail-dropdown button{width:100%;text-align:left;background:transparent;color:#dceaf3;padding:8px;border:0;border-radius:5px;font-size:11px;cursor:pointer}
+.pf-taskdetail-dropdown button:hover{background:rgba(74,182,211,.14)}
+.pf-taskdetail-message{position:absolute;bottom:20px;left:24px;right:24px;z-index:15;margin:0;padding:9px 12px;background:#271e27;border:1px solid rgba(244,124,147,.3);border-radius:8px;color:#ffb0ba;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.pf-taskdetail-metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;min-height:0}
+.pf-taskdetail-metrics>div{box-sizing:border-box;min-width:0;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:4px;padding:9px 13px;border:1px solid rgba(135,172,198,.16);border-radius:9px;background:linear-gradient(135deg,#131f29,#101a23)}
+.pf-taskdetail-metrics small{display:block;color:#96afbf;font-size:11px;line-height:1.25}
+.pf-taskdetail-metrics strong{display:block;min-width:0;color:#e9f3fa;font-size:15px;font-weight:700;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-taskdetail-result{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+#task-last-time{font-size:10px;color:#93adbf;line-height:1.25}
+#task-last-result[data-tone=success]{color:#2be5aa;background:rgba(5,130,90,.2);border-radius:5px;padding:3px 7px}
+#task-last-result[data-tone=error]{color:#f29aab;background:rgba(145,44,62,.2);border-radius:5px;padding:3px 7px}
+.pf-taskdetail-schedule-caption{font-size:10px;color:#35d7eb;line-height:1.25}
+.pf-taskdetail-columns{display:grid;grid-template-columns:minmax(0,2.15fr) minmax(315px,1fr);gap:11px;align-items:stretch;min-width:0;min-height:0;overflow:hidden}
+.pf-taskdetail-pane{box-sizing:border-box;min-width:0;min-height:0;border:1px solid rgba(135,172,198,.16);border-radius:10px;background:linear-gradient(135deg,#131f29,#101a23);padding:0}
+.pf-taskdetail-log{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.pf-taskdetail-log-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex:0 0 44px;height:44px;min-height:0;padding:0 12px;border-bottom:1px solid rgba(135,172,198,.15)}
+.pf-taskdetail-tabs{display:flex;align-items:stretch;align-self:stretch;gap:13px;min-width:0}
+.pf-taskdetail-tabs a{display:flex;align-items:center;font-size:12px;font-weight:600;padding:0 5px;white-space:nowrap;color:#9db8cb;text-decoration:none;border-bottom:2px solid transparent}
+.pf-taskdetail-tabs a[aria-current=page]{border-bottom-color:#43d6ed;color:#43d6ed}
+.pf-taskdetail-tabs a:hover{color:#43d6ed}
+.pf-taskdetail-log-toolbar{display:flex;align-items:center;gap:9px}
+.pf-taskdetail-auto-refresh{display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:11px;color:#a9bfcd}
+.pf-taskdetail-auto-refresh input{width:15px;height:15px;accent-color:#43d6ed;cursor:pointer}
+.pf-taskdetail-console-wrap{display:flex;flex-direction:column;min-height:0;flex:1;overflow:hidden;padding:7px 11px 11px}
+.pf-taskdetail-console-head{display:flex;align-items:center;justify-content:space-between;flex:0 0 27px;min-height:0;gap:10px;color:#8caabb}
+.pf-taskdetail-console-head small{font-size:10px}
+.pf-taskdetail-console-head .pf-taskdetail-btn{min-height:25px;font-size:10.5px;padding:4px 8px}
+.pf-taskdetail-notice{margin:2px 0 6px;color:#839dae;font-size:10px;line-height:1.35}
+.pf-taskdetail-console{
+  box-sizing:border-box;flex:1 1 auto;min-height:0;height:auto;max-height:none;max-width:100%;
+  overflow:auto;margin:0;padding:11px;border:1px solid rgba(100,144,171,.2);
+  border-radius:7px;background:#090f14;color:#b9d2e0;
+  font:11.5px/1.6 "JetBrains Mono",Consolas,monospace;
+  white-space:pre-wrap;overflow-wrap:anywhere;scrollbar-width:thin;
+}
+.pf-taskdetail-sidebar{min-width:0;min-height:0;display:grid;grid-template-rows:minmax(98px,30fr) minmax(120px,40fr) minmax(105px,30fr);gap:9px;overflow:hidden}
+.pf-taskdetail-sidebar .pf-taskdetail-pane{display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:9px 11px 10px}
+.pf-taskdetail-pane-title{display:flex;align-items:center;justify-content:space-between;flex:0 0 24px;min-height:0;margin:0 0 4px;gap:8px}
+.pf-taskdetail-pane-title h2{display:flex;align-items:center;gap:7px;margin:0;font-size:12.5px;font-weight:700;line-height:1.35;color:#e4f0f6}
+.pf-taskdetail-pane-title h2:before{content:"";display:inline-block;width:2px;height:14px;background:#43d6ed;border-radius:3px}
+.pf-taskdetail-text-btn{font-family:inherit;font-size:10.5px;font-weight:500;line-height:1.35;color:#43d6ed;border:0;background:transparent;text-decoration:none;cursor:pointer;white-space:nowrap}
+.pf-taskdetail-text-btn:hover{color:#88edff;text-decoration:underline}
+.pf-taskdetail-history-labels{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(56px,.7fr) 60px;gap:5px;flex:0 0 23px;align-items:center;padding:0 6px;background:rgba(37,63,81,.25);color:#92aec0;font-size:10px}
+.pf-taskdetail-history-list{min-height:0;flex:1;max-height:none;overflow-y:auto;scrollbar-width:thin}
+.pf-taskdetail-history-item{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(56px,.7fr) 60px;gap:5px;align-items:center;width:100%;padding:7px 6px;border:0;border-bottom:1px solid rgba(135,172,198,.12);background:transparent;color:#bcd2e0;cursor:pointer;text-align:left;font-size:10.5px}
+.pf-taskdetail-history-item:hover,.pf-taskdetail-history-item[aria-current=true]{background:rgba(46,99,121,.18)}
+.pf-taskdetail-history-item span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-taskdetail-history-item small{text-align:right;color:#9db6c5;font-size:10px}
+.pf-taskdetail-history-state{justify-self:start;padding:3px 5px;border-radius:5px;font-size:10px}
+.pf-taskdetail-history-state[data-tone=success]{background:rgba(2,133,92,.2);color:#43e9ae}
+.pf-taskdetail-history-state[data-tone=error]{background:rgba(155,53,67,.17);color:#f29baf}
+.pf-taskdetail-files{display:flex;flex-direction:column;min-height:0;flex:1;max-height:none;overflow-y:auto;scrollbar-width:thin}
+.pf-taskdetail-file{display:flex;align-items:center;gap:8px;justify-content:space-between;flex:0 0 auto;min-height:38px;padding:6px 3px;border:0;border-bottom:1px solid rgba(135,172,198,.12);border-radius:0;background:transparent}
+.pf-taskdetail-file:last-child{border-bottom:0}
+.pf-taskdetail-file-info{min-width:0;flex:1}
+.pf-taskdetail-file-name{color:#ddebf2;font-size:10.5px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pf-taskdetail-file-meta{color:#91abba;font-size:10px;line-height:1.3;margin-top:3px}
+.pf-taskdetail-file .pf-taskdetail-btn{padding:4px;min-height:24px;border:0;color:#43d6ed;font-size:10px}
+.pf-taskdetail-info{display:flex;flex-direction:column;gap:5px;min-height:0;flex:1;overflow-y:auto;scrollbar-width:thin;padding:3px 2px 3px}
+.pf-taskdetail-info>div{display:grid;grid-template-columns:84px minmax(0,1fr);align-items:start;gap:5px;min-width:0}
+.pf-taskdetail-info span{font-size:10.5px;line-height:1.35;color:#96b5c7;white-space:nowrap}
+.pf-taskdetail-info code,.pf-taskdetail-info a{display:block;min-width:0;max-width:100%;font:10.5px/1.4 "Inter","Segoe UI",sans-serif;color:#b4cedf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pf-taskdetail-info a{color:#43d6ed;text-decoration:none}
+.pf-taskdetail-info a:hover{text-decoration:underline}
+.pf-taskdetail-info>div:last-child{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px}
+.pf-taskdetail-info>div:last-child span{flex:0 0 84px}
+.pf-taskdetail-info>div:last-child .pf-taskdetail-text-btn{padding:0;white-space:nowrap}
+@media(max-width:1100px){
+ .pf-taskdetail-main{padding-left:14px;padding-right:14px}
+ .pf-taskdetail-columns{grid-template-columns:minmax(0,1.65fr) minmax(310px,1fr)}
+ .pf-taskdetail-actions{gap:5px}
+ .pf-taskdetail-btn{padding:6px 9px}
+}
+@media(max-width:980px),(max-height:615px){
+ body:has(.pf-taskdetail-main){overflow-y:auto}
+ .pf-taskdetail-main{height:auto;min-height:100dvh;overflow:visible;display:flex;flex-direction:column;padding:74px 13px 82px}
+ .pf-taskdetail-breadcrumb{min-height:18px}
+ .pf-taskdetail-top{flex-wrap:wrap;min-height:64px}
+ .pf-taskdetail-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}
+ .pf-taskdetail-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .pf-taskdetail-metrics>div{min-height:62px}
+ .pf-taskdetail-columns{grid-template-columns:1fr;overflow:visible}
+ .pf-taskdetail-log{min-height:350px;height:48dvh}
+ .pf-taskdetail-console{min-height:0;max-height:none}
+ .pf-taskdetail-sidebar{display:flex;flex-direction:column;overflow:visible}
+ .pf-taskdetail-sidebar .pf-taskdetail-pane{min-height:110px;max-height:220px}
+ .pf-taskdetail-info-pane{max-height:300px!important}
+}
+@media(min-width:981px){
+ body:has(.pf-taskdetail-main){overflow:hidden}
+}
+
+/* PF-011: the Process Detail terminal component is reused directly.
+   Only geometry adapts to the script's one-screen layout. */
+.pf-taskdetail-log.pf-detail-logs {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.pf-taskdetail-log .pf-log-toolbar {
+  padding: 3px 2px 0;
+  gap: 8px;
+  min-height: 45px;
+}
+.pf-taskdetail-log .pf-log-heading {gap:3px}
+.pf-taskdetail-log .pf-log-title-line h2 {font-size:14px}
+.pf-taskdetail-log .pf-log-heading p {font-size:10px}
+.pf-taskdetail-log .pf-log-tools {gap:6px}
+.pf-taskdetail-log .pf-log-clear,
+.pf-taskdetail-log .pf-live-toggle {height:30px;min-height:30px;font-size:11px}
+.pf-taskdetail-log .pf-log-lines-wrapper {height:30px;width:88px}
+.pf-taskdetail-log .pf-log-lines-wrapper select {font-size:11px}
+.pf-taskdetail-log .pf-log-lines-wrapper .material-symbols-outlined {top:7px}
+.pf-taskdetail-log .pf-live-toggle {min-width:80px}
+.pf-taskdetail-log .pf-terminal-window {min-height:0;flex:1 1 0;border-radius:10px}
+.pf-taskdetail-log .pf-terminal-content {min-height:0;flex:1 1 0}
+.pf-taskdetail-log .pf-log-counter {font-size:10px}
+.pf-taskdetail-log .pf-log-view-only {color:#77a0b1}
+@media(max-width:1100px) and (min-width:981px) {
+ .pf-taskdetail-log .pf-log-heading p {display:none}
+ .pf-taskdetail-log .pf-log-toolbar {min-height:39px}
+ .pf-taskdetail-log .pf-log-tools {gap:4px}
+ .pf-taskdetail-log .pf-log-clear {padding:0 7px}
+ .pf-taskdetail-log .pf-log-lines-wrapper {width:79px}
+ .pf-taskdetail-log .pf-live-toggle {min-width:75px;padding:0 7px}
+}
+@media(max-width:980px),(max-height:615px) {
+ .pf-taskdetail-log .pf-log-toolbar {flex-wrap:wrap;align-items:flex-start}
+ .pf-taskdetail-log .pf-terminal-window {min-height:290px}
+}
+
+
+/* PF-015: script-only settings dialog. It doesn't edit Cron fields. */
+.pf-taskdetail-settings-dialog {
+  box-sizing:border-box;
+  position:fixed;
+  inset:0;
+  width:min(560px,calc(100vw - 32px));
+  max-height:min(92dvh,740px);
+  margin:auto;
+  padding:0;
+  border:1px solid rgba(137,180,198,.35);
+  border-radius:13px;
+  background:#15232e;
+  color:#e4f0f6;
+  box-shadow:0 24px 90px rgba(0,0,0,.65);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  font-family:inherit;
+}
+.pf-taskdetail-settings-dialog:not([open]){display:none}
+.pf-taskdetail-settings-dialog::backdrop{background:rgba(3,10,16,.68);backdrop-filter:blur(4px)}
+.pf-taskdetail-settings-form{display:flex;flex-direction:column;min-width:0}
+.pf-taskdetail-settings-header{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:19px 21px 14px;background:#15232e;border-bottom:1px solid rgba(145,182,200,.15)}
+.pf-taskdetail-settings-header h2{margin:0;font-size:17px;line-height:1.4;font-weight:700}
+.pf-taskdetail-settings-header p{margin:4px 0 0;color:#90adbd;font-size:11px}
+.pf-taskdetail-settings-close{width:28px;height:28px;flex:0 0 28px;border:0;background:transparent;color:#b5cbd6;border-radius:6px;font-size:23px;cursor:pointer}
+.pf-taskdetail-settings-close:hover{color:#fff;background:rgba(255,255,255,.09)}
+.pf-taskdetail-settings-fields{display:flex;flex-direction:column;gap:13px;padding:18px 21px 12px}
+.pf-taskdetail-settings-fields label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:#b3cbd8}
+.pf-taskdetail-settings-fields input,.pf-taskdetail-settings-fields textarea{box-sizing:border-box;width:100%;min-height:36px;padding:9px 10px;border-radius:8px;border:1px solid rgba(134,171,190,.3);background:#0e1923;color:#e4f2f8;outline:none;font:12px/1.5 "JetBrains Mono",Consolas,monospace}
+.pf-taskdetail-settings-fields input:focus,.pf-taskdetail-settings-fields textarea:focus{border-color:#37d0e8;box-shadow:0 0 0 2px rgba(55,208,232,.12)}
+.pf-taskdetail-settings-fields textarea{min-height:72px;resize:vertical}
+.pf-taskdetail-settings-fields p{margin:0;color:#87a6b8;font-size:11px;line-height:1.5}
+.pf-taskdetail-settings-error{margin:0 21px 8px;padding:9px 11px;background:rgba(176,50,75,.14);border:1px solid rgba(244,118,142,.25);border-radius:7px;color:#ffaeb9;font-size:12px}
+.pf-taskdetail-settings-error[hidden]{display:none}
+.pf-taskdetail-settings-footer{position:sticky;bottom:0;display:flex;align-items:center;justify-content:flex-end;gap:9px;padding:13px 21px 18px;border-top:1px solid rgba(145,182,200,.15);background:#15232e}
+.pf-taskdetail-settings-footer .pf-taskdetail-btn{min-width:76px}
+@media(max-height:700px){.pf-taskdetail-settings-header{padding-top:13px}.pf-taskdetail-settings-fields{gap:9px;padding-top:12px}.pf-taskdetail-settings-footer{padding:9px 21px 12px}}

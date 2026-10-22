@@ -1,0 +1,43 @@
+name: Project Hub browser smoke
+
+on:
+  push:
+    branches:
+      - feature/project-hub-v2
+      - feature/project-hub-v3
+      - feature/project-hub-v4
+      - feature/project-hub-v5
+      - feature/project-hub-acceptance
+      - feature/project-hub-rc-compat
+    paths:
+      - 'frontend/**'
+      - 'dev/verify_project_hub_browser.py'
+      - '.github/workflows/project-hub-browser-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-mock-only:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install isolated browser test dependency
+        run: python -m pip install playwright
+      - name: Syntax check
+        run: python -m py_compile dev/verify_project_hub_browser.py
+      - name: Run mock-only Edge desktop/mobile smoke
+        run: python dev/verify_project_hub_browser.py
+      - name: Upload browser test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perchflow-project-hub-browser
+          path: |
+            dev/reports/project-hub-browser.json
+            dev/reports/project-hub-desktop.png
+            dev/reports/project-hub-mobile.png
+          if-no-files-found: warn
+          retention-days: 14

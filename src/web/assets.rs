@@ -18,6 +18,8 @@ pub fn routes() -> Router<WebContext> {
         .route("/processes", get(|| async { page("processes.html") }))
         .route("/process-detail", get(|| async { page("process-detail.html") }))
         .route("/tasks", get(|| async { page("tasks.html") }))
+        .route("/projects", get(|| async { page("projects.html") }))
+        .route("/task-detail", get(|| async { page("task-detail.html") }))
         .route("/assets/*path", get(asset))
 }
 

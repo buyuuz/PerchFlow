@@ -57,8 +57,8 @@ function renderTaskRow(task) {
   const checked = selectedTasks.has(task.name);
   const lastTime = formatTaskTime(task.last_run);
   const lastFull = task.last_run ? new Date(task.last_run).toLocaleString() : taskText('never');
-  const resultKey = task.last_exit_code == null ? 'never' : Number(task.last_exit_code) === 0 ? 'success' : 'failed';
-  const resultIcon = {never:'remove', success:'check_circle', failed:'error'}[resultKey];
+  const resultKey = ['running','cancelled','interrupted','timeout'].includes(task.status) ? task.status : task.last_exit_code == null ? 'never' : Number(task.last_exit_code) === 0 ? 'success' : 'failed';
+  const resultIcon = {never:'remove', success:'check_circle', failed:'error', running:'progress_activity',timeout:'timer_off',cancelled:'block',interrupted:'warning'}[resultKey];
   return `
 <tr data-task-name="${name}" class="${checked ? 'pf-is-selected' : ''}">
   <td><input type="checkbox" class="pf-task-select" data-name="${name}" aria-label="${name}" ${checked ? 'checked' : ''}></td>
@@ -76,12 +76,14 @@ function renderTaskRow(task) {
     ${taskAction(task, 'copy', 'content_copy', taskText('copy'))}
   </div></td>
   <td class="pf-task-last-run" title="${taskEscape(lastFull)}">${taskEscape(lastTime)}</td>
-  <td><span class="pf-task-result pf-task-result--${resultKey}" title="${task.last_exit_code == null ? taskEscape(taskText('never')) : 'Exit code: ' + taskEscape(task.last_exit_code)}"><span class="material-symbols-outlined" aria-hidden="true">${resultIcon}</span>${taskText(resultKey)}</span></td>
+  <td><span class="pf-task-result pf-task-result--${resultKey}" title="${taskEscape(resultKey === 'running' ? '运行中' : resultKey === 'cancelled' ? '已取消' : resultKey === 'timeout' ? '已超时' : resultKey === 'interrupted' ? '已中断' : task.last_exit_code == null ? taskText('never') : 'Exit code: ' + task.last_exit_code)}"><span class="material-symbols-outlined" aria-hidden="true">${resultIcon}</span>${({running:'运行中',timeout:'超时',cancelled:'已取消',interrupted:'已中断'})[resultKey] || taskText(resultKey)}</span></td>
   <td><div class="pf-actions">
     ${taskAction(task, 'run', 'play_arrow', taskText('run'), 'pf-task-action-run')}
+    ${taskAction(task, 'history', 'history', '查看历史')}
+    ${task.status === 'running' ? taskAction(task, 'stop', 'stop_circle', '停止运行', 'pf-action--delete') : ''}
     ${taskAction(task, 'toggle', on ? 'toggle_on' : 'toggle_off', taskText(on ? 'disable' : 'enable'), 'pf-task-action-toggle')}
     ${taskAction(task, 'edit', 'edit', taskText('edit'))}
-    ${taskAction(task, 'delete', 'delete', taskText('remove'), 'pf-action--delete')}
+    ${taskAction(task, 'delete', 'delete', task.project ? '移除定时计划（保留项目脚本）' : taskText('remove'), 'pf-action--delete')}
   </div></td>
 </tr>`;
 }
@@ -93,10 +95,12 @@ let taskSortKey = null;
 let taskSortAsc = true;
 let taskRequestSequence = 0;
 const selectedTasks = new Set();
+const runningTaskRequests = new Set();
+let activeHistoryLogRequest=0;
 
 function visibleTasks() {
   const needle = taskSearch.trim().toLocaleLowerCase();
-  const rows = cachedTasks.filter(task => (
+  const rows = cachedTasks.filter(task => task.schedule && (
     !needle || [task.name, task.schedule, taskCommand(task),
       task.enabled ? taskText('on') : taskText('off'),
       task.last_exit_code == null ? taskText('never') : Number(task.last_exit_code) === 0 ? taskText('success') : taskText('failed')
@@ -171,7 +175,7 @@ function taskError(error) {
 async function loadTasks() {
   const sequence = ++taskRequestSequence;
   try {
-    const result = await apiJson('/api/tasks');
+    const result = await apiJson('/api/tasks?scope=scheduled');
     if (sequence !== taskRequestSequence) return;
     cachedTasks = Array.isArray(result.tasks) ? result.tasks : [];
     const names = new Set(cachedTasks.map(task => task.name));
@@ -195,26 +199,118 @@ async function executeTaskOperation(path, options) {
 }
 
 async function runNow(name) {
-  try { await executeTaskOperation(`/api/tasks/${name}/run`, {method:'POST'}); }
+  if(runningTaskRequests.has(name))return;
+  runningTaskRequests.add(name);
+  try {await executeTaskOperation('/api/tasks/'+name+'/run',{method:'POST'});}
+  catch(error){taskError(error);}
+  finally{runningTaskRequests.delete(name);}
+}
+
+function historyTimestamp(time){
+  if(!time)return '—';
+  const d=new Date(time);
+  if(!Number.isFinite(d.valueOf()))return '—';
+  return d.toLocaleString(typeof getLang==='function'&&getLang()==='en'?'en-US':'zh-CN',
+    {year:'numeric',month:'2-digit',day:'2-digit',
+     hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+function historyStatus(status){
+  const map={success:'成功',failed:'失败',running:'运行中',cancelled:'已取消',
+    blocked:'预检阻止',timeout:'超时',interrupted:'中断'};
+  return map[status]||status||'—';
+}
+async function showTaskHistory(name){
+  try{
+    const data=await apiJson('/api/tasks/'+encodeURIComponent(name)+'/history');
+    if(!data.ok)throw Error(data.error||'History unavailable');
+    const modal=document.getElementById('task-history-modal');
+    const list=document.getElementById('task-history-list');
+    const log=document.getElementById('task-run-log');
+    document.getElementById('task-history-title').textContent=name+' · 执行历史';
+    list.replaceChildren();
+    log.textContent='选择上方一条记录查看对应的日志';
+    const runs=Array.isArray(data.runs)?data.runs.slice(0,30):[];
+    if(!runs.length)list.textContent='暂无执行记录';
+    for(const run of runs){
+      const b=document.createElement('button');
+      b.type='button';b.className='pf-task-history-record';
+      b.dataset.runId=run.run_id;
+      const heading=document.createElement('span');
+      heading.className='pf-task-history-record-top';
+      const time=document.createElement('strong');
+      time.textContent=historyTimestamp(run.started_at);
+      const state=document.createElement('span');
+      state.className='pf-task-history-state';
+      state.dataset.status=run.status||'none';
+      state.textContent=historyStatus(run.status);
+      heading.append(time,state);
+      const detail=document.createElement('small');
+      detail.textContent='退出码：'+(run.exit_code??'—')+'  ·  时长：'+
+        (run.duration_ms!=null?(Number(run.duration_ms)/1000).toFixed(1)+'s':'—');
+      b.append(heading,detail);
+      b.addEventListener('click',()=>{
+        list.querySelectorAll('.pf-task-history-record').forEach(row=>{
+          row.setAttribute('aria-current',String(row===b));
+        });
+        void showTaskLog(name,run.run_id);
+      });
+      list.append(b);
+    }
+    modal.classList.remove('hidden');modal.classList.add('flex');
+    if(runs.length)list.querySelector('.pf-task-history-record').click();
+  }catch(error){taskError(error);}
+}
+
+async function showTaskLog(name,runId){
+  const request=++activeHistoryLogRequest;
+  const log=document.getElementById('task-run-log');
+  log.textContent='正在读取日志…';
+  try{
+    const data=await apiJson('/api/tasks/'+encodeURIComponent(name)+'/log/'+encodeURIComponent(runId));
+    if(request!==activeHistoryLogRequest)return;
+    if(!data.ok)throw Error(data.error||'No log');
+    log.textContent=(data.truncated?'[日志过长，仅显示末尾内容]\n':'')+(data.content||'（没有输出）');
+    log.scrollTop=0;
+  }catch(error){
+    if(request===activeHistoryLogRequest)log.textContent=error.message||String(error);
+  }
+}
+
+function closeTaskHistory() {
+  ++activeHistoryLogRequest;
+  const modal = document.getElementById('task-history-modal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+
+async function stopTask(name) {
+  if (!await PerchDialog.confirm('确认停止正在运行的任务？',{title:'停止任务',danger:true})) return;
+  try { await executeTaskOperation(`/api/tasks/${encodeURIComponent(name)}/stop`, {method:'POST'}); }
   catch (error) { taskError(error); }
 }
 
 async function deleteTask(name) {
-  if (!confirm(t('confirm.delete_task'))) return;
-  try { await executeTaskOperation(`/api/tasks/${name}`, {method:'DELETE'}); }
-  catch (error) { taskError(error); }
+  const task=cachedTasks.find(item=>item.name===decodeURIComponent(name));
+  if(!task)return;
+  const projectLinked=Boolean(task.project);
+  const label=projectLinked
+    ? '仅移除「'+task.name+'」的 Cron 计划，保留项目脚本、文件与执行历史。'
+    : t('confirm.delete_task');
+  if(!await PerchDialog.confirm(label,{
+      title:projectLinked?'移除定时计划':'删除定时任务',danger:true}))return;
+  try{
+    await executeTaskOperation('/api/tasks/'+encodeURIComponent(task.name)+
+      (projectLinked?'/schedule':''),{method:'DELETE'});
+  }catch(error){taskError(error);}
 }
 
 async function toggleEnabled(name, enabled) {
-  const existing = cachedTasks.find(item => item.name === decodeURIComponent(name));
-  if (!existing) return;
-  const body = {
-    name: existing.name, cmd: existing.cmd, args: existing.args || [],
-    cwd: existing.cwd, schedule: existing.schedule, enabled,
-  };
-  try {
-    await executeTaskOperation(`/api/tasks/${name}`, {method:'PUT',body:JSON.stringify(body)});
-  } catch (error) { taskError(error); }
+  const existing=cachedTasks.find(item=>item.name===decodeURIComponent(name));
+  if(!existing||!existing.schedule)return;
+  try{
+    await executeTaskOperation('/api/tasks/'+encodeURIComponent(existing.name)+'/enabled',
+      {method:'PUT',body:JSON.stringify({enabled})});
+  }catch(error){taskError(error);}
 }
 
 async function copyTaskCommand(name, button) {
@@ -240,6 +336,26 @@ async function copyTaskCommand(name, button) {
   } catch (error) { taskError(error); }
 }
 
+function parseTaskArgs(raw) {
+  const result = [];
+  let current = '', quote = null, active = false;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === '\\' && quote === '"' && (raw[i+1] === '\\' || raw[i+1] === '"')) {
+      current += raw[++i];
+      active = true;
+    } else if (ch === '"' || ch === "'") {
+      if (quote === ch) { quote = null; } else if (!quote) { quote = ch; } else { current += ch; }
+      active = true;
+    } else if (/\s/.test(ch) && !quote) {
+      if (active) { result.push(current); current = ''; active = false; }
+    } else { current += ch; active = true; }
+  }
+  if (quote) throw new Error('参数引号没有闭合');
+  if (active) result.push(current);
+  return result;
+}
+
 function openTaskModal() {
   editingName = null;
   document.getElementById('task-modal-title').textContent = t('modal.add_task');
@@ -247,6 +363,8 @@ function openTaskModal() {
   document.getElementById('task-name').disabled = false;
   document.getElementById('task-cmd').value = '';
   document.getElementById('task-args').value = '';
+  document.getElementById('task-cwd').value = '';
+  document.getElementById('task-timeout').value = '3600';
   document.getElementById('task-schedule').value = '';
   document.getElementById('task-enabled').checked = true;
   document.getElementById('task-err').classList.add('hidden');
@@ -262,7 +380,9 @@ function editTask(name) {
   document.getElementById('task-name').value = task.name;
   document.getElementById('task-name').disabled = false;
   document.getElementById('task-cmd').value = task.cmd;
-  document.getElementById('task-args').value = (task.args || []).join(' ');
+  document.getElementById('task-args').value = (task.args || []).map(v => /\s|"/.test(v) ? JSON.stringify(v) : v).join(' ');
+  document.getElementById('task-cwd').value = task.cwd || '';
+  document.getElementById('task-timeout').value = task.timeout_secs ?? 0;
   document.getElementById('task-schedule').value = task.schedule;
   document.getElementById('task-enabled').checked = task.enabled;
   document.getElementById('task-err').classList.add('hidden');
@@ -282,7 +402,9 @@ function closeTaskModal() {
 async function submitTaskModal() {
   const name = document.getElementById('task-name').value.trim();
   const cmd = document.getElementById('task-cmd').value.trim();
-  const args = document.getElementById('task-args').value.trim().split(/\s+/).filter(Boolean);
+  let args;
+  try { args = parseTaskArgs(document.getElementById('task-args').value); }
+  catch (error) { const err = document.getElementById('task-err'); err.textContent = error.message; err.classList.remove('hidden'); return; }
   const schedule = document.getElementById('task-schedule').value.trim();
   const enabled = document.getElementById('task-enabled').checked;
   const errEl = document.getElementById('task-err');
@@ -291,8 +413,34 @@ async function submitTaskModal() {
     errEl.classList.remove('hidden');
     return;
   }
-  const cwd = editingName ? cachedTasks.find(task => task.name === editingName)?.cwd : undefined;
-  const body = {name,cmd,args,cwd,schedule,enabled};
+  const cwd = document.getElementById('task-cwd').value.trim() || null;
+  const timeout_secs = Number(document.getElementById('task-timeout').value);
+  if (!Number.isSafeInteger(timeout_secs) || timeout_secs < 0) { errEl.textContent = '超时秒数必须是非负整数'; errEl.classList.remove('hidden'); return; }
+  const body = {name,cmd,args,cwd,schedule,enabled,timeout_secs};
+  if (cwd) {
+    try {
+      const checked = await api('/api/processes/validate-cwd', {
+        method:'POST', body:JSON.stringify({cwd}),
+      });
+      const validation = await checked.json();
+      if (!validation.ok) {
+        const messages = {
+          cwd_not_absolute:'工作目录必须是绝对路径',
+          cwd_not_found:'工作目录不存在',
+          cwd_not_directory:'所选路径不是文件夹',
+          cwd_inaccessible:'无法访问工作目录',
+          cwd_too_long:'工作目录路径过长',
+        };
+        errEl.textContent = messages[validation.error] || validation.error || '工作目录验证失败';
+        errEl.classList.remove('hidden');
+        return;
+      }
+    } catch (error) {
+      errEl.textContent = error.message || String(error);
+      errEl.classList.remove('hidden');
+      return;
+    }
+  }
   const path = editingName ? `/api/tasks/${encodeURIComponent(editingName)}` : '/api/tasks';
   const method = editingName ? 'PUT' : 'POST';
   try {
@@ -311,7 +459,30 @@ async function submitTaskModal() {
   }
 }
 
+async function bindExistingScript() {
+  try{
+    const result=await apiJson('/api/tasks?scope=unscheduled');
+    if(result.ok===false)throw Error(result.error||'获取已有脚本失败');
+    const options=(result.tasks||[]).filter(task=>Boolean(task.project));
+    if(!options.length){
+      await PerchDialog.notice('没有可关联的项目脚本。请先在「项目」页面添加 Python 脚本。');
+      return;
+    }
+    const selected=await PerchDialog.chooseScript(options);
+    if(!selected)return;
+    await PerchDialog.cron({
+      title:'为「'+selected.name+'」添加定时计划',
+      editing:false,initial:'0 0 0 * * *',
+      onSave:async schedule=>{
+        await executeTaskOperation('/api/tasks/'+encodeURIComponent(selected.name)+'/schedule',
+          {method:'PUT',body:JSON.stringify({schedule,enabled:true})});
+      }
+    });
+  }catch(error){taskError(error);}
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('task-bind-existing')?.addEventListener('click',()=>{void bindExistingScript();});
   const input = document.getElementById('task-search');
   if (input) input.addEventListener('input', () => {
     taskSearch = input.value;
@@ -336,6 +507,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const action = button.dataset.taskAction;
       if (action === 'run') void runNow(encoded);
       else if (action === 'toggle') void toggleEnabled(encoded, button.getAttribute('aria-pressed') !== 'true');
+      else if (action === 'history') void showTaskHistory(name);
+      else if (action === 'stop') void stopTask(name);
       else if (action === 'edit') editTask(encoded);
       else if (action === 'delete') void deleteTask(encoded);
       else if (action === 'copy') void copyTaskCommand(name, button);

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh" class="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PerchFlow · 项目管理</title>
+  <link rel="stylesheet" href="/assets/fonts.css">
+  <link rel="stylesheet" href="/assets/tailwind.css">
+  <link rel="stylesheet" href="/assets/branding.css">
+  <link rel="stylesheet" href="/assets/process-table.css">
+  <link rel="stylesheet" href="/assets/topbar-controls.css">
+  <link rel="stylesheet" href="/assets/projects.css">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/pf-dialog.css">
+</head>
+<body class="bg-background text-on-background min-h-screen font-body-md selection:bg-primary-container/30">
+  <!-- Same navigation, brand and language controls as Processes / Tasks. -->
+  <nav class="pf-process-topnav fixed top-0 w-full z-50 h-14 bg-surface/60 backdrop-blur-[30px] border-b border-white/10 shadow-sm flex justify-between items-center px-4 md:px-container-padding">
+    <div class="flex items-center gap-8 h-full">
+      <div class="pf-header-brand text-primary">
+        <img alt="PerchFlow" class="pf-brand-icon" src="/assets/logo.png?v=brand2" width="28" height="28">
+        <span class="pf-brand-name">Perch<span class="text-on-surface">Flow</span></span>
+      </div>
+      <div class="hidden md:flex h-full gap-6">
+        <a class="pf-main-nav-link" data-i18n="nav.processes" href="/processes">进程</a>
+        <a class="pf-main-nav-link" data-i18n="nav.tasks" href="/tasks">定时任务</a>
+        <a class="pf-main-nav-link" data-i18n="nav.projects" href="/projects" aria-current="page">项目</a>
+      </div>
+    </div>
+    <div class="pf-process-nav-right pf-top-actions">
+      <div class="pf-top-status" role="status"><span class="pf-top-status-dot" aria-hidden="true"></span><span>Connected</span></div>
+      <button id="project-new" class="pf-process-add pf-top-add" type="button">
+        <span class="pf-top-add-icon" aria-hidden="true"></span>
+        <span class="pf-top-add-text" data-pf-en="New project">新建项目</span>
+      </button>
+      <div class="pf-lang-picker" data-pf-language-picker>
+        <select id="project-language" class="pf-top-lang" data-lang-select aria-label="语言 / Language" onchange="setLang(this.value)">
+          <option value="zh">CN 中文</option><option value="en">EN English</option>
+        </select>
+        <button type="button" class="pf-lang-trigger" data-lang-trigger aria-label="Language / 语言" aria-haspopup="listbox" aria-expanded="false" aria-controls="pf-language-menu" hidden>
+          <span class="pf-lang-code" data-lang-code>CN</span><span class="pf-lang-label" data-lang-current>中文</span><span class="material-symbols-outlined pf-lang-chevron" aria-hidden="true">keyboard_arrow_down</span>
+        </button>
+        <div class="pf-lang-menu" id="pf-language-menu" data-lang-menu role="listbox" aria-label="Language / 语言" hidden>
+          <button type="button" class="pf-lang-option" role="option" data-lang-value="zh" data-lang-code="CN" data-lang-label="中文" aria-selected="true" tabindex="-1"><span class="pf-lang-code">CN</span><span class="pf-lang-option-label">中文</span><span class="material-symbols-outlined pf-lang-check" aria-hidden="true">check</span></button>
+          <button type="button" class="pf-lang-option" role="option" data-lang-value="en" data-lang-code="EN" data-lang-label="English" aria-selected="false" tabindex="-1"><span class="pf-lang-code">EN</span><span class="pf-lang-option-label">English</span><span class="material-symbols-outlined pf-lang-check" aria-hidden="true">check</span></button>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <main class="pf-project-main">
+    <div class="pf-project-titlebar">
+      <div>
+        <h1 data-i18n="page.projects_title">项目管理</h1>
+        <p data-i18n="page.projects_subtitle">管理项目及其中的 Python 脚本，支持手动执行和查看运行结果。</p>
+      </div>
+
+    </div>
+    <p id="project-notice" class="pf-project-notice" role="status" hidden></p>
+    <div class="pf-project-layout">
+      <section class="pf-project-list-column" aria-label="项目列表">
+        <div class="pf-project-column-title">
+          <h2 data-pf-en="My projects">我的项目</h2>
+          <span id="project-count" aria-live="polite">0</span>
+        </div>
+        <div id="project-list" class="pf-project-list" aria-live="polite">
+          <p class="pf-project-muted">正在加载…</p>
+        </div>
+      </section>
+      <section class="pf-project-detail-column">
+        <div id="project-empty" class="pf-project-empty">
+          <span class="material-symbols-outlined" aria-hidden="true">folder_open</span>
+          <h2 data-pf-en="Select a project">选择一个项目</h2>
+          <p data-pf-en="Choose a project above or create a new one.">选择上方项目，或新建项目以管理 Python 脚本。</p>
+        </div>
+        <div id="project-detail" hidden>
+          <div class="pf-project-detail-head">
+            <span class="pf-project-folder-icon material-symbols-outlined" aria-hidden="true">folder</span>
+            <div class="pf-project-detail-name">
+              <h2 id="project-current-name"></h2>
+              <code id="project-root-preview" class="pf-project-path"></code>
+            </div>
+            <div class="pf-project-action-row pf-project-header-actions">
+              <button type="button" id="project-add-python" class="pf-project-primary"><span class="material-symbols-outlined" aria-hidden="true">add</span><span data-pf-en="Python script">Python 脚本</span></button>
+              <a href="/tasks" class="pf-project-secondary pf-project-schedule-link"><span class="material-symbols-outlined" aria-hidden="true">calendar_month</span><span data-pf-en="View schedules">查看定时计划</span></a>
+              <div class="pf-project-menu-wrap">
+                <button id="project-more" class="pf-project-secondary pf-project-more" type="button" aria-expanded="false" aria-controls="project-actions-menu" aria-label="更多项目操作"><span class="material-symbols-outlined" aria-hidden="true">more_horiz</span></button>
+                <div id="project-actions-menu" class="pf-project-dropdown" hidden>
+                  <button type="button" id="project-refresh" data-pf-en="Refresh">刷新状态</button>
+                  <button type="button" id="project-edit" data-pf-en="Project settings">项目设置</button>
+                  <button type="button" id="project-delete" class="pf-project-menu-danger" data-pf-en="Delete project">删除项目</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="pf-project-section">
+            <div class="pf-project-section-title">
+              <div class="pf-project-section-heading">
+                <span class="material-symbols-outlined" aria-hidden="true">code</span>
+                <h3 data-pf-en="Execution scripts">执行脚本</h3>
+              </div>
+              <span class="pf-project-section-subtitle" data-pf-en="Run manually whenever needed; configure schedules separately.">脚本可随时手动运行，定时计划独立管理。</span>
+            </div>
+            <div class="pf-project-table" role="table" aria-label="Python 执行脚本">
+              <div class="pf-project-table-heading" role="row">
+                <span role="columnheader" data-pf-en="Task / script">任务名称 / 脚本</span>
+                <span role="columnheader" data-pf-en="Current status">当前状态</span>
+                <span role="columnheader" data-pf-en="Last result">最近结果</span>
+                <span role="columnheader" data-pf-en="Execution">执行方式</span>
+                <span role="columnheader" data-pf-en="Actions">操作</span>
+              </div>
+              <div id="project-jobs" role="rowgroup"></div>
+            </div>
+          </div>
+          <!-- Legacy inline run panel retained for compatibility but not presented on the new project overview. -->
+          <div id="project-runs" class="pf-project-runs" hidden>
+            <h3 id="project-runs-title">执行记录</h3>
+            <button type="button" id="project-runs-refresh">刷新执行详情</button>
+            <button type="button" id="project-runs-close">收起</button>
+            <div id="project-runs-list"></div><div id="project-run-summary"></div>
+            <div id="project-run-changes"></div><div id="project-run-log" hidden></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <div id="project-modal" class="pf-project-overlay" hidden>
+    <form id="project-form" class="pf-project-form">
+      <div class="pf-project-form-head">
+        <h2 id="project-form-title" data-pf-en="New project">新建项目</h2>
+        <button id="project-close" type="button" aria-label="关闭">×</button>
+      </div>
+      <label><span data-pf-en="Project name">项目名称</span><input name="name" id="project-name" required maxlength="100" placeholder="例如：Firecrawl 自动化"></label>
+      <label><span data-pf-en="Project directory">项目工作目录</span><input name="root" id="project-root" required placeholder="D:\Projects\Example"></label>
+      <fieldset>
+        <legend data-pf-en="Link existing tasks">关联现有任务</legend>
+        <p class="pf-project-muted" data-pf-en="A project may link multiple tasks. Configure commands, working directories and Cron in the Tasks page.">一个项目可以关联多个已有任务，也可以在项目中添加 Python 脚本。</p>
+        <div id="project-task-options" class="pf-project-task-options"></div>
+      </fieldset>
+      <label><span data-pf-en="Input / required files (one relative path per line)">输入 / 依赖文件（相对项目目录，每行一个）</span>
+        <textarea id="project-inputs" rows="3" placeholder="accounts.txt&#10;config.json"></textarea>
+      </label>
+      <label class="pf-project-checkline"><input type="checkbox" id="project-preflight-inputs"><span data-pf-en="Check required inputs before execution (block if missing)">运行前检查以上输入文件（缺失时阻止启动脚本）</span></label>
+      <p class="pf-project-muted" data-pf-en="Off by default for compatibility. When enabled, every declared input must be a regular file inside the project directory.">默认关闭以保持旧任务兼容；开启后输入清单中每一项都必须是项目目录内可读取元数据的普通文件。</p>
+      <label><span data-pf-en="Output files (one relative path per line)">输出文件（相对项目目录，每行一个）</span>
+        <textarea id="project-outputs" rows="3" placeholder="results.txt&#10;failed.txt"></textarea>
+      </label>
+      <label><span data-pf-en="Tracked output folders (relative paths, up to eight)">自动追踪的输出目录（相对项目目录，每行一个，最多 8 个）</span>
+        <textarea id="project-output-dirs" rows="3" placeholder="output&#10;reports"></textarea>
+      </label>
+      <p class="pf-project-muted" data-pf-en="Only metadata for up to 512 files is compared, two directory levels deep. File contents are not read.">每次执行前后仅比较输出目录中最多 512 个文件的大小和修改时间；最多扫描两层目录，不读取文件正文。</p>
+      <p class="pf-project-muted" data-pf-en="Linked files are never copied, read or edited. Paths containing parent traversal are not allowed.">不会复制、读取或自动修改关联文件。请勿填写包含 .. 的越界路径。</p>
+      <p id="project-form-error" class="pf-project-form-error" role="alert" hidden></p>
+      <div class="pf-project-form-footer">
+        <button type="button" id="project-cancel" class="pf-project-secondary" data-pf-en="Cancel">取消</button>
+        <button type="submit" id="project-save" class="pf-project-primary" data-pf-en="Save project">保存项目</button>
+      </div>
+    </form>
+  </div>
+  <div id="project-python-modal" class="pf-project-overlay" hidden>
+    <form id="project-python-form" class="pf-project-form">
+      <div class="pf-project-form-head"><h2 data-pf-en="Create Python task">创建 Python 执行任务</h2>
+        <button type="button" id="project-python-close" aria-label="关闭">×</button></div>
+      <p class="pf-project-muted" data-pf-en="Saves a disabled task without executing it. Review the schedule in Tasks before enabling.">只保存脚本，不会立即执行或启用定时。需要自动运行时可另行设置计划。</p>
+      <label><span data-pf-en="Task name">任务名称</span><input id="project-python-name" required maxlength="100" placeholder="firecrawl_mock"></label>
+      <label><span data-pf-en="Absolute Python interpreter path">Python 解释器绝对路径</span><input id="project-python-exe" required placeholder="D:\Scoop\apps\python312\current\python.exe"></label>
+      <label><span data-pf-en="Main script (relative to project directory)">主脚本（相对于项目目录）</span><input id="project-python-script" required placeholder="worker.py"></label>
+      <label><span data-pf-en="Launch arguments (one per line)">启动参数（每行一个参数）</span><textarea id="project-python-args" rows="2" placeholder="--limit&#10;10"></textarea></label>
+
+      <label><span data-pf-en="Timeout in seconds (0 means unlimited)">最长运行秒数（0 = 不限制）</span><input id="project-python-timeout" type="number" required min="0" value="3600"></label>
+      <p id="project-python-error" class="pf-project-form-error" role="alert" hidden></p>
+      <div class="pf-project-form-footer">
+        <button type="button" id="project-python-cancel" class="pf-project-secondary">取消</button>
+        <button type="submit" id="project-python-submit" class="pf-project-primary" data-pf-en="Save disabled task">保存停用任务</button>
+      </div>
+    </form>
+  </div>
+  <nav class="fixed bottom-0 left-0 w-full z-50 flex items-center bg-surface/60 backdrop-blur-xl border-t border-white/10 h-14 box-content pb-[env(safe-area-inset-bottom)] md:hidden">
+    <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/processes"><span class="material-symbols-outlined text-[20px]">monitoring</span><span class="text-[10px]" data-i18n="nav.processes_short">进程</span></a>
+    <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/tasks"><span class="material-symbols-outlined text-[20px]">assignment_turned_in</span><span class="text-[10px]" data-i18n="nav.tasks_short">任务</span></a>
+    <a class="flex-1 flex flex-col items-center justify-center text-primary gap-0.5 py-1" href="/projects"><span class="material-symbols-outlined text-[20px]">folder</span><span class="text-[10px]" data-i18n="nav.projects_short">项目</span></a>
+  </nav>
+  <script src="/assets/i18n.js"></script>
+  <script src="/assets/app.js"></script>
+<script src="/assets/pf-dialog.js"></script>
+  <script src="/assets/topbar-controls.js"></script>
+  <script src="/assets/projects.js"></script>
+</body>
+</html>

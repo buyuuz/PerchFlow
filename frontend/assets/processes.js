@@ -251,7 +251,7 @@ function editProcess(name) {
 }
 
 async function deleteProcess(name) {
-  if (!confirm(t('confirm.delete_process'))) return;
+  if (!await PerchDialog.confirm(t('confirm.delete_process'),{title:'删除进程',danger:true})) return;
   await api(`/api/processes/${name}`, { method: 'DELETE' });
   await loadProcesses();
 }

@@ -56,6 +56,7 @@
             background: rgba(255, 255, 255, 0.2);
         }
     </style>
+<link rel="stylesheet" href="/assets/pf-dialog.css">
 </head>
 <body class="bg-background text-on-background min-h-screen font-body-md selection:bg-primary-container/30">
 <!-- TopNavBar (与 processes.html 一致) -->
@@ -75,6 +76,7 @@
 <a class="pf-main-nav-link" data-i18n="nav.tasks" href="/tasks" aria-current="page">
                     定时任务
                 </a>
+<a class="pf-main-nav-link" data-i18n="nav.projects" href="/projects">项目</a>
 </div>
 </div>
 <!-- Right: Actions & Status -->
@@ -113,7 +115,8 @@
 <h1 class="pf-management-page-title text-on-surface" data-i18n="page.tasks_title">定时任务</h1>
 <p class="pf-management-page-subtitle text-on-surface-variant" data-i18n="page.tasks_subtitle">管理 cron 调度的任务</p>
 </div>
-<div class="flex gap-2">
+<div class="flex gap-2 items-center">
+<button id="task-bind-existing" type="button" class="pf-taskdetail-btn" style="border:1px solid #2c5a6b;border-radius:8px;padding:7px 12px;font-size:12px;color:#31d8ed">关联已有脚本</button>
 <div class="relative">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
 <input id="task-search" class="bg-surface-container-high border border-white/10 rounded pl-9 pr-3 py-1.5 text-sm font-body-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant/50 w-32 md:w-64 transition-all" data-i18n-placeholder="search.tasks" placeholder="搜索任务..." type="search" autocomplete="off" aria-label="搜索任务"/>
@@ -173,8 +176,16 @@
 <input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-cmd" placeholder="/opt/scripts/backup.sh" type="text"/>
 </div>
 <div class="flex flex-col gap-2">
-<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.args">参数 (空格分隔)</label>
+<label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.args">参数（支持引号包裹空格）</label>
 <input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-args" placeholder="--full" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">工作目录（可选）</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-cwd" placeholder="D:\\Projects\\Daily_Check" type="text"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="font-body-sm text-body-sm text-on-surface-variant">最长运行秒数（0 = 不限制）</label>
+<input class="bg-black/20 border border-white/10 rounded px-3 py-2 font-mono-data text-mono-data text-on-surface" id="task-timeout" type="number" min="0" value="3600"/>
 </div>
 <div class="flex flex-col gap-2">
 <label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.cron">Cron 表达式</label>
@@ -191,6 +202,18 @@
 </div>
 </div>
 </div>
+<!-- Task history and bounded output viewer -->
+<div id="task-history-modal" role="dialog" aria-modal="true" aria-labelledby="task-history-title" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+  <div class="glass-card w-full max-w-3xl rounded-xl p-5 flex flex-col gap-3" style="max-height:85vh">
+    <div class="flex items-center justify-between gap-3">
+      <h2 id="task-history-title" class="font-headline-md text-headline-md text-on-surface">执行历史</h2>
+      <button type="button" onclick="closeTaskHistory()" class="px-3 py-2 rounded border border-white/10" aria-label="关闭历史记录">关闭</button>
+    </div>
+    <div id="task-history-list" class="overflow-y-auto flex flex-col gap-2" style="min-height:90px;max-height:200px"></div>
+    <label class="text-on-surface-variant text-sm" for="task-run-log">本次运行输出（末尾最多 128 KiB）</label>
+    <pre id="task-run-log" class="overflow-auto rounded bg-black/30 border border-white/10 p-3 text-xs whitespace-pre-wrap break-all" style="min-height:120px;max-height:40vh">选择一条记录查看日志</pre>
+  </div>
+</div>
 <!-- Mobile Bottom Nav -->
 <nav class="fixed bottom-0 left-0 w-full z-50 flex items-center bg-surface/60 backdrop-blur-xl border-t border-white/10 h-14 box-content pb-[env(safe-area-inset-bottom)] md:hidden">
 <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/processes">
@@ -201,9 +224,11 @@
 <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">assignment_turned_in</span>
 <span class="text-[10px]" data-i18n="nav.tasks_short">任务</span>
 </a>
+<a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/projects"><span class="material-symbols-outlined text-[20px]">folder</span><span class="text-[10px]" data-i18n="nav.projects_short">项目</span></a>
 </nav>
 <script src="/assets/i18n.js"></script>
 <script src="/assets/app.js"></script>
+<script src="/assets/pf-dialog.js"></script>
 <script src="/assets/topbar-controls.js?v=top2"></script>
 <script src="/assets/tasks.js"></script>
 </body></html>
