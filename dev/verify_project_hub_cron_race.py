@@ -107,9 +107,12 @@ def main(exe, report_file):
                 plan = api(base, token, "/api/tasks/cron_dummy/schedule", "PUT",
                            {"schedule": "*/2 * * * * *", "enabled": True})
                 ensure(plan.get("ok") and plan.get("enabled"), f"enable cron: {plan}")
+                def running_cron_view():
+                    current = view(base, token, "cron_dummy")
+                    return current if current.get("status") == "running" and current.get("pid") else None
+
                 running = wait_for(
-                    lambda: ((v := view(base, token, "cron_dummy"))
-                             if v.get("status") == "running" and v.get("pid") else None),
+                    running_cron_view,
                     "Cron-triggered dummy process", seconds=12, interval=0.15,
                 )
                 original_run_id = running["run_id"]
@@ -121,10 +124,12 @@ def main(exe, report_file):
                 still = view(base, token, "cron_dummy")
                 ensure(still["run_id"] == original_run_id and still["status"] == "running",
                        f"disabling Cron interrupted running job: {still}")
+                def finished_cron_view():
+                    current = view(base, token, "cron_dummy")
+                    return current if current.get("status") == "success" and current.get("run_id") == original_run_id else None
+
                 finish = wait_for(
-                    lambda: ((v := view(base, token, "cron_dummy"))
-                             if v.get("status") == "success"
-                             and v.get("run_id") == original_run_id else None),
+                    finished_cron_view,
                     "in-progress Cron child completes successfully", seconds=12, interval=0.18,
                 )
                 ensure((work / "cron_complete.txt").read_text() == "completed",
@@ -174,9 +179,12 @@ def main(exe, report_file):
                     if run_ok:
                         ensure("running" in str(delete_response.get("error", "")),
                                f"round {i} delete did not refuse claimed run: {delete_response}")
+                        def completed_race_view():
+                            current = view(base, token, name)
+                            return current if current.get("status") == "success" else None
+
                         wait_for(
-                            lambda: ((v := view(base, token, name))
-                                     if v.get("status") == "success" else None),
+                            completed_race_view,
                             f"round {i} run completion", seconds=10, interval=0.1,
                         )
                         deleted = api(base, token, f"/api/tasks/{name}", "DELETE")
