@@ -75,11 +75,16 @@ with web_server() as port, sync_playwright() as p:
     page.locator("#docker-error").get_by_text("Mock restart refused").wait_for()
     page.locator("#docker-refresh").click()
     page.locator("#docker-error").get_by_text("Mock restart refused").wait_for()
-    page.locator("#docker-back").click()
     mock["disconnected"]=True
     page.locator("#docker-refresh").click()
     page.locator("#docker-error").get_by_text("Mock Docker pipe denied").wait_for()
     assert page.locator("#docker-total").inner_text()=="—","Offline must not show cached state"
+    assert "Mock STDOUT" not in page.locator("#docker-log-text").inner_text(),"Offline detail must not show stale logs"
+    assert "100.8" not in page.locator("#docker-info").inner_text(),"Offline detail must not show stale resource readings"
+    assert page.locator("#docker-start").is_disabled()
+    assert page.locator("#docker-stop").is_disabled()
+    assert page.locator("#docker-restart").is_disabled()
+    page.locator("#docker-back").click()
     assert page.locator('tr[data-id]').count()==0
     browser.close()
     print("DOCKER_UI_V1_OK: nav/list, 2 counts, details, logs, safe stop confirm, state updates, offline clearing")

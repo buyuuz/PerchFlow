@@ -43,6 +43,10 @@
     $('docker-total').textContent='—';$('docker-running').textContent='—';$('docker-stopped').textContent='—';
     $('docker-updated').textContent=t('未连接 Docker Engine','Docker Engine unavailable');
     $('docker-top-label').textContent=t('未连接','Disconnected');
+    if (state.selected) {
+      $('docker-info').replaceChildren(item(t('连接状态','Connection'),t('无法连接，数据已失效','Disconnected; data unavailable')));
+      $('docker-log-text').textContent=t('Docker Engine 已断开，日志无法刷新','Docker Engine disconnected; logs unavailable');
+    }
     showError(message || t('Docker CLI 或 Docker Engine 当前无法访问','Cannot access Docker CLI or Docker Engine'));
     $('docker-tbody').replaceChildren(el('tr','',undefined));
     const td=el('td','',t('无法获取真实容器状态','Unable to fetch live container state'));
