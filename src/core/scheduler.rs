@@ -56,7 +56,10 @@ impl Scheduler {
     pub async fn reload(self: &Arc<Self>) {
         let mut stops = self.stops.lock().await;
         for n in stops.values() {
-            n.notify_waiters();
+            // A schedule may currently be inside run_once (not awaiting
+            // notified()). notify_waiters would lose that stop signal;
+            // notify_one preserves a permit for its next wait.
+            n.notify_one();
         }
         stops.clear();
 
