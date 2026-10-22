@@ -12,22 +12,41 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
 
-      - run: cargo test --release
+      - name: Verify backend
+        run: cargo test --release
 
-      - run: cargo build --release
+      - name: Build Windows binary
+        run: cargo build --release
 
-      - name: Package release zip
+      - name: Verify embedded application icon
         shell: pwsh
         run: |
-          $dir = "perch-${{ github.ref_name }}"
-          New-Item -ItemType Directory -Path $dir | Out-Null
-          Copy-Item target/release/perch.exe $dir/
-          Copy-Item perch.toml $dir/perch.toml
-          Copy-Item README.md $dir/
-          Compress-Archive -Path "$dir/*" -DestinationPath "$dir.zip"
+          ./dev/verify_exe_brand_icon.ps1 -ExePath target/release/perch.exe
+
+      - name: Package secure Windows x64 portable release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $dir = "PerchFlow-${{ github.ref_name }}-Windows-x64"
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+          Copy-Item target/release/perch.exe (Join-Path $dir 'PerchFlow.exe')
+          foreach ($name in @('Portable-Init.ps1','PerchFlow-Start.vbs','PerchFlow-Stop.vbs','PerchFlow-Stop-Helper.ps1','README.md')) {
+            Copy-Item -LiteralPath (Join-Path 'dev/portable' $name) -Destination $dir
+          }
+          @(
+            'PerchFlow Windows x64 Portable'
+            ('Release tag: ' + $env:GITHUB_REF_NAME)
+            ('Source commit: ' + $env:GITHUB_SHA)
+            'Internal cargo binary: perch.exe; official executable: PerchFlow.exe'
+          ) | Set-Content -LiteralPath (Join-Path $dir 'BUILD_INFO.txt') -Encoding utf8
+          if (-not (Test-Path (Join-Path $dir 'PerchFlow.exe'))) { throw 'Missing official executable' }
+          if (Test-Path (Join-Path $dir 'perch.exe')) { throw 'Legacy executable must not be distributed' }
+          if (Test-Path (Join-Path $dir 'perch.toml')) { throw 'Private config must not be distributed' }
+          Compress-Archive -Path $dir -DestinationPath "$dir.zip" -CompressionLevel Optimal -Force
 
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: perch-${{ github.ref_name }}.zip
+          files: PerchFlow-${{ github.ref_name }}-Windows-x64.zip

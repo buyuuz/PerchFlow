@@ -1,6 +1,7 @@
 # PerchFlow Portable for Windows x64
 
 This is the real main-branch release build, not the ProjectHub test/demo package.
+The distributed executable is **PerchFlow.exe**. The internal Rust/Cargo build target remains `perch.exe`; do not rename `perch.toml`.
 
 ## First start
 1. Extract the entire ZIP into a NEW directory, e.g. D:\Tools\PerchFlow.
@@ -15,7 +16,7 @@ If port 9000 is in use, the first-run initializer selects a free local port from
 ## Important
 - This ZIP includes no credentials, real projects, Python demo or previous configurations.
 - Keep perch.toml private. Never distribute it.
-- Do NOT overwrite a running perch.exe or copy its live configuration blindly.
+- Do NOT overwrite a running PerchFlow.exe or copy its live configuration blindly.
 - The stop helper checks for active managed processes; stop these in the UI first.
 - The EXE embeds a blue P icon and contains the UI, Rust runtime and Windows integrations.
 - Python, dependencies and external projects must be installed separately if managed by PerchFlow.
