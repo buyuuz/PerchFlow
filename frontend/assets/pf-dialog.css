@@ -1,4 +1,4 @@
-﻿/* Shared PerchFlow dialog controls (PF-028 / PF-030 / PF-031). */
+/* Shared PerchFlow dialog controls (PF-028 / PF-030 / PF-031). */
 .pf-dialog-overlay{position:fixed;inset:0;height:100dvh;z-index:2000;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:rgba(0,0,0,.72);backdrop-filter:blur(9px)}
 .pf-dialog-panel{box-sizing:border-box;width:min(100%,530px);max-height:calc(100dvh - 32px);min-height:0;display:flex;flex-direction:column;overflow:hidden;border-radius:13px;border:1px solid rgba(142,187,208,.25);background:#17232c;color:#e9f5fa;box-shadow:0 26px 68px #0009;font:13px/1.5 Inter,"Segoe UI",sans-serif}
 .pf-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:17px 20px;border-bottom:1px solid rgba(142,187,208,.13);flex:0 0 auto}
