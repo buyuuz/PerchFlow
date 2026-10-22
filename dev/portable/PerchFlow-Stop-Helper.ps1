@@ -4,7 +4,7 @@ param([switch]$CheckOnly)
 # Never terminate the manager while a managed project is running.
 $ErrorActionPreference = "Stop"
 $folder = Split-Path -Parent $PSCommandPath
-$binary = [System.IO.Path]::GetFullPath((Join-Path $folder "perch.exe"))
+$binary = [System.IO.Path]::GetFullPath((Join-Path $folder "PerchFlow.exe"))
 $configPath = Join-Path $folder "perch.toml"
 
 try {
@@ -15,7 +15,7 @@ try {
 
     $all = @(Get-CimInstance Win32_Process)
     $perchProcesses = @($all | Where-Object {
-        $_.Name -eq "perch.exe" -and $_.ExecutablePath -ieq $binary
+        $_.Name -eq "PerchFlow.exe" -and $_.ExecutablePath -ieq $binary
     })
     $servers = @($perchProcesses | Where-Object {
         $_.CommandLine -match '(?i)\srun\s*$'
@@ -114,7 +114,7 @@ try {
         Stop-Process -Id $menu.ProcessId -Force -ErrorAction SilentlyContinue
     }
     Start-Sleep -Milliseconds 500
-    $remain = @(Get-CimInstance Win32_Process -Filter "Name='perch.exe'" |
+    $remain = @(Get-CimInstance Win32_Process -Filter "Name='PerchFlow.exe'" |
         Where-Object { $_.ExecutablePath -ieq $binary })
     if ($remain.Count -gt 0) {
         Write-Output "PERCH_PROCESS_REMAINING"

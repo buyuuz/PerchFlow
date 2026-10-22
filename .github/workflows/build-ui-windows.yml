@@ -31,18 +31,19 @@ jobs:
       - name: Compile frontend into single Windows binary
         run: cargo build --release
 
-      - name: Create checksum
+      - name: Rename compiled executable and create checksum
         shell: pwsh
         run: |
-          $hash = (Get-FileHash target/release/perch.exe -Algorithm SHA256).Hash
-          "$hash  perch.exe" | Set-Content -Encoding ascii target/release/SHA256.txt
+          Copy-Item target/release/perch.exe target/release/PerchFlow.exe -Force
+          $hash = (Get-FileHash target/release/PerchFlow.exe -Algorithm SHA256).Hash
+          "$hash  PerchFlow.exe" | Set-Content -Encoding ascii target/release/SHA256.txt
 
       - name: Upload portable executable
         uses: actions/upload-artifact@v4
         with:
           name: PerchFlow-UI-Windows
           path: |
-            target/release/perch.exe
+            target/release/PerchFlow.exe
             target/release/SHA256.txt
           if-no-files-found: error
           retention-days: 30
