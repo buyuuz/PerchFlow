@@ -27,7 +27,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          cargo test --locked
+          cargo test
           if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed' }
           foreach ($js in @('frontend/assets/projects.js','frontend/assets/tasks.js','frontend/assets/task-detail.js','frontend/assets/pf-dialog.js','frontend/assets/processes.js')) {
             node --check $js
@@ -39,7 +39,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          cargo build --release --locked --target x86_64-pc-windows-msvc
+          cargo build --release --target x86_64-pc-windows-msvc
           if ($LASTEXITCODE -ne 0) { throw 'Windows x64 build failed' }
           if (-not (Test-Path target/x86_64-pc-windows-msvc/release/perch.exe)) { throw 'Missing newly built perch.exe' }
 
@@ -62,7 +62,7 @@ jobs:
             'PerchFlow Windows x64 Portable - MAIN'
             ('Source commit: ' + $env:GITHUB_SHA)
             ('Built UTC: ' + [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))
-            'Build: cargo build --release --locked --target x86_64-pc-windows-msvc'
+            'Build: cargo build --release --target x86_64-pc-windows-msvc'
             'This package does not contain a config, token, sample project, or demo task.'
           )
           [IO.File]::WriteAllLines((Join-Path $root 'BUILD_INFO.txt'), $info, [Text.UTF8Encoding]::new($false))
