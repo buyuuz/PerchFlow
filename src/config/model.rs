@@ -72,6 +72,10 @@ pub struct TaskDef {
     pub timeout_secs: u64,
     #[serde(default = "default_true")]
     pub enabled: bool,
+    /// A generation boundary for new tasks, preventing a reused name from
+    /// inheriting run history and logs belonging to a retired task.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub history_since: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 fn default_true() -> bool { true }

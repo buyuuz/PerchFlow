@@ -352,6 +352,7 @@ async fn add_python_task(
         name: body.name.clone(), cmd: body.python, args,
         cwd: Some(next.project[index].root.clone()), schedule: String::new(),
         timeout_secs: body.timeout_secs, enabled: false,
+        history_since: Some(chrono::Utc::now()),
     });
     next.project[index].tasks.push(body.name.clone());
     if !next.project[index].inputs.contains(&body.script) {
@@ -385,6 +386,9 @@ async fn add_python_task(
 async fn delete_project_task(
     State(ctx): State<WebContext>, Path((project_name, task_name)): Path<(String, String)>,
 ) -> Json<Value> {
+    // lock order: lifecycle -> scheduler running -> config. start_now/run_once
+    // acquire lifecycle across claim, closing the check-then-delete race.
+    let _lifecycle=ctx.scheduler.lock_lifecycle().await;
     if ctx.scheduler.is_running(&task_name).await {
         return Json(json!({"ok":false,"error":"task is running; stop it before deleting"}));
     }
@@ -397,8 +401,27 @@ async fn delete_project_task(
         return Json(json!({"ok":false,"error":"task not found"}));
     }
     let mut next=current.clone();
+    let script=current.task.iter().find(|t|t.name==task_name)
+        .and_then(|t|t.args.iter().find(|a|a.to_ascii_lowercase().ends_with(".py")))
+        .cloned();
     next.task.retain(|t|t.name!=task_name);
     next.project[project_index].tasks.retain(|t|t!=&task_name);
+    // Python script inputs were added automatically by add_python_task.
+    // Remove an exclusive stale registration, but preserve shared references.
+    if let Some(script)=script {
+        let root=next.project[project_index].root.clone();
+        let norm=|value: &str| value.replace('/', "\\").to_ascii_lowercase();
+        let old_script=norm(&script);
+        let referenced_by_other=next.project[project_index].tasks.iter().any(|other| {
+            next.task.iter().find(|t| &t.name==other)
+                .is_some_and(|t|t.args.iter().any(|arg|norm(arg)==old_script))
+        });
+        if !referenced_by_other {
+            next.project[project_index].inputs.retain(|input| {
+                norm(&format!("{}\\{}",root.trim_end_matches(['\\','/']),input))!=old_script
+            });
+        }
+    }
     if let Err(err)=config::validate(&next) {
         return Json(json!({"ok":false,"error":err.to_string()}));
     }

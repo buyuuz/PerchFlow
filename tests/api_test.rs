@@ -1200,7 +1200,9 @@ async fn project_script_schedule_lifecycle_preserves_manual_task_and_history() {
     assert_eq!(membership["project"]["tasks"][0], "safe_worker");
     let history: serde_json::Value = client.get(format!("{base}/api/tasks/safe_worker/history"))
         .bearer_auth(&token).send().await.unwrap().json().await.unwrap();
-    assert_eq!(history["runs"][0]["run_id"], "historical-safe-1");    let saved = perch::config::load(&tmp.path().join("perch.toml")).unwrap();
+    assert!(history["runs"].as_array().unwrap().is_empty(),
+        "newly created task must not inherit arbitrary older history");    
+    let saved = perch::config::load(&tmp.path().join("perch.toml")).unwrap();
     assert!(saved.task[0].schedule.is_empty());
 }
 
@@ -1255,13 +1257,14 @@ async fn script_settings_update_preserves_cron_and_script_identity() {
             "cwd":root.to_string_lossy(),"args":[],"timeout_secs":12
         })).send().await.unwrap().json().await.unwrap();
     assert_eq!(invalid["ok"],false);
-    let extra: serde_json::Value=client.put(&url).bearer_auth(&token)
+    let extra=client.put(&url).bearer_auth(&token)
         .json(&serde_json::json!({
             "cmd":fake_python,"script":updated.to_string_lossy(),
             "cwd":root.to_string_lossy(),"args":[],"timeout_secs":12,
             "enabled":false,"schedule":""
-        })).send().await.unwrap().json().await.unwrap();
-    assert_eq!(extra["ok"],false,"cron fields may not be edited here");
+        })).send().await.unwrap();
+    assert_eq!(extra.status(),reqwest::StatusCode::UNPROCESSABLE_ENTITY,
+        "unexpected fields must be rejected; non-JSON rejection is expected");
     let stored=perch::config::load(&tmp.path().join("perch.toml")).unwrap();
     assert_eq!(stored.task[0].name,"script1");
     assert_eq!(stored.task[0].schedule,"0 0 0 * * *");

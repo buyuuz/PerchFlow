@@ -92,7 +92,11 @@ impl AppState {
         };
         let mut tasks = HashMap::new();
         for t in &config.task {
-            let record = recent.get(&t.name);
+            let record = recent.get(&t.name).filter(|entry| {
+                t.history_since.is_none_or(|since| {
+                    parse_time(entry,"started_at").is_some_and(|time|time>=since)
+                })
+            });
             let status = record.and_then(|v| v.get("status")).and_then(|v| v.as_str()).unwrap_or("idle");
             let status = if status == "running" { "interrupted" } else { status };
             let runtime = TaskRuntime {
@@ -134,6 +138,7 @@ mod restore_tests {
             task: vec![TaskDef {
                 name: "check".into(), cmd: "cmd".into(), args: vec![],
                 cwd: None, schedule: "0 0 0 * * *".into(), timeout_secs: 0, enabled: false,
+                history_since: None,
             }],
             project: vec![],
         };

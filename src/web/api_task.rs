@@ -15,6 +15,7 @@ pub fn routes() -> Router<WebContext> {
         .route("/tasks", get(list).post(create))
         .route("/tasks/:name", get(detail).put(update).delete(remove))
         .route("/tasks/:name/schedule", axum::routing::put(set_schedule).delete(clear_schedule))
+        .route("/tasks/:name/enabled", axum::routing::put(toggle_schedule_enabled))
         .route("/tasks/:name/run", post(run_now))
         .route("/tasks/:name/stop", post(stop_task))
         .route("/tasks/:name/history", get(history))
@@ -103,6 +104,9 @@ fn save_task_config(
 }
 
 async fn create(State(ctx): State<WebContext>, Json(def): Json<TaskDef>) -> Json<serde_json::Value> {
+    let _lifecycle = ctx.scheduler.lock_lifecycle().await;
+    let mut def = def;
+    def.history_since=Some(chrono::Utc::now());
     if def.schedule.trim().is_empty() {
         if def.enabled { return Json(json!({"ok":false,"error":"unscheduled task cannot be enabled"})); }
     } else if cron::Schedule::from_str(&def.schedule).is_err() {
@@ -154,6 +158,8 @@ async fn update(
     let Some(task) = next.task.iter_mut().find(|t| t.name == name) else {
         return Json(json!({"ok":false,"error":"not found"}));
     };
+    let mut def=def;
+    def.history_since=task.history_since;
     *task = def;
     let result = save_task_config(&mut cfg, next, &ctx);
     drop(cfg);
@@ -166,6 +172,31 @@ async fn update(
     }
     ctx.scheduler.reload().await;
     Json(json!({"ok":true}))
+}
+
+#[derive(Deserialize)]
+struct EnabledOnlyRequest { enabled: bool }
+
+async fn toggle_schedule_enabled(
+    State(ctx): State<WebContext>, Path(name): Path<String>, Json(req): Json<EnabledOnlyRequest>,
+) -> Json<serde_json::Value> {
+    let mut cfg=ctx.state.config.write().await;
+    let Some(idx)=cfg.task.iter().position(|t|t.name==name) else {
+        return Json(json!({"ok":false,"error":"not found"}));
+    };
+    if cfg.task[idx].schedule.trim().is_empty() {
+        return Json(json!({"ok":false,"error":"no schedule to toggle"}));
+    }
+    if cfg.task[idx].enabled==req.enabled {
+        return Json(json!({"ok":true,"enabled":req.enabled,"unchanged":true}));
+    }
+    let mut next=cfg.clone();
+    next.task[idx].enabled=req.enabled;
+    let result=save_task_config(&mut cfg,next,&ctx);
+    drop(cfg);
+    if result.is_err(){return op_result(result);}
+    ctx.scheduler.reload().await;
+    Json(json!({"ok":true,"enabled":req.enabled}))
 }
 
 #[derive(Deserialize)]
@@ -232,6 +263,7 @@ async fn clear_schedule(State(ctx): State<WebContext>, Path(name): Path<String>)
 }
 
 async fn remove(State(ctx): State<WebContext>, Path(name): Path<String>) -> Json<serde_json::Value> {
+    let _lifecycle = ctx.scheduler.lock_lifecycle().await;
     if ctx.scheduler.is_running(&name).await {
         return Json(json!({"ok":false,"error":"task is running; stop it before deleting"}));
     }
@@ -296,8 +328,15 @@ async fn history(State(ctx): State<WebContext>, Path(name): Path<String>) -> Jso
             }
         }
     }
+    let since=ctx.state.config.read().await.task.iter()
+        .find(|t|t.name==name).and_then(|t|t.history_since);
     let mut ids = std::collections::HashSet::new();
-    let mut runs: Vec<_> = entries.into_iter().rev()
+    let mut runs: Vec<_> = entries.into_iter()
+        .filter(|r| since.is_none_or(|min| {
+            r.get("started_at").and_then(|v|v.as_str())
+                .and_then(|v| chrono::DateTime::parse_from_rfc3339(v).ok())
+                .is_some_and(|date| date.with_timezone(&chrono::Utc)>=min)
+        })).rev()
         .filter(|r| r.get("run_id").and_then(|v| v.as_str()).is_some_and(|id| ids.insert(id.to_owned())))
         .take(100).map(|mut r| {
             if r.get("status").and_then(|v| v.as_str()) == Some("running")
@@ -330,6 +369,12 @@ async fn log(State(ctx): State<WebContext>, Path((name, run_id)): Path<(String, 
         return Json(json!({"ok":false,"error":"invalid run id"}));
     }
     let cfg = ctx.state.config.read().await;
+    if let Some(since)=cfg.task.iter().find(|t|t.name==name).and_then(|t|t.history_since) {
+        let run_ms=run_id.split('-').next().and_then(|s|s.parse::<i64>().ok());
+        if !run_ms.is_some_and(|ms|ms>=since.timestamp_millis()) {
+            return Json(json!({"ok":false,"error":"run belongs to a prior task instance"}));
+        }
+    }
     let legacy_ok = task_log_paths::legacy_unique(&name, cfg.task.iter().map(|t| t.name.as_str()));
     drop(cfg);
     let log_dir = ctx.state.config_path.parent().unwrap_or(std::path::Path::new(".")).join("task-logs");
@@ -369,6 +414,12 @@ async fn files(
     let cfg = ctx.state.config.read().await;
     if cfg.task.iter().all(|t| t.name != name) {
         return Json(json!({"ok":false,"error":"task not found"}));
+    }
+    if let Some(since)=cfg.task.iter().find(|t|t.name==name).and_then(|t|t.history_since) {
+        let run_ms=run_id.split('-').next().and_then(|s|s.parse::<i64>().ok());
+        if !run_ms.is_some_and(|ms|ms>=since.timestamp_millis()) {
+            return Json(json!({"ok":false,"error":"run belongs to a prior task instance"}));
+        }
     }
     let legacy_ok = task_log_paths::legacy_unique(&name, cfg.task.iter().map(|t| t.name.as_str()));
     drop(cfg);

@@ -83,7 +83,7 @@ function renderTaskRow(task) {
     ${task.status === 'running' ? taskAction(task, 'stop', 'stop_circle', '停止运行', 'pf-action--delete') : ''}
     ${taskAction(task, 'toggle', on ? 'toggle_on' : 'toggle_off', taskText(on ? 'disable' : 'enable'), 'pf-task-action-toggle')}
     ${taskAction(task, 'edit', 'edit', taskText('edit'))}
-    ${taskAction(task, 'delete', 'delete', taskText('remove'), 'pf-action--delete')}
+    ${taskAction(task, 'delete', 'delete', task.project ? '移除定时计划（保留项目脚本）' : taskText('remove'), 'pf-action--delete')}
   </div></td>
 </tr>`;
 }
@@ -290,21 +290,27 @@ async function stopTask(name) {
 }
 
 async function deleteTask(name) {
-  if (!await PerchDialog.confirm(t('confirm.delete_task'),{title:'删除定时任务',danger:true})) return;
-  try { await executeTaskOperation(`/api/tasks/${name}`, {method:'DELETE'}); }
-  catch (error) { taskError(error); }
+  const task=cachedTasks.find(item=>item.name===decodeURIComponent(name));
+  if(!task)return;
+  const projectLinked=Boolean(task.project);
+  const label=projectLinked
+    ? '仅移除「'+task.name+'」的 Cron 计划，保留项目脚本、文件与执行历史。'
+    : t('confirm.delete_task');
+  if(!await PerchDialog.confirm(label,{
+      title:projectLinked?'移除定时计划':'删除定时任务',danger:true}))return;
+  try{
+    await executeTaskOperation('/api/tasks/'+encodeURIComponent(task.name)+
+      (projectLinked?'/schedule':''),{method:'DELETE'});
+  }catch(error){taskError(error);}
 }
 
 async function toggleEnabled(name, enabled) {
-  const existing = cachedTasks.find(item => item.name === decodeURIComponent(name));
-  if (!existing) return;
-  const body = {
-    name: existing.name, cmd: existing.cmd, args: existing.args || [],
-    cwd: existing.cwd, schedule: existing.schedule, enabled, timeout_secs: existing.timeout_secs ?? 0,
-  };
-  try {
-    await executeTaskOperation(`/api/tasks/${name}`, {method:'PUT',body:JSON.stringify(body)});
-  } catch (error) { taskError(error); }
+  const existing=cachedTasks.find(item=>item.name===decodeURIComponent(name));
+  if(!existing||!existing.schedule)return;
+  try{
+    await executeTaskOperation('/api/tasks/'+encodeURIComponent(existing.name)+'/enabled',
+      {method:'PUT',body:JSON.stringify({enabled})});
+  }catch(error){taskError(error);}
 }
 
 async function copyTaskCommand(name, button) {

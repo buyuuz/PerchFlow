@@ -26,11 +26,17 @@ pub struct Scheduler {
     stops: Mutex<HashMap<String, Arc<Notify>>>,
     running: Mutex<HashMap<String, RunningTask>>,
     history_lock: Mutex<()>,
+    lifecycle: Mutex<()>,
 }
 
 impl Scheduler {
     pub fn new(state: SharedState) -> Arc<Self> {
-        Arc::new(Self { state, stops: Mutex::new(HashMap::new()), running: Mutex::new(HashMap::new()), history_lock: Mutex::new(()) })
+        Arc::new(Self { state, stops: Mutex::new(HashMap::new()), running: Mutex::new(HashMap::new()), history_lock: Mutex::new(()), lifecycle: Mutex::new(()) })
+    }
+
+    /// Shared guard serializes claiming a run against deletion of its definition.
+    pub async fn lock_lifecycle(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.lifecycle.lock().await
     }
 
     async fn find_task(&self, name: &str) -> Result<TaskDef> {
@@ -122,12 +128,18 @@ impl Scheduler {
     }
 
     pub async fn run_once(&self, name: &str) -> Result<()> {
-        let (task, run_id, cancel) = self.claim(name).await?;
+        let (task, run_id, cancel) = {
+            let _guard = self.lifecycle.lock().await;
+            self.claim(name).await?
+        };
         self.execute(&task, &run_id, cancel).await
     }
 
     pub async fn start_now(self: &Arc<Self>, name: &str) -> Result<String> {
-        let (task, run_id, cancel) = self.claim(name).await?;
+        let (task, run_id, cancel) = {
+            let _guard = self.lifecycle.lock().await;
+            self.claim(name).await?
+        };
         let scheduler = Arc::clone(self);
         let id = run_id.clone();
         tokio::spawn(async move {
@@ -419,6 +431,7 @@ mod tests {
             schedule: "0 0 0 * * *".into(),
             timeout_secs: 3600,
             enabled,
+            history_since: None,
         }
     }
 

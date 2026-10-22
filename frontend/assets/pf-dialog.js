@@ -32,8 +32,9 @@ window.PerchDialog=(()=>{
     document.body.append(overlay);
     let complete;
     const promise=new Promise(resolve=>{complete=resolve;});
+    let busy=false;
     const close=(value)=>{
-      if(active!==instance)return;
+      if(active!==instance||busy)return;
       active=null;
       document.removeEventListener('keydown',keyDown,true);
       overlay.remove();
@@ -51,7 +52,7 @@ window.PerchDialog=(()=>{
         }
       }
     };
-    const instance={panel,content,error,footer,promise,close,cancel:()=>close(null)};
+    const instance={panel,content,error,footer,promise,close,cancel:()=>close(null),setBusy(value){busy=value;x.disabled=value;}};
     active=instance;
     x.addEventListener('click',instance.cancel);
     overlay.addEventListener('click',e=>{if(e.target===overlay)instance.cancel();});
@@ -122,10 +123,10 @@ window.PerchDialog=(()=>{
       if(![6,7].includes(schedule.split(/\s+/).length)||!schedule){
         showError(d,tt('请输入有效的 6 或 7 段 Cron 表达式','Enter a valid 6/7-field Cron expression'));return;
       }
-      yes.disabled=true;d.error.hidden=true;
-      try{await onSave(schedule);d.close(true);}
+      yes.disabled=true;no.disabled=true;d.setBusy(true);d.error.hidden=true;
+      try{await onSave(schedule);d.setBusy(false);d.close(true);}
       catch(e){if(d.panel.isConnected)showError(d,e);}
-      finally{yes.disabled=false;}
+      finally{d.setBusy(false);yes.disabled=false;no.disabled=false;}
     };
     yes.onclick=submit;input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();void submit();}});
     input.focus();input.select();
@@ -145,6 +146,7 @@ window.PerchDialog=(()=>{
       list.replaceChildren();
       const q=search.value.trim().toLowerCase();
       const matches=tasks.filter(t=>[t.name,t.project,...(t.args||[])].join(' ').toLowerCase().includes(q));
+      if(selected&&!matches.includes(selected)){selected=null;next.disabled=true;}
       if(!matches.length){list.append(tag('p','pf-dialog-hint',tt('没有匹配的脚本','No matching scripts')));return;}
       for(const item of matches){
         const btn=button('');

@@ -18,7 +18,7 @@
 .pf-dialog-button:hover{border-color:#5cdae9}
 .pf-dialog-primary{background:#36cce4;color:#0a2029;border-color:#36cce4}
 .pf-dialog-danger{background:#ab4452;color:white;border-color:#c85964}
-.pf-dialog-button:disabled{opacity:.4;cursor:not-allowed}
+.pf-dialog-button:disabled,.pf-dialog-close:disabled{opacity:.4;cursor:not-allowed}
 .pf-dialog-choices{display:flex;flex-direction:column;gap:6px;overflow:auto;min-height:0;max-height:40dvh;scrollbar-width:thin}
 .pf-dialog-choice{text-align:left;background:#122331;border:1px solid #304c5d;border-radius:8px;padding:9px 12px;display:flex;flex-direction:column;gap:3px;min-width:0;cursor:pointer;color:#e6f3f8}
 .pf-dialog-choice strong{font:650 12.5px/1.4 Inter,"Segoe UI",sans-serif;overflow:hidden;text-overflow:ellipsis}
@@ -68,3 +68,9 @@
  #task-history-modal>.glass-card{height:calc(100dvh - 16px);max-height:calc(100dvh - 16px)!important;padding:12px!important}
  #task-history-modal #task-history-list{flex-basis:32%}
 }
+
+/* PF040: always fit legacy task editor inside screen. */
+#task-modal{box-sizing:border-box;max-height:100dvh;overflow:hidden;z-index:1000!important}
+#task-modal>.glass-card{box-sizing:border-box;max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+#task-modal>.glass-card>h2{position:sticky;top:-24px;background:#17232c;z-index:1;padding-top:2px}
+@media(max-height:650px){#task-modal>.glass-card{gap:10px!important;padding:14px!important;max-height:calc(100dvh - 16px)}#task-modal{padding:8px!important}#task-modal>.glass-card>h2{top:-14px}}
