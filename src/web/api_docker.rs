@@ -3,8 +3,8 @@ use axum::{extract::{Path,Query},routing::{get,post},Json,Router};
 use chrono::{DateTime,Utc};
 use serde::Deserialize;
 use serde_json::{json,Value};
-use std::{path::PathBuf,sync::OnceLock,time::Duration};
-use tokio::{process::Command,sync::Mutex,time::timeout};
+use std::{path::PathBuf,process::Stdio,sync::OnceLock,time::Duration};
+use tokio::{io::{AsyncRead,AsyncReadExt},process::Command,sync::Mutex,time::timeout};
 use crate::web::WebContext;
 
 pub fn routes()->Router<WebContext>{
@@ -37,15 +37,40 @@ fn cli_path()->Result<PathBuf>{
  }
  Err(error("cli_not_found","Docker CLI not found for this Windows account; check PATH or PERCHFLOW_DOCKER_CLI"))
 }
+// Never buffer unlimited Docker inspect/log output: a single log line may
+// exceed --tail's line count and otherwise exhaust PerchFlow memory.
+async fn read_capped<R:AsyncRead+Unpin>(stream:R,bytes:usize)->Result<String>{
+ let mut output=Vec::new();
+ let mut bounded=stream.take((bytes+1) as u64);
+ bounded.read_to_end(&mut output).await
+   .map_err(|e|error("cli_error",format!("Cannot read Docker CLI output: {e}")))?;
+ if output.len()>bytes{
+  return Err(error("output_too_large",format!("Docker output exceeds the {bytes}-byte safety limit; request fewer log lines")));
+ }
+ Ok(String::from_utf8_lossy(&output).into_owned())
+}
 async fn cli(path:&PathBuf,args:&[&str],secs:u64)->Result<(String,String)>{
- let mut c=Command::new(path);c.args(args).kill_on_drop(true).stdin(std::process::Stdio::null());
- let o=timeout(Duration::from_secs(secs),c.output()).await
+ // Logs may contain very long lines even when --tail is set.
+ let stdout_limit=if args.first()==Some(&"logs"){512*1024}else{8*1024*1024};
+ let mut child=Command::new(path)
+   .args(args).kill_on_drop(true).stdin(Stdio::null())
+   .stdout(Stdio::piped()).stderr(Stdio::piped())
+   .spawn().map_err(|e|error("cli_error",format!("Cannot launch Docker CLI: {e}")))?;
+ let stdout=child.stdout.take().ok_or_else(||error("cli_error","Docker CLI stdout pipe missing"))?;
+ let stderr=child.stderr.take().ok_or_else(||error("cli_error","Docker CLI stderr pipe missing"))?;
+ let work=async{
+  // try_join cancels the sibling reader as soon as a size limit is hit.
+  // Dropping the owned child then terminates it (kill_on_drop), even on timeout.
+  let (out,err)=tokio::try_join!(read_capped(stdout,stdout_limit),read_capped(stderr,512*1024))?;
+  let status=child.wait().await.map_err(|e|error("cli_error",format!("Docker CLI wait failed: {e}")))?;
+  if !status.success(){
+   return Err(error("docker_error",format!("Docker exited {:?}: {}",status.code(),err.trim())
+     .chars().take(1100).collect::<String>()));
+  }
+  Ok((out,err))
+ };
+ timeout(Duration::from_secs(secs),work).await
    .map_err(|_|error("timeout",format!("Docker command exceeded {secs} seconds")))?
-   .map_err(|e|error("cli_error",format!("Cannot launch Docker CLI: {e}")))?;
- let stdout=String::from_utf8_lossy(&o.stdout).into_owned();
- let stderr=String::from_utf8_lossy(&o.stderr).into_owned();
- if !o.status.success(){return Err(error("docker_error",format!("Docker exited {:?}: {}",o.status.code(),stderr.trim()).chars().take(1100).collect::<String>()))}
- Ok((stdout,stderr))
 }
 fn local_endpoint(host:&str)->bool{
  let host=host.trim().trim_matches('"').to_ascii_lowercase();

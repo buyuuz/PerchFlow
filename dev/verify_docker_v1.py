@@ -15,6 +15,8 @@ with tempfile.TemporaryDirectory(prefix="perch-docker-v1-") as tmp:
     shutil.copy2(exe, root / "perch.exe")
     state=root / "fake_state.txt"
     state.write_text("running")
+    oversized=root / "mock_large_logs.txt"
+    oversized.write_text("0")
     with socket.socket() as sock:
         sock.bind(("127.0.0.1",0))
         port=sock.getsockname()[1]
@@ -23,6 +25,7 @@ with tempfile.TemporaryDirectory(prefix="perch-docker-v1-") as tmp:
     env=os.environ.copy()
     env["PERCHFLOW_DOCKER_CLI"]=str(mock)
     env["PF_DOCKER_MOCK_STATE"]=str(state)
+    env["PF_DOCKER_MOCK_LARGE_FILE"]=str(oversized)
     proc=subprocess.Popen([str(root/"perch.exe"),"run"],cwd=root,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     def req(route,method="GET",auth=True):
         headers={"Authorization":f"Bearer {token}"} if auth else {}
@@ -57,6 +60,10 @@ with tempfile.TemporaryDirectory(prefix="perch-docker-v1-") as tmp:
         assert body["ok"] and body["container"]["restart_count"]==2,body
         code,body=req("/api/docker/containers/"+A+"/logs?tail=200")
         assert body["ok"] and "STDOUT" in body["logs"] and "STDERR" in body["logs"],body
+        oversized.write_text("1")
+        code,body=req("/api/docker/containers/"+A+"/logs?tail=1000")
+        assert body["ok"] is False and body["error"]=="output_too_large",body
+        oversized.write_text("0")
         code,body=req("/api/docker/containers/not-a-real-id/stop","POST")
         assert body["ok"] is False and body["error"]=="invalid_id",body
         code,body=req("/api/docker/containers/"+A+"/stop","POST")

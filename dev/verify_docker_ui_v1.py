@@ -23,7 +23,7 @@ def web_server():
 with web_server() as port, sync_playwright() as p:
     browser=p.chromium.launch(channel="msedge",headless=True)
     page=browser.new_page(viewport={"width":1250,"height":800})
-    mock={"running":True,"disconnected":False}
+    mock={"running":True,"disconnected":False,"fail_restart":False}
     def container(id,name,status,exit_code):
         return {"id":id,"short_id":id[:12],"name":name,"image":"example:latest",
                 "status":status,"status_text":"Up 2 hours" if status=="running" else "Exited",
@@ -45,8 +45,11 @@ with web_server() as port, sync_playwright() as p:
         elif "/logs?" in url:
             body={"ok":True,"logs":"2026-10-22T08:00:00Z Mock STDOUT line\n","truncated":False,"tail":"200"}
         elif url.endswith(("/stop","/start","/restart")):
-            mock["running"]=not url.endswith("/stop")
-            body={"ok":True,"connected":True,"status":"running" if mock["running"] else "exited"}
+            if url.endswith("/restart") and mock["fail_restart"]:
+                body={"ok":False,"connected":True,"error":"docker_error","message":"Mock restart refused"}
+            else:
+                mock["running"]=not url.endswith("/stop")
+                body={"ok":True,"connected":True,"status":"running" if mock["running"] else "exited"}
         else: body={"ok":False,"error":"not_found","message":url}
         route.fulfill(status=200,content_type="application/json",body=json.dumps(body))
     page.route("**/api/docker/**",handle)
@@ -66,6 +69,12 @@ with web_server() as port, sync_playwright() as p:
     assert page.locator("#docker-stop").is_disabled()
     page.locator("#docker-start").click()
     page.wait_for_function("document.querySelector('#docker-start').disabled===true",timeout=12000)
+    mock["fail_restart"]=True
+    page.locator("#docker-restart").click()
+    page.locator(".pf-dialog-primary").click()
+    page.locator("#docker-error").get_by_text("Mock restart refused").wait_for()
+    page.locator("#docker-refresh").click()
+    page.locator("#docker-error").get_by_text("Mock restart refused").wait_for()
     page.locator("#docker-back").click()
     mock["disconnected"]=True
     page.locator("#docker-refresh").click()

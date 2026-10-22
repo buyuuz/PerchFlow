@@ -37,6 +37,12 @@ fn main(){
     if running {println!("{{\"ID\":\"{}\",\"Name\":\"example-worker\",\"CPUPerc\":\"0.20%\",\"MemUsage\":\"100.8MiB / 2GiB\"}}",A)}
   }
   "logs"=>{
+   if let Ok(path)=env::var("PF_DOCKER_MOCK_LARGE_FILE"){
+     if fs::read_to_string(path).ok().as_deref()==Some("1"){
+       println!("{}", "x".repeat(700_000));
+       return;
+     }
+   }
    println!("2026-10-22T08:00:00Z mock STDOUT log");
    eprintln!("2026-10-22T08:00:01Z mock STDERR log");
   }

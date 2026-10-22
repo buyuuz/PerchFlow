@@ -2,7 +2,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { containers: [], selected: null, loading: false, detailLoading: false, logsLoading: false, busy: false, lastOk: false };
+  const state = { containers: [], selected: null, loading: false, detailLoading: null, logsLoading: null, busy: false, lastOk: false, refreshQueued: false, operationError: null };
   const t = (zh,en) => typeof getLang === 'function' && getLang() === 'en' ? en : zh;
   function formatUptime(s) {
     if (s === null || s === undefined) return '—';
@@ -49,7 +49,8 @@
     td.colSpan=6;$('docker-tbody').firstChild.append(td);
   }
   async function refresh() {
-    if (state.loading || state.busy || document.hidden) return;
+    if (state.loading) { state.refreshQueued=true; return; }
+    if (state.busy || document.hidden) return;
     state.loading=true;
     $('docker-refresh').disabled=true;
     try {
@@ -61,7 +62,7 @@
         }
         return;
       }
-      showError('');
+      showError(state.operationError || '');
       state.lastOk=true;
       state.containers=Array.isArray(data.containers)?data.containers:[];
       const active=state.containers.filter(x=>x.status==='running'||x.status==='restarting').length;
@@ -102,7 +103,10 @@
       }
     } catch (e) {
       if (e.message !== 'unauthorized') unavailable(e.message);
-    } finally {state.loading=false;$('docker-refresh').disabled=false;}
+    } finally {
+      state.loading=false;$('docker-refresh').disabled=false;
+      if (state.refreshQueued && !state.busy) {state.refreshQueued=false;void refresh();}
+    }
   }
   function updateButtons(c) {
     const running=c.status==='running'||c.status==='restarting';
@@ -147,8 +151,8 @@
     showError('');void refresh();
   }
   async function refreshDetail() {
-    if (!state.selected||state.detailLoading) return;
-    const id=state.selected;state.detailLoading=true;
+    if (!state.selected||state.detailLoading===state.selected) return;
+    const id=state.selected;state.detailLoading=id;
     try {
       const result=await apiJson('/api/docker/containers/'+encodeURIComponent(id));
       if (id!==state.selected) return;
@@ -156,12 +160,12 @@
       const c=state.containers.find(x=>x.id===id);
       if (c) updateOverview(c,result.container);
     } catch(e){if(id===state.selected)showError(e.message);}
-    finally {state.detailLoading=false;}
+    finally {if (state.detailLoading===id)state.detailLoading=null;}
   }
   async function refreshLogs() {
-    if (!state.selected||state.logsLoading||!state.lastOk) return;
+    if (!state.selected||state.logsLoading===state.selected||!state.lastOk) return;
     const id=state.selected;
-    state.logsLoading=true;$('docker-log-refresh').disabled=true;
+    state.logsLoading=id;$('docker-log-refresh').disabled=true;
     const pre=$('docker-log-text');
     const bottom=pre.scrollHeight-pre.clientHeight-pre.scrollTop<48;
     try {
@@ -173,7 +177,7 @@
       if (result.truncated) pre.textContent+='\n'+t('[显示内容超过限制，已截断]','[Output truncated]');
       if (bottom)pre.scrollTop=pre.scrollHeight;
     } catch(e){if(id===state.selected)showError(e.message);}
-    finally{state.logsLoading=false;$('docker-log-refresh').disabled=false;}
+    finally{if(state.logsLoading===id){state.logsLoading=null;$('docker-log-refresh').disabled=false;}}
   }
   async function doOperation(kind) {
     const id=state.selected;
@@ -188,15 +192,16 @@
       });
       if (!ok||state.selected!==id) return;
     }
-    state.busy=true;updateButtons(current);showError('');
+    state.busy=true;state.operationError=null;updateButtons(current);showError('');
     try {
       const result=await apiJson('/api/docker/containers/'+encodeURIComponent(id)+'/'+kind,{method:'POST'});
-      if (!result.ok) showError(result.message||result.error);
-    } catch(e){showError(e.message);}
+      if (!result.ok) state.operationError=result.message||result.error||'Docker operation failed';
+    } catch(e){state.operationError=e.message;}
     finally{
       state.busy=false;
       await refresh();
       if (state.selected===id) {await refreshDetail();await refreshLogs();}
+      if (state.operationError) showError(state.operationError);
     }
   }
   $('docker-refresh').addEventListener('click',()=>void refresh());
