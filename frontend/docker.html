@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PerchFlow · Docker</title>
+<link rel="stylesheet" href="/assets/fonts.css">
+<link rel="stylesheet" href="/assets/tailwind.css">
+<link rel="stylesheet" href="/assets/branding.css">
+<link rel="stylesheet" href="/assets/process-table.css">
+<link rel="stylesheet" href="/assets/topbar-controls.css">
+<link rel="stylesheet" href="/assets/docker.css?v=1">
+<link rel="stylesheet" href="/assets/pf-dialog.css">
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+</head>
+<body class="bg-background text-on-background min-h-screen font-body-md selection:bg-primary-container/30">
+<nav class="pf-process-topnav fixed top-0 w-full z-50 h-14 bg-surface/60 backdrop-blur-[30px] border-b border-white/10 shadow-sm flex justify-between items-center px-4 md:px-container-padding">
+ <div class="flex items-center gap-8 h-full">
+  <div class="pf-header-brand text-primary">
+   <img alt="PerchFlow" class="pf-brand-icon" src="/assets/logo.png?v=brand2" width="28" height="28">
+   <span class="pf-brand-name">Perch<span class="text-on-surface">Flow</span></span>
+  </div>
+  <div class="hidden md:flex h-full gap-6">
+   <a class="pf-main-nav-link" href="/processes" data-i18n="nav.processes">进程</a>
+   <a class="pf-main-nav-link" href="/tasks" data-i18n="nav.tasks">定时任务</a>
+   <a class="pf-main-nav-link" href="/projects" data-i18n="nav.projects">项目</a>
+   <a class="pf-main-nav-link" href="/docker" aria-current="page">Docker</a>
+  </div>
+ </div>
+ <div class="pf-process-nav-right pf-top-actions">
+  <div id="docker-top-status" class="pf-top-status"><span class="pf-top-status-dot" aria-hidden="true"></span><span id="docker-top-label">检测中</span></div>
+  <div class="pf-lang-picker" data-pf-language-picker>
+   <select class="pf-top-lang" data-lang-select aria-label="Language / 语言" onchange="setLang(this.value)"><option value="zh">CN 中文</option><option value="en">EN English</option></select>
+   <button type="button" class="pf-lang-trigger" data-lang-trigger aria-label="Language / 语言" aria-haspopup="listbox" aria-expanded="false" aria-controls="pf-language-menu" hidden>
+    <span class="pf-lang-code" data-lang-code>CN</span><span class="pf-lang-label" data-lang-current>中文</span><span class="material-symbols-outlined pf-lang-chevron" aria-hidden="true">keyboard_arrow_down</span>
+   </button>
+   <div class="pf-lang-menu" id="pf-language-menu" data-lang-menu role="listbox" aria-label="Language / 语言" hidden>
+    <button type="button" class="pf-lang-option" role="option" data-lang-value="zh" data-lang-code="CN" data-lang-label="中文" aria-selected="true" tabindex="-1">CN 中文</button>
+    <button type="button" class="pf-lang-option" role="option" data-lang-value="en" data-lang-code="EN" data-lang-label="English" aria-selected="false" tabindex="-1">EN English</button>
+   </div>
+  </div>
+ </div>
+</nav>
+<main class="pf-docker-main" id="docker-main">
+ <header class="pf-docker-header">
+  <div><h1>Docker</h1><p id="docker-subtitle">本机容器管理 · 数据每 5 秒自动更新</p></div>
+  <button type="button" class="pf-docker-button" id="docker-refresh"><span class="material-symbols-outlined" aria-hidden="true">refresh</span><span>刷新</span></button>
+ </header>
+ <div class="pf-docker-notice" id="docker-error" role="alert" hidden></div>
+ <section id="docker-list-screen">
+  <div class="pf-docker-cards">
+   <div class="pf-docker-card"><span>全部容器</span><strong id="docker-total">—</strong></div>
+   <div class="pf-docker-card"><span>运行中</span><strong id="docker-running">—</strong></div>
+   <div class="pf-docker-card"><span>已停止</span><strong id="docker-stopped">—</strong></div>
+  </div>
+  <div class="pf-docker-section-heading"><h2>容器列表</h2><span id="docker-updated" role="status">等待首次刷新</span></div>
+  <section class="pf-docker-table-wrap" aria-label="Docker 容器">
+   <table class="pf-docker-table">
+    <thead><tr><th>容器</th><th>状态</th><th>CPU</th><th>内存</th><th>运行时长</th><th></th></tr></thead>
+    <tbody id="docker-tbody"><tr><td colspan="6">正在检测 Docker Engine...</td></tr></tbody>
+   </table>
+  </section>
+ </section>
+ <section id="docker-detail-screen" hidden>
+  <button type="button" id="docker-back" class="pf-docker-link"><span class="material-symbols-outlined">arrow_back</span> 返回容器列表</button>
+  <div class="pf-docker-detail-top">
+   <div><h2 id="docker-name">—</h2><p class="pf-docker-muted" id="docker-image">—</p></div>
+   <div id="docker-actions" class="pf-docker-actions">
+    <button id="docker-start" type="button" class="pf-docker-button pf-docker-primary">启动</button>
+    <button id="docker-stop" type="button" class="pf-docker-button pf-docker-danger">停止</button>
+    <button id="docker-restart" type="button" class="pf-docker-button">重启</button>
+   </div>
+  </div>
+  <div class="pf-docker-detail-grid" id="docker-info" aria-live="polite"></div>
+  <section class="pf-docker-logs-panel">
+   <div class="pf-docker-logs-title"><div><h3>容器日志</h3><span class="pf-docker-muted">Docker logs · 最近输出</span></div>
+    <div class="pf-docker-log-controls">
+     <label>查看行数 <select id="docker-log-tail"><option value="100">100</option><option selected value="200">200</option><option value="500">500</option><option value="1000">1000</option></select></label>
+     <label><input type="checkbox" id="docker-follow" checked> 自动刷新</label>
+     <button class="pf-docker-button" id="docker-log-refresh">刷新日志</button>
+    </div>
+   </div>
+   <pre id="docker-log-text" tabindex="0">选择容器查看日志</pre>
+  </section>
+ </section>
+</main>
+<nav class="fixed bottom-0 left-0 w-full z-50 flex items-center bg-surface/60 backdrop-blur-xl border-t border-white/10 h-14 box-content pb-[env(safe-area-inset-bottom)] md:hidden">
+ <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/processes"><span class="material-symbols-outlined text-[20px]">monitoring</span><span class="text-[10px]">进程</span></a>
+ <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/tasks"><span class="material-symbols-outlined text-[20px]">assignment_turned_in</span><span class="text-[10px]">任务</span></a>
+ <a class="flex-1 flex flex-col items-center justify-center text-on-surface-variant opacity-70 gap-0.5 py-1" href="/projects"><span class="material-symbols-outlined text-[20px]">folder</span><span class="text-[10px]">项目</span></a>
+ <a class="flex-1 flex flex-col items-center justify-center text-primary gap-0.5 py-1" href="/docker" aria-current="page"><span class="material-symbols-outlined text-[20px]">deployed_code</span><span class="text-[10px]">Docker</span></a>
+</nav>
+<script src="/assets/i18n.js"></script>
+<script src="/assets/app.js"></script>
+<script src="/assets/pf-dialog.js"></script>
+<script src="/assets/topbar-controls.js?v=top2"></script>
+<script src="/assets/docker.js?v=1"></script>
+</body></html>
