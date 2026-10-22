@@ -221,6 +221,9 @@ function openAddModal() {
   const title = document.getElementById('add-modal-title');
   title.setAttribute('data-i18n', 'modal.add_process');
   title.textContent = t('modal.add_process');
+  const saveButton = document.querySelector('#add-modal button[onclick="submitAddModal()"]');
+  saveButton.setAttribute('data-i18n', 'button.add_process');
+  saveButton.textContent = t('button.add_process');
   document.getElementById('add-name').value = '';
   document.getElementById('add-alias-zh').value = '';
   document.getElementById('add-name').disabled = false;
@@ -239,6 +242,9 @@ function editProcess(name) {
   const title = document.getElementById('add-modal-title');
   title.removeAttribute('data-i18n');
   title.textContent = t('modal.edit_process');
+  const saveButton = document.querySelector('#add-modal button[onclick="submitAddModal()"]');
+  saveButton.setAttribute('data-i18n', 'button.save_changes');
+  saveButton.textContent = t('button.save_changes');
   document.getElementById('add-name').value = p.name;
   document.getElementById('add-alias-zh').value = p.alias_zh || '';
   document.getElementById('add-name').disabled = true;

@@ -190,7 +190,10 @@
     if (!current) return;
     if (kind==='stop'||kind==='restart') {
       const verb=kind==='stop'?t('停止','stop'):t('重启','restart');
-      const ok=await PerchDialog.confirm(t('确定要','Are you sure you want to ')+verb+' '+current.name+'？',{
+      const prompt=kind==='stop'
+        ?t('确定停止容器「','Stop container "')+current.name+t('」？','"?')
+        :t('确定重启容器「','Restart container "')+current.name+t('」？','"?');
+      const ok=await PerchDialog.confirm(prompt,{
         title:kind==='stop'?t('停止 Docker 容器','Stop Docker container'):t('重启 Docker 容器','Restart Docker container'),
         ok:verb,danger:kind==='stop'
       });
