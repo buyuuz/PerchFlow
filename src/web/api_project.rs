@@ -326,9 +326,26 @@ async fn add_python_task(
     let Some(index) = config.project.iter().position(|p| p.name == name) else {
         return Json(json!({"ok":false,"error":"project not found"}));
     };
-    if config.task.iter().any(|task| task.name == body.name) {
-        return Json(json!({"ok":false,"error":"task name already exists"}));
+    // Names are unique within a project, but different projects may share
+    // the same visible label. All execution/runtime/log operations still use
+    // a global, collision-proof internal task key.
+    let visible_name=body.name.trim().to_string();
+    if config.project[index].tasks.iter().any(|key| config.task.iter().any(|task|
+        &task.name==key && task.display_name.as_deref().unwrap_or(&task.name)==visible_name)) {
+        return Json(json!({"ok":false,"error":"script name already exists in this project"}));
     }
+    let mut internal_name=visible_name.clone();
+    if config.task.iter().any(|task|task.name==internal_name) {
+        use sha2::{Digest,Sha256};
+        let digest=Sha256::digest(format!("{}\0{}\0{}",name,visible_name,chrono::Utc::now().timestamp_micros()).as_bytes());
+        let hash=format!("{digest:x}");
+        internal_name=format!("pf_{}", &hash[..24]);
+        let mut salt=0u32;
+        while config.task.iter().any(|task|task.name==internal_name) {
+            salt+=1; internal_name=format!("pf_{}_{}", &hash[..18],salt);
+        }
+    }
+    let display_name=(internal_name!=visible_name).then_some(visible_name);
     let project_root = FsPath::new(&config.project[index].root);
     let script = project_root.join(&body.script);
     // Validate the exact script, including symlinked parent directories. No reading or execution.
@@ -349,12 +366,13 @@ async fn add_python_task(
     args.extend(body.args);
     let mut next = config.clone();
     next.task.push(TaskDef {
-        name: body.name.clone(), cmd: body.python, args,
+        display_name: None,
+        display_name, name: internal_name.clone(), cmd: body.python, args,
         cwd: Some(next.project[index].root.clone()), schedule: String::new(),
         timeout_secs: body.timeout_secs, enabled: false,
         history_since: Some(chrono::Utc::now()),
     });
-    next.project[index].tasks.push(body.name.clone());
+    next.project[index].tasks.push(internal_name.clone());
     if !next.project[index].inputs.contains(&body.script) {
         next.project[index].inputs.push(body.script);
     }
@@ -367,7 +385,7 @@ async fn add_python_task(
     *config = next;
     drop(config);
     ctx.state.tasks.write().await.insert(
-        body.name.clone(), std::sync::Arc::new(tokio::sync::RwLock::new(
+        internal_name.clone(), std::sync::Arc::new(tokio::sync::RwLock::new(
             crate::core::state::TaskRuntime {
                 last_run:None, last_exit_code:None, status:"idle".into(),
                 started_at:None, finished_at:None, run_id:None,
@@ -376,7 +394,7 @@ async fn add_python_task(
         )),
     );
     // No scheduler.reload() here because the task is deliberately disabled.
-    Json(json!({"ok":true,"task":body.name,"enabled":false}))
+    Json(json!({"ok":true,"task":internal_name,"enabled":false}))
 }
 
 

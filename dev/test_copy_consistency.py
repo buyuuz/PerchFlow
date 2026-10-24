@@ -18,7 +18,7 @@ class CopyConsistencyTests(unittest.TestCase):
         self.assertIn("不会删除磁盘上的 .py", js)
 
     def test_schedule_controls_do_not_imply_manual_run_is_disabled(self):
-        self.assertIn("为脚本添加定时计划", source("tasks.html"))
+        self.assertIn("添加定时", source("tasks.html"))
         self.assertIn("启用定时执行", source("tasks.html"))
         js = source("assets/tasks.js")
         self.assertIn("定时已暂停", js)

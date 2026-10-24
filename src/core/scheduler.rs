@@ -411,7 +411,7 @@ fn build_command_for_task(task: &TaskDef) -> tokio::process::Command {
     let def = crate::config::model::ProcessDef {
         alias_zh: None,
         name: task.name.clone(), cmd: task.cmd.clone(), args: task.args.clone(),
-        cwd: task.cwd.clone(), env: Default::default(), autostart: false,
+        cwd: task.cwd.clone(), env: Default::default(), web_url: None, autostart: false,
         restart: Default::default(),
     };
     let mut cmd = build_command(&def);
@@ -427,6 +427,7 @@ mod tests {
 
     fn sample_task(name: &str, enabled: bool) -> TaskDef {
         TaskDef {
+            display_name: None,
             name: name.into(),
             cmd: "cmd".into(),
             args: vec!["/c".into(), "exit 0".into()],

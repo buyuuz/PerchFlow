@@ -1,4 +1,8 @@
-use crate::config::{model::ProcessDef, writer};
+use crate::config::{model::{ProcessDef, RestartConfig}, writer};
+use std::collections::{HashMap, HashSet};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::time::{timeout, Duration};
+use sysinfo::{Pid, System};
 use crate::core::state::{ProcRuntime, ProcStatus, SharedState};
 use crate::web::WebContext;
 use axum::{
@@ -17,6 +21,9 @@ pub fn routes() -> Router<WebContext> {
         .route("/processes/:name", get(detail).put(update).delete(remove))
         .route("/processes/:name/alias", axum::routing::put(update_alias))
         .route("/processes/:name/cwd", axum::routing::put(update_cwd))
+        .route("/processes/:name/settings", get(settings))
+        .route("/processes/:name/web-url", axum::routing::put(update_web_url))
+        .route("/processes/:name/web", get(discover_web))
         .route("/processes/:name/start", post(start))
         .route("/processes/:name/stop", post(stop))
         .route("/processes/:name/restart", post(restart))
@@ -37,6 +44,7 @@ pub struct ProcView {
     pub args: Vec<String>,
     pub cwd: Option<String>,
     pub autostart: bool,
+    pub web_url: Option<String>,
 }
 
 async fn build_view(state: &SharedState, name: &str) -> Option<ProcView> {
@@ -49,6 +57,7 @@ async fn build_view(state: &SharedState, name: &str) -> Option<ProcView> {
     let args = def.args.clone();
     let cwd = def.cwd.clone();
     let autostart = def.autostart;
+    let web_url = def.web_url.clone();
     drop(cfg);
     let rt_arc = state.procs.read().await.get(name).cloned()?;
     let rt = rt_arc.read().await;
@@ -57,7 +66,7 @@ async fn build_view(state: &SharedState, name: &str) -> Option<ProcView> {
         name: name.to_string(), alias_zh, status: rt.status, pid: rt.pid,
         uptime_secs: uptime, restart_count: rt.restart_count,
         cpu_percent: rt.cpu_percent, mem_bytes: rt.mem_bytes, cmd, cmd_raw,
-        args, cwd, autostart,
+        args, cwd, autostart, web_url,
     })
 }
 
@@ -98,6 +107,9 @@ async fn persist(ctx: &WebContext) -> crate::error::Result<()> {
 }
 
 async fn create(State(ctx): State<WebContext>, Json(def): Json<ProcessDef>) -> Json<serde_json::Value> {
+    if !valid_web_url(def.web_url.as_deref()) {
+        return Json(json!({"ok":false,"error":"invalid web URL: http(s) address required"}));
+    }
     if let Some(ref cwd) = def.cwd {
         if let Err(code) = verify_working_directory(cwd) {
             return Json(json!({ "ok": false, "error": code }));
@@ -128,9 +140,13 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(pa
     // instead of silently resetting user-maintained TOML settings.
     let has_env = payload.get("env").is_some();
     let has_restart = payload.get("restart").is_some();
+    let has_web_url = payload.get("web_url").is_some();
     let Ok(mut def) = serde_json::from_value::<ProcessDef>(payload) else {
         return Json(json!({ "ok": false, "error": "invalid process fields" }));
     };
+    if !valid_web_url(def.web_url.as_deref()) {
+        return Json(json!({"ok":false,"error":"invalid web URL: http(s) address required"}));
+    }
     // Legacy relative cwd values remain valid if unchanged. New/modified cwd
     // values must be absolute and must refer to an existing host directory.
     let cwd_unchanged = {
@@ -153,6 +169,7 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(pa
             Some(p) => {
                 if !has_env { def.env = p.env.clone(); }
                 if !has_restart { def.restart = p.restart.clone(); }
+                if !has_web_url { def.web_url = p.web_url.clone(); }
                 *p = def;
             },
             None => return Json(json!({ "ok": false, "error": "not found" })),
@@ -165,6 +182,121 @@ async fn update(State(ctx): State<WebContext>, Path(name): Path<String>, Json(pa
         }
     }
     op_result(r)
+}
+
+
+fn valid_web_url(value: Option<&str>) -> bool {
+    match value {
+        None => true,
+        Some(v) => {
+            let v = v.trim();
+            (v.starts_with("http://") || v.starts_with("https://"))
+                && v.len() <= 2048 && !v.chars().any(char::is_whitespace)
+                && !v.contains('@') && v.split("://").nth(1).is_some_and(|host| !host.is_empty())
+        }
+    }
+}
+#[derive(Deserialize)]
+struct WebUrlRequest { web_url: Option<String> }
+
+async fn update_web_url(State(ctx): State<WebContext>, Path(name): Path<String>,
+    Json(body): Json<WebUrlRequest>) -> Json<serde_json::Value> {
+    let value = body.web_url.map(|s|s.trim().to_owned()).filter(|s|!s.is_empty());
+    if !valid_web_url(value.as_deref()) {
+        return Json(json!({"ok":false,"error":"invalid web URL: http(s) address required"}));
+    }
+    {
+        let mut cfg=ctx.state.config.write().await;
+        let Some(p)=cfg.process.iter_mut().find(|p|p.name==name) else {
+            return Json(json!({"ok":false,"error":"not found"}));
+        };
+        p.web_url=value;
+    }
+    op_result(persist(&ctx).await)
+}
+
+/// Advanced configuration is fetched only upon opening Edit, not exposed
+/// in the periodically refreshed process list.
+async fn settings(State(ctx): State<WebContext>, Path(name): Path<String>)
+    -> Result<Json<serde_json::Value>, StatusCode> {
+    let cfg=ctx.state.config.read().await;
+    cfg.process.iter().find(|p|p.name==name)
+        .map(|p|Json(json!({"env":p.env,"restart":p.restart,"web_url":p.web_url})))
+        .ok_or(StatusCode::NOT_FOUND)
+}
+
+/// Resolve the process and its children to listener PIDs, then make a bounded
+/// localhost HTTP probe. No shell, no background service, no network scan.
+async fn discover_web(State(ctx): State<WebContext>, Path(name): Path<String>)
+    -> Json<serde_json::Value> {
+    let Some(p)=build_view(&ctx.state,&name).await else {
+        return Json(json!({"ok":false,"error":"not found"}));
+    };
+    if p.status != ProcStatus::Running || p.pid.is_none() {
+        return Json(json!({"ok":true,"candidates":[],"url":null}));
+    }
+    let pid=p.pid.unwrap();
+    let result=timeout(Duration::from_secs(5),find_web_for_pid(pid)).await;
+    let candidates=result.ok().unwrap_or_default();
+    let selected=if candidates.len()==1 {Some(candidates[0].clone())} else {None};
+    Json(json!({"ok":true,"candidates":candidates,"url":selected}))
+}
+
+async fn find_web_for_pid(root_pid:u32)->Vec<String> {
+    let mut system=System::new_all();
+    system.refresh_processes();
+    let mut pids=HashSet::from([root_pid]);
+    for _ in 0..5 {
+        let before=pids.len();
+        for (pid,process) in system.processes(){
+            if process.parent().is_some_and(|p|pids.contains(&p.as_u32())) {
+                pids.insert(pid.as_u32());
+            }
+        }
+        if before==pids.len() {break}
+    }
+    let output=match timeout(Duration::from_secs(3),tokio::process::Command::new("netstat")
+        .args(["-ano","-p","tcp"]).kill_on_drop(true).output()).await {
+        Ok(Ok(v)) if v.status.success()=>v,
+        _=>return Vec::new()
+    };
+    let raw=String::from_utf8_lossy(&output.stdout);
+    let mut ports=HashSet::new();
+    for line in raw.lines(){
+        let fields:Vec<_>=line.split_whitespace().collect();
+        if fields.len()<5 || !fields[0].eq_ignore_ascii_case("TCP") ||
+           !(fields[3].eq_ignore_ascii_case("LISTENING")||fields[3]=="侦听") {
+            continue;
+        }
+        if !fields[4].parse::<u32>().ok().is_some_and(|pid|pids.contains(&pid)){continue}
+        let Some((addr,port))=fields[1].rsplit_once(':') else {continue};
+        let Ok(port)=port.parse::<u16>() else {continue};
+        let trimmed=addr.trim_matches(&['[',']'][..]);
+        let Ok(ip)=trimmed.parse::<std::net::IpAddr>() else {continue};
+        if !(ip.is_loopback()||ip.is_unspecified()||match ip {std::net::IpAddr::V4(v)=>v.is_private(),_=>false}) {continue}
+        let host=if ip.is_unspecified()||ip.is_loopback(){"127.0.0.1".to_string()}else{ip.to_string()};
+        ports.insert((host,port));
+    }
+    let mut candidates=ports.into_iter().collect::<Vec<_>>();
+    candidates.sort_by_key(|(host,port)|(host.clone(),*port));
+    let mut found=Vec::new();
+    for (host,port) in candidates.into_iter().take(12) {
+        let hostport=format!("{host}:{port}");
+        let Ok(Ok(mut stream))=timeout(Duration::from_millis(650),tokio::net::TcpStream::connect(&hostport)).await else {continue};
+        let req=b"HEAD / HTTP/1.0
+Host: localhost
+Connection: close
+
+";
+        if timeout(Duration::from_millis(400),stream.write_all(req)).await.is_err(){continue}
+        let mut buf=[0u8;24];
+        if let Ok(Ok(n))=timeout(Duration::from_millis(500),stream.read(&mut buf)).await {
+            if n>=5&&buf[..n].starts_with(b"HTTP/") {
+                found.push(format!("http://{hostport}"));
+            }
+        }
+    }
+    found
 }
 
 // Display-only Chinese alias. Update without touching the supervisor or a running process.

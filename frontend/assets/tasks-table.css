@@ -54,3 +54,5 @@
   .pf-task-table td { padding-top: 7px; padding-bottom: 7px; }
   .pf-task-count { margin: -7px 0 12px; }
 }
+
+.pf-task-project-label{display:block;font-size:10px;line-height:1.4;color:#8ba7b8;font-weight:400}

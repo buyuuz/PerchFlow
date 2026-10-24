@@ -136,6 +136,7 @@ mod restore_tests {
             server: Default::default(),
             process: vec![],
             task: vec![TaskDef {
+                display_name: None,
                 name: "check".into(), cmd: "cmd".into(), args: vec![],
                 cwd: None, schedule: "0 0 0 * * *".into(), timeout_secs: 0, enabled: false,
                 history_since: None,

@@ -315,8 +315,9 @@ async function renderProjectDetail() {
     scriptIcon.setAttribute('aria-hidden','true');
     const anchor = el('a','pf-project-task-link');
     anchor.href = taskDetailHref(name);
-    anchor.title = name;
-    anchor.append(el('span','pf-project-task-title',name));
+    const visibleName=task?.display_name || name;
+    anchor.title = visibleName;
+    anchor.append(el('span','pf-project-task-title',visibleName));
     const scriptName = taskScriptFileName(task);
     if (scriptName) anchor.append(el('small','pf-project-task-filename',scriptName));
     info.append(scriptIcon,anchor);
@@ -482,7 +483,7 @@ function openProjectForm(projectName) {
     input.value = task.name;
     input.checked = Boolean(project && project.tasks.includes(task.name));
     input.disabled = Boolean(assigned);
-    label.append(input, document.createTextNode(task.name + (assigned ? pfL('（已属于 ') + assigned.name + '）' : '')));
+    label.append(input, document.createTextNode((task.display_name || task.name) + (assigned ? pfL('（已属于 ') + assigned.name + '）' : '')));
     picker.append(label);
   });
   byId('project-modal').hidden = false;
@@ -536,7 +537,7 @@ async function deleteProjectScript(name) {
   const task=taskViews.find(item=>item.name===name);
   if(!selected || !task || busyTasks.has(name) || task.status==='running')return;
   const yes=await PerchDialog.confirm(
-    '仅移除「'+name+'」在 PerchFlow 中的任务定义、项目关联及 Cron 计划。不会删除磁盘上的 .py、Excel、TXT 等文件。',
+    '仅移除「'+(task.display_name || name)+'」在 PerchFlow 中的任务定义、项目关联及 Cron 计划。不会删除磁盘上的 .py、Excel、TXT 等文件。',
     {title:pfL('移除脚本'),ok:pfL('确认移除'),danger:true});
   if(!yes)return;
   busyTasks.add(name);

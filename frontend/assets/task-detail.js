@@ -70,8 +70,8 @@ function renderTask(task) {
   latestTask=task;
   const script=(task.args||[]).find(a=>String(a).toLowerCase().endsWith('.py')) || '';
   const scriptName=String(script).replace(/\\/g,'/').split('/').pop() || '—';
-  node('task-name').textContent=task.name;
-  node('task-breadcrumb-name').textContent=task.name;
+  node('task-name').textContent=task.display_name||task.name;
+  node('task-breadcrumb-name').textContent=task.display_name||task.name;
   node('task-log-script-name').textContent=scriptName;
   node('task-path').textContent=scriptName;
   node('task-path').title=scriptName;

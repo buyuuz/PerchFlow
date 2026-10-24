@@ -1,0 +1,21 @@
+/* Share Docker's page frame with Tasks, Projects and Script details.
+   Preserve each page's own grid, scroll and internal component spacing. */
+main.pf-docker-aligned {
+  box-sizing:border-box;
+  width:100%;
+  max-width:1500px;
+  margin-left:auto;
+  margin-right:auto;
+  padding-left:28px;
+  padding-right:28px;
+}
+main.pf-docker-aligned.pf-project-main { padding-top:92px; padding-bottom:90px; }
+main.pf-docker-aligned.pf-taskdetail-main { padding-top:92px; }
+/* Tasks use utility classes on main, which would otherwise keep 1600px/80px. */
+main.pf-docker-aligned.pf-tasks-main { padding-top:92px; padding-bottom:90px; }
+@media(max-width:850px) {
+  main.pf-docker-aligned { padding-left:15px; padding-right:15px; }
+  main.pf-docker-aligned.pf-project-main { padding-top:80px; padding-bottom:92px; }
+  main.pf-docker-aligned.pf-tasks-main { padding-top:80px; padding-bottom:92px; }
+  main.pf-docker-aligned.pf-taskdetail-main { padding-top:80px; }
+}

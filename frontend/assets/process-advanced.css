@@ -1,0 +1,18 @@
+
+.pf-process-edit-dialog{max-height:min(90dvh,840px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.pf-process-field{width:100%;min-height:38px;background:#17232e;border:1px solid rgba(148,174,194,.28);border-radius:7px;padding:7px 10px;color:#dce8ef;font:12px/1.4 inherit}
+.pf-process-field[hidden]{display:none!important}
+.pf-process-advanced{border:1px solid rgba(148,174,194,.22);border-radius:9px;padding:10px 12px}
+.pf-process-advanced summary{cursor:pointer;font-size:13px;font-weight:600;color:#b8d7e9;list-style:none}
+.pf-process-advanced summary::-webkit-details-marker{display:none}
+.pf-process-advanced summary:after{content:'⌄';float:right;color:#8bafc4}
+.pf-process-advanced[open] summary:after{content:'⌃'}
+.pf-process-advanced-body{display:flex;flex-direction:column;gap:12px;padding-top:14px;font-size:12px}
+.pf-process-advanced-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pf-process-advanced-button{border:1px solid rgba(117,184,205,.35);color:#71d9ed;border-radius:7px;padding:5px 9px;font-size:12px}
+.pf-process-env-list{display:flex;flex-direction:column;gap:8px}
+.pf-process-env-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) 28px;gap:6px;align-items:center}
+.pf-process-env-row button{color:#f7a2ad;font-size:18px}
+.pf-process-advanced-field{display:flex;flex-direction:column;gap:5px;font-size:12px}
+.pf-process-restart-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+@media(max-width:520px){.pf-process-env-row{grid-template-columns:1fr 1fr 24px}.pf-process-restart-grid{grid-template-columns:1fr}}

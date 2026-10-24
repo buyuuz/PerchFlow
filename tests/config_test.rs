@@ -71,7 +71,7 @@ fn save_then_load_roundtrips() {
         process: vec![ProcessDef {
             alias_zh: Some("应用管理".into()),
             name: "app".into(), cmd: "ping".into(), args: vec!["localhost".into()],
-            cwd: None, env: HashMap::new(), autostart: true, restart: RestartConfig::default(),
+            cwd: None, env: HashMap::new(), web_url: None, autostart: true, restart: RestartConfig::default(),
         }],
         task: vec![],
         project: vec![],
