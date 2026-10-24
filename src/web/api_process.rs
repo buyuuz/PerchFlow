@@ -1,8 +1,8 @@
-use crate::config::{model::{ProcessDef, RestartConfig}, writer};
-use std::collections::{HashMap, HashSet};
+use crate::config::{model::ProcessDef, writer};
+use std::collections::HashSet;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::time::{timeout, Duration};
-use sysinfo::{Pid, System};
+use sysinfo::System;
 use crate::core::state::{ProcRuntime, ProcStatus, SharedState};
 use crate::web::WebContext;
 use axum::{
@@ -283,11 +283,7 @@ async fn find_web_for_pid(root_pid:u32)->Vec<String> {
     for (host,port) in candidates.into_iter().take(12) {
         let hostport=format!("{host}:{port}");
         let Ok(Ok(mut stream))=timeout(Duration::from_millis(650),tokio::net::TcpStream::connect(&hostport)).await else {continue};
-        let req=b"HEAD / HTTP/1.0
-Host: localhost
-Connection: close
-
-";
+        let req=b"HEAD / HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\n\r\n";
         if timeout(Duration::from_millis(400),stream.write_all(req)).await.is_err(){continue}
         let mut buf=[0u8;24];
         if let Ok(Ok(n))=timeout(Duration::from_millis(500),stream.read(&mut buf)).await {
