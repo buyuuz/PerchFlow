@@ -70,6 +70,7 @@
 
 .pf-process-table th:last-child,
 .pf-process-table td:last-child { padding-right: 17px; }
+.pf-process-table th:last-child { text-align: right; }
 
 .pf-process-table th[aria-sort="ascending"] .pf-sort-icon,
 .pf-process-table th[aria-sort="descending"] .pf-sort-icon {
@@ -363,7 +364,7 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   min-width: 0;
 }
 .pf-action {
@@ -393,6 +394,11 @@
   border-color: rgba(29, 190, 226, .5);
   background: rgba(19, 176, 215, .08);
   color: #46d9f4;
+}
+.pf-action--terminal:disabled {
+  background: transparent;
+  border-color: rgba(129, 151, 168, .24);
+  color: #8fa1af;
 }
 .pf-action--terminal:hover:not(:disabled) {
   border-color: #40d0ef;

@@ -18,7 +18,7 @@ class ProcessTableSourceTests(unittest.TestCase):
         self.assertIn('id="proc-table-body"', HTML)
         self.assertNotIn('id="proc-grid"', HTML)
         self.assertIn('id="proc-search"', HTML)
-        self.assertIn('/assets/process-table.css?v=table1', HTML)
+        self.assertIn('/assets/process-table.css?v=table2', HTML)
         for field in (
             'name', 'status', 'pid', 'cpu', 'mem', 'uptime', 'restarts', 'cmd', 'actions',
         ):

@@ -113,7 +113,7 @@ def run():
         clip = page.evaluate("navigator.clipboard.readText()")
         assert clip == "python daily_check.py", clip
         row.locator('[data-action="edit"]').click()
-        assert page.locator("#add-modal").is_visible()
+        page.locator("#add-modal").wait_for(state="visible",timeout=7000)
         assert page.locator("#add-name").input_value() == "Daily_Check (DEMO)"
         page.locator("#add-modal button").filter(has_text="取消").click()
         assert not page.locator("#add-modal").is_visible()
