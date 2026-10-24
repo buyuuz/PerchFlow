@@ -93,7 +93,7 @@ function renderProcessRow(p) {
       ${actionButton(p, 'stop', 'stop', t('button.stop'), !running)}
       ${actionButton(p, 'edit', 'edit', tableText('edit'))}
       ${actionButton(p, 'delete', 'delete', tableText('remove'), false, 'pf-action--delete')}
-      ${webpage ? actionButton(p, 'web', 'open_in_new', tableText('web'), !running, 'pf-action--terminal') : ''}
+      ${actionButton(p, 'web', 'open_in_new', webpage ? tableText('web') : tableText('web') + '（未识别网页地址）', !running || !webpage, 'pf-action--terminal')}
     </div>
   </td>
 </tr>`;

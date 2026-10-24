@@ -43,8 +43,7 @@
   font-variant-numeric: tabular-nums;
 }
 .pf-task-count strong { color: #b6dce8; font-weight: 650; }
-.pf-task-table .pf-actions { gap: 4px; }
-.pf-task-table .pf-action { flex-basis: 32px; }
+/* Shared action alignment and spacing: see process-table.css. */
 .pf-task-table .pf-command { height: 38px; }
 .pf-task-table .pf-process-empty { padding: 38px 16px !important; }
 
