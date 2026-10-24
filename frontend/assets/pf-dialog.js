@@ -151,7 +151,7 @@ window.PerchDialog=(()=>{
       for(const item of matches){
         const btn=button('');
         btn.className='pf-dialog-choice'+(selected===item?' is-selected':'');
-        const name=tag('strong','',item.name);
+        const name=tag('strong','',item.display_name||item.name);
         const path=String((item.args||[]).find(a=>String(a).toLowerCase().endsWith('.py'))||'').replace(/\\/g,'/').split('/').pop();
         const subtitle=tag('small','',String(item.project||'')+(path?' · '+path:''));
         btn.append(name,subtitle);

@@ -57,6 +57,7 @@
         }
     </style>
 <link rel="stylesheet" href="/assets/pf-dialog.css">
+  <link rel="stylesheet" href="/assets/page-spacing.css?v=1">
 </head>
 <body class="bg-background text-on-background min-h-screen font-body-md selection:bg-primary-container/30">
 <!-- TopNavBar (与 processes.html 一致) -->
@@ -109,7 +110,7 @@
 </div>
 </nav>
 <!-- Main Content -->
-<main class="pt-[80px] px-4 md:px-container-padding pb-20 md:pb-10 max-w-[1600px] mx-auto">
+<main class="pf-docker-aligned pf-tasks-main pt-[80px] px-4 md:px-container-padding pb-20 md:pb-10 max-w-[1600px] mx-auto">
 <!-- Header -->
 <div class="flex justify-between items-center mb-6">
 <div>
@@ -117,7 +118,7 @@
 <p class="pf-management-page-subtitle text-on-surface-variant" data-i18n="page.tasks_subtitle">管理 cron 调度的任务</p>
 </div>
 <div class="flex gap-2 items-center">
-<button id="task-bind-existing" type="button" class="pf-taskdetail-btn" style="border:1px solid #2c5a6b;border-radius:8px;padding:7px 12px;font-size:12px;color:#31d8ed">为脚本添加定时计划</button>
+<button id="task-bind-existing" type="button" class="pf-taskdetail-btn" style="border:1px solid #2c5a6b;border-radius:8px;padding:7px 12px;font-size:12px;color:#31d8ed">添加定时</button>
 <div class="relative">
 <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
 <input id="task-search" class="bg-surface-container-high border border-white/10 rounded pl-9 pr-3 py-1.5 text-sm font-body-sm focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/50 text-on-surface placeholder:text-on-surface-variant/50 w-32 md:w-64 transition-all" data-i18n-placeholder="search.tasks" placeholder="搜索任务..." type="search" autocomplete="off" aria-label="搜索任务"/>

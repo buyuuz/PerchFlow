@@ -26,6 +26,7 @@ pub fn routes() -> Router<WebContext> {
 #[derive(Serialize)]
 pub struct TaskView {
     pub name: String,
+    pub display_name: Option<String>,
     pub project: Option<String>,
     pub schedule: String,
     pub cmd: String,
@@ -55,7 +56,7 @@ async fn build_view(ctx: &WebContext, name: &str) -> Option<TaskView> {
         None => (None, None, "idle".into(), None, None, None, None, 0.0, 0, 0),
     };
     Some(TaskView {
-        name: t.name.clone(),
+        name: t.name.clone(), display_name:t.display_name.clone(),
         project: cfg.project.iter().find(|p| p.tasks.contains(&t.name)).map(|p| p.name.clone()),
         schedule: t.schedule.clone(), cmd: t.cmd.clone(),
         args: t.args.clone(), cwd: t.cwd.clone(),
@@ -160,6 +161,7 @@ async fn update(
     };
     let mut def=def;
     def.history_since=task.history_since;
+    def.display_name=task.display_name.clone();
     *task = def;
     let result = save_task_config(&mut cfg, next, &ctx);
     drop(cfg);

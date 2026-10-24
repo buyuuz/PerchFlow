@@ -25,11 +25,11 @@ class ProcessTableSourceTests(unittest.TestCase):
             self.assertIn(f'data-table-label="{field}"', HTML)
 
     def test_actions_wired_to_existing_api(self):
-        for action in ('start', 'restart', 'stop', 'edit', 'delete', 'logs', 'copy'):
+        for action in ('start', 'restart', 'stop', 'edit', 'delete', 'web', 'copy'):
             self.assertIn(f"'{action}'", JS)
         self.assertIn("function renderProcessRow(p)", JS)
         self.assertIn("function renderProcessTable()", JS)
-        self.assertIn("function editProcess(name)", JS)
+        self.assertIn("async function editProcess(name)", JS)
         self.assertIn("async function deleteProcess(name)", JS)
         self.assertIn("function openAddModal()", JS)
         self.assertIn("async function submitAddModal()", JS)

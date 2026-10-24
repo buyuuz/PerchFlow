@@ -206,6 +206,7 @@ mod tests {
             args: vec!["/c".into(), "echo hello".into()],
             cwd: None,
             env: HashMap::new(),
+            web_url: None,
             autostart: false,
             restart: RestartConfig::default(),
         }
@@ -239,6 +240,7 @@ mod tests {
             args: vec![],
             cwd: None,
             env: HashMap::new(),
+            web_url: None,
             autostart: false,
             restart: RestartConfig::default(),
         };

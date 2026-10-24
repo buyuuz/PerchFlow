@@ -171,7 +171,7 @@
 </main>
 <!-- Add Process Modal -->
 <div class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 hidden items-center justify-center p-4" id="add-modal">
-<div class="glass-card w-full max-w-md rounded-xl p-6 flex flex-col gap-4">
+<div class="glass-card w-full max-w-md rounded-xl p-6 flex flex-col gap-4 pf-process-edit-dialog">
 <h2 class="font-headline-md text-headline-md text-on-surface" id="add-modal-title" data-i18n="modal.add_process">添加进程</h2>
 <div class="flex flex-col gap-2">
 <label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.name_en" for="add-name">进程名称（英文）</label>
@@ -201,10 +201,43 @@
 </div>
 <p class="pf-cwd-validation" id="cwd-validation" role="status" aria-live="polite" hidden></p>
 </div>
+<div class="flex flex-col gap-1.5">
+<label class="font-body-sm text-body-sm text-on-surface-variant" for="add-web-mode">网页地址</label>
+<select id="add-web-mode" class="pf-process-field">
+  <option value="auto">自动识别（推荐）</option>
+  <option value="manual">手动指定</option>
+</select>
+<input id="add-web-url" class="pf-process-field" type="url" inputmode="url" placeholder="http://127.0.0.1:9877" hidden>
+<p class="pf-process-alias-hint" id="add-web-hint">运行后自动检测 Web 端口；识别不准确时可手动指定。</p>
+</div>
 <div class="flex items-center gap-2">
 <input id="add-autostart" type="checkbox"/>
 <label class="font-body-sm text-body-sm text-on-surface-variant" data-i18n="label.autostart" for="add-autostart">开机自启</label>
 </div>
+<details id="add-advanced" class="pf-process-advanced">
+  <summary>高级配置</summary>
+  <div class="pf-process-advanced-body">
+    <div class="pf-process-advanced-heading">
+      <strong>环境变量</strong>
+      <button id="add-env-add" type="button" class="pf-process-advanced-button">+ 添加变量</button>
+    </div>
+    <p class="pf-process-alias-hint">用于设置代理、Token 等启动环境变量。敏感值默认隐藏。</p>
+    <div id="add-env-vars" class="pf-process-env-list"></div>
+    <strong>重启策略</strong>
+    <label class="pf-process-advanced-field">重启方式
+      <select id="add-restart-policy" class="pf-process-field">
+        <option value="on-failure">失败时重启</option>
+        <option value="always">始终重启</option>
+        <option value="never">不自动重启</option>
+      </select>
+    </label>
+    <div class="pf-process-restart-grid">
+      <label class="pf-process-advanced-field">初始延迟（秒）<input id="add-restart-backoff" class="pf-process-field" type="number" min="1" max="86400" value="2"></label>
+      <label class="pf-process-advanced-field">最大延迟（秒）<input id="add-restart-max" class="pf-process-field" type="number" min="1" max="86400" value="60"></label>
+      <label class="pf-process-advanced-field">最大重试次数（0 = 不限）<input id="add-restart-retries" class="pf-process-field" type="number" min="0" max="100000" value="0"></label>
+    </div>
+  </div>
+</details>
 <p class="font-body-sm text-body-sm text-error hidden" id="add-err"></p>
 <div class="flex justify-end gap-3">
 <button class="px-4 py-2 rounded font-body-md text-body-md border border-primary text-primary hover:bg-primary/10" data-i18n="button.cancel" onclick="closeAddModal()">取消</button>
@@ -230,5 +263,6 @@
 <script src="/assets/pf-dialog.js"></script>
 <script src="/assets/topbar-controls.js?v=top2"></script>
 <script src="/assets/process-cwd.js?v=cwd1"></script>
-<script src="/assets/processes.js?v=cwd1"></script>
+<link rel="stylesheet" href="/assets/process-advanced.css?v=1">
+<script src="/assets/processes.js?v=advanced1"></script>
 </body></html>

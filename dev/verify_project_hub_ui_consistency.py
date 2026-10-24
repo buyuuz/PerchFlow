@@ -73,7 +73,7 @@ def main():
             assert left["x"]+left["width"] < right["x"],("not side-by-side",width,left,right)
             assert abs(left["y"]-right["y"])<=1,(left,right)
             assert abs(right["width"]/left["width"]-3)<.04,("not 1:3 split",width,left,right)
-            assert abs(left["x"]-(project_margin["constRect"]["left"]+16))<1
+            assert abs(left["x"]-(project_margin["constRect"]["left"]+28))<1
           if width==1600:
             page.screenshot(path=str(DEST/"project-overview-1600.png"),full_page=True)
           # Large project counts stay inside the left navigator, not a wide top strip.

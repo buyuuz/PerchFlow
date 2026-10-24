@@ -51,6 +51,8 @@ def make_process(name: str, status: str, pid: int | None,
         "cpu_percent": cpu, "mem_bytes": memory_mb * 1024 * 1024,
         "cmd": command, "cmd_raw": command.split(" ")[0],
         "args": command.split(" ")[1:], "cwd": None, "autostart": False,
+        "web_url": None, "env": {},
+        "restart": {"policy":"on-failure","backoff_secs":2,"backoff_max_secs":60,"max_retries":0},
     }
 
 
@@ -327,6 +329,18 @@ def build_handler(frontend: Path = FRONTEND, mode: str = "mock",
                                 return self.send_json({"ok": False, "error": code})
                             state.processes[name].update(mock_view({**payload, "name": name}))
                             return self.send_json({"ok": True})
+                    if len(chunks)==4 and chunks[3]=="settings" and method=="GET":
+                        return self.send_json({"env":copy.deepcopy(obj.get("env",{})),
+                            "restart":copy.deepcopy(obj.get("restart",{})),
+                            "web_url":obj.get("web_url")})
+                    if len(chunks)==4 and chunks[3]=="web" and method=="GET":
+                        candidates=["http://127.0.0.1:9877"] if name=="MailHub (DEMO)" and obj.get("status")=="running" else []
+                        return self.send_json({"ok":True,"candidates":candidates,
+                            "url":candidates[0] if len(candidates)==1 else None})
+                    if len(chunks)==4 and chunks[3]=="web-url" and method=="PUT":
+                        body=self.json_body() or {}
+                        obj["web_url"]=body.get("web_url")
+                        return self.send_json({"ok":True})
                     if len(chunks) == 4 and chunks[3] == "cwd" and method == "PUT":
                         payload = self.json_body()
                         if payload is None or "cwd" not in payload:
@@ -428,6 +442,8 @@ def mock_view(obj: dict) -> dict:
         "restart_count": 0, "cpu_percent": 0.0, "mem_bytes": 0,
         "cmd": " ".join([command, *args]), "cmd_raw": command,
         "args": args, "cwd": obj.get("cwd"), "autostart": bool(obj.get("autostart")),
+        "web_url":obj.get("web_url"),"env":obj.get("env",{}),
+        "restart":obj.get("restart",{"policy":"on-failure","backoff_secs":2,"backoff_max_secs":60,"max_retries":0}),
     }
 
 

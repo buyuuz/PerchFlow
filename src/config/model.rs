@@ -52,6 +52,9 @@ pub struct ProcessDef {
     pub cwd: Option<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
+    /// Optional manual web UI override; None enables automatic local port discovery.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub web_url: Option<String>,
     #[serde(default)]
     pub autostart: bool,
     #[serde(default)]
@@ -60,6 +63,9 @@ pub struct ProcessDef {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskDef {
+    /// Human-readable task name; identity remains unique in `name`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
     pub name: String,
     pub cmd: String,
     #[serde(default)]
@@ -157,6 +163,7 @@ pub fn default_demo_config() -> Config {
             args: vec!["/c".into(), "ping -n 100 127.0.0.1".into()],
             cwd: None,
             env: std::collections::HashMap::new(),
+            web_url: None,
             autostart: true,
             restart: RestartConfig::default(),
         }],

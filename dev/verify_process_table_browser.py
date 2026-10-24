@@ -7,12 +7,13 @@ Run: python dev/verify_process_table_browser.py
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "dev" / "screenshots"
 OUTPUT.mkdir(exist_ok=True)
-BASE = "http://127.0.0.1:9011"
+BASE = os.getenv("PERCHFLOW_PREVIEW_URL", "http://127.0.0.1:9011")
 EDGE = r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 
 
@@ -131,8 +132,12 @@ def run():
             return r && r.querySelector('.pf-status').textContent === 'STOPPED';
         }""")
 
-        # The log/detail entry uses the existing same-origin route.
-        page.locator('tr[data-process-name="MailHub (DEMO)"] [data-action="logs"]').click()
+        # The process name still opens logs/detail; the far-right button
+        # now opens the detected web app in a separate tab.
+        page.evaluate("window.__opened=null; window.open=(url)=>{window.__opened=url;return null;}")
+        page.locator('tr[data-process-name="MailHub (DEMO)"] [data-action="web"]').click()
+        assert page.evaluate("window.__opened") == "http://127.0.0.1:9877"
+        page.locator('tr[data-process-name="MailHub (DEMO)"] .pf-process-name').click()
         page.wait_for_url("**/process-detail?name=MailHub%20(DEMO)")
         assert page.url.endswith("MailHub%20(DEMO)"), page.url
 
@@ -143,6 +148,14 @@ def run():
         assert page.locator("[data-table-label='name']").inner_text() == "Process name"
         page.locator("select[data-lang-select]").select_option("zh")
         assert page.locator("[data-table-label='name']").inner_text() == "进程名称"
+        # Edit uses a separate authenticated settings request, not the list
+        page.locator('tr[data-process-name="MailHub (DEMO)"] [data-action="edit"]').click()
+        page.locator("#add-advanced").wait_for()
+        assert not page.locator("#add-advanced").evaluate("(el)=>el.open")
+        page.locator("#add-advanced summary").click()
+        assert page.locator("#add-restart-policy").input_value() == "on-failure"
+        assert page.locator("#add-web-mode").input_value() == "auto"
+        page.locator('button[onclick="closeAddModal()"]').click()
 
         # Add/restart/delete exercise original real UI callbacks, on MOCK only.
         page.locator('button[onclick="openAddModal()"]').click()
@@ -163,8 +176,8 @@ def run():
             const r=document.querySelector('tr[data-process-name="Automation QA (DEMO)"]');
             return r && r.querySelector('.pf-status').textContent === 'STOPPED';
         }""")
-        page.once("dialog", lambda dialog: dialog.accept())
         added.locator('[data-action="delete"]').click()
+        page.locator('.pf-dialog-overlay .pf-dialog-primary').click()
         page.wait_for_function("""() => !document.querySelector('tr[data-process-name="Automation QA (DEMO)"]')""")
 
         # Refresh interval should not destroy search and sort state.

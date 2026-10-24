@@ -266,7 +266,7 @@ mod tests {
             alias_zh: None,
             name: "p".into(), cmd: "cmd".into(),
             args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
-            cwd: None, env: HashMap::new(), autostart: false,
+            cwd: None, env: HashMap::new(), web_url: None, autostart: false,
             restart: RestartConfig { policy: RestartPolicy::Never, ..Default::default() },
         };
         let state = AppState::new(cfg_with(def), PathBuf::from("perch.toml"));
@@ -290,7 +290,7 @@ mod tests {
             alias_zh: None,
             name: "p".into(), cmd: "cmd".into(),
             args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
-            cwd: None, env: HashMap::new(), autostart: false,
+            cwd: None, env: HashMap::new(), web_url: None, autostart: false,
             restart: RestartConfig { policy: RestartPolicy::Never, ..Default::default() },
         };
         let state = AppState::new(cfg_with(def), PathBuf::from("perch.toml"));
@@ -318,7 +318,7 @@ mod tests {
             alias_zh: None,
             name: "p".into(), cmd: "cmd".into(),
             args: vec!["/c".into(), "exit 1".into()],
-            cwd: None, env: HashMap::new(), autostart: false,
+            cwd: None, env: HashMap::new(), web_url: None, autostart: false,
             restart: RestartConfig {
                 policy: RestartPolicy::Always,
                 backoff_secs: 5, backoff_max_secs: 5, max_retries: 0,
@@ -347,7 +347,7 @@ mod tests {
             alias_zh: None,
             name: "p".into(), cmd: "cmd".into(),
             args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
-            cwd: None, env: HashMap::new(), autostart: false,
+            cwd: None, env: HashMap::new(), web_url: None, autostart: false,
             restart: RestartConfig { policy: RestartPolicy::Never, ..Default::default() },
         };
         let state = AppState::new(cfg_with(def), PathBuf::from("perch.toml"));
@@ -374,7 +374,7 @@ mod tests {
             alias_zh: None,
             name: "p".into(), cmd: "cmd".into(),
             args: vec!["/c".into(), "ping -n 30 127.0.0.1".into()],
-            cwd: None, env: HashMap::new(), autostart: false,
+            cwd: None, env: HashMap::new(), web_url: None, autostart: false,
             restart: RestartConfig { policy: RestartPolicy::Never, ..Default::default() },
         };
         let state = AppState::new(cfg_with(def), PathBuf::from("perch.toml"));

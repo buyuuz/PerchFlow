@@ -60,6 +60,7 @@
     try {
       const data = await apiJson('/api/docker/containers');
       if (!data.ok) {
+        pollDelay=data.error==='cli_not_found'?0:30000;
         unavailable(data.message);
         if (state.selected) {
           $('docker-start').disabled=true;$('docker-stop').disabled=true;$('docker-restart').disabled=true;
@@ -68,6 +69,7 @@
       }
       showError(state.operationError || '');
       state.lastOk=true;
+      pollDelay=5000;
       state.containers=Array.isArray(data.containers)?data.containers:[];
       const active=state.containers.filter(x=>x.status==='running'||x.status==='restarting').length;
       $('docker-total').textContent=state.containers.length;
@@ -106,6 +108,7 @@
         }
       }
     } catch (e) {
+      pollDelay=30000;
       if (e.message !== 'unauthorized') unavailable(e.message);
     } finally {
       state.loading=false;$('docker-refresh').disabled=false;
@@ -218,13 +221,31 @@
   $('docker-restart').addEventListener('click',()=>void doOperation('restart'));
   $('docker-log-refresh').addEventListener('click',()=>void refreshLogs());
   $('docker-log-tail').addEventListener('change',()=>void refreshLogs());
-  setInterval(()=>{
-    if (document.hidden) return;
-    void refresh();
-    if (state.selected&&$('docker-follow').checked) void refreshLogs();
-  },5000);
+  // No Docker CLI: stop polling until a manual refresh or re-entry.
+  // Engine temporarily offline: retry at a lower rate.
+  // Connected: keep the 5-second live refresh.
+  let pollTimer=null;
+  let pollDelay=5000;
+  function nextPoll(){
+    if(pollTimer!==null)clearTimeout(pollTimer);
+    pollTimer=null;
+    if(document.hidden||pollDelay===0)return;
+    pollTimer=setTimeout(()=>{
+      pollTimer=null;
+      void refresh();
+      if(pollDelay===5000&&state.selected&&$('docker-follow').checked)void refreshLogs();
+    },pollDelay);
+  }
+  const refreshOriginal=refresh;
+  // Schedule refreshes from one place; manual refresh also resets the timer.
+  refresh=async function(){
+    if(pollTimer!==null){clearTimeout(pollTimer);pollTimer=null;}
+    await refreshOriginal();
+    nextPoll();
+  };
   document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden){void refresh();if(state.selected&&$('docker-follow').checked)void refreshLogs();}
+    if(document.hidden){if(pollTimer!==null)clearTimeout(pollTimer);pollTimer=null;}
+    else {void refresh();if(state.selected&&$('docker-follow').checked)void refreshLogs();}
   });
   void refresh();
 })();

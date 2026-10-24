@@ -52,7 +52,9 @@ function taskAction(task, action, icon, title, extra = '') {
 
 function renderTaskRow(task) {
   const on = Boolean(task.enabled);
-  const name = taskEscape(task.name);
+  const key = taskEscape(task.name);
+  const name = taskEscape(task.display_name||task.name);
+  const projectLabel = task.project ? taskEscape(task.project) : '';
   const command = taskCommand(task);
   const checked = selectedTasks.has(task.name);
   const lastTime = formatTaskTime(task.last_run);
@@ -60,12 +62,12 @@ function renderTaskRow(task) {
   const resultKey = ['running','cancelled','interrupted','timeout'].includes(task.status) ? task.status : task.last_exit_code == null ? 'never' : Number(task.last_exit_code) === 0 ? 'success' : 'failed';
   const resultIcon = {never:'remove', success:'check_circle', failed:'error', running:'progress_activity',timeout:'timer_off',cancelled:'block',interrupted:'warning'}[resultKey];
   return `
-<tr data-task-name="${name}" class="${checked ? 'pf-is-selected' : ''}">
-  <td><input type="checkbox" class="pf-task-select" data-name="${name}" aria-label="${name}" ${checked ? 'checked' : ''}></td>
+<tr data-task-name="${key}" class="${checked ? 'pf-is-selected' : ''}">
+  <td><input type="checkbox" class="pf-task-select" data-name="${key}" aria-label="${name}" ${checked ? 'checked' : ''}></td>
   <td>
     <div class="pf-process-identity">
       <span class="pf-process-icon ${on ? '' : 'pf-process-icon--stopped'}" aria-hidden="true"><span class="material-symbols-outlined">${taskIcon(task.name)}</span></span>
-      <span class="pf-process-name" title="${name}">${name}</span>
+      <span class="pf-process-name" title="${name}${projectLabel?' · '+projectLabel:''}">${name}${projectLabel?'<small class="pf-task-project-label">'+projectLabel+'</small>':''}</span>
     </div>
   </td>
   <td><span class="pf-status pf-task-status--${on ? 'enabled' : 'disabled'}">${taskText(on ? 'on' : 'off')}</span></td>
@@ -101,7 +103,7 @@ let activeHistoryLogRequest=0;
 function visibleTasks() {
   const needle = taskSearch.trim().toLocaleLowerCase();
   const rows = cachedTasks.filter(task => task.schedule && (
-    !needle || [task.name, task.schedule, taskCommand(task),
+    !needle || [task.display_name,task.project,task.name, task.schedule, taskCommand(task),
       task.enabled ? taskText('on') : taskText('off'),
       task.last_exit_code == null ? taskText('never') : Number(task.last_exit_code) === 0 ? taskText('success') : taskText('failed')
     ].some(s => String(s || '').toLocaleLowerCase().includes(needle))
@@ -112,6 +114,7 @@ function visibleTasks() {
         if (taskSortKey === 'last_run') return t.last_run ? new Date(t.last_run).getTime() || 0 : -1;
         if (taskSortKey === 'last_exit_code') return t.last_exit_code == null ? -1 : Number(t.last_exit_code);
         if (taskSortKey === 'enabled') return Number(Boolean(t.enabled));
+        if (taskSortKey === 'name') return String(t.display_name||t.name);
         return String(t[taskSortKey] || '');
       };
       const left = value(a), right = value(b);
@@ -294,7 +297,7 @@ async function deleteTask(name) {
   if(!task)return;
   const projectLinked=Boolean(task.project);
   const label=projectLinked
-    ? '仅移除「'+task.name+'」的 Cron 计划，保留项目脚本、文件与执行历史。'
+    ? '仅移除「'+(task.display_name||task.name)+'」的 Cron 计划，保留项目脚本、文件与执行历史。'
     : t('confirm.delete_task');
   if(!await PerchDialog.confirm(label,{
       title:projectLinked?'移除定时计划':'删除定时任务',danger:true}))return;
@@ -383,8 +386,8 @@ function editTask(name) {
   const saveButton = document.getElementById('task-save');
   saveButton.setAttribute('data-i18n', 'button.save_changes');
   saveButton.textContent = t('button.save_changes');
-  document.getElementById('task-name').value = task.name;
-  document.getElementById('task-name').disabled = false;
+  document.getElementById('task-name').value = task.display_name||task.name;
+  document.getElementById('task-name').disabled = Boolean(task.project);
   document.getElementById('task-cmd').value = task.cmd;
   document.getElementById('task-args').value = (task.args || []).map(v => /\s|"/.test(v) ? JSON.stringify(v) : v).join(' ');
   document.getElementById('task-cwd').value = task.cwd || '';
@@ -406,7 +409,8 @@ function closeTaskModal() {
 }
 
 async function submitTaskModal() {
-  const name = document.getElementById('task-name').value.trim();
+  const edited=cachedTasks.find(t=>t.name===editingName);
+  const name=edited?.project?edited.name:document.getElementById('task-name').value.trim();
   const cmd = document.getElementById('task-cmd').value.trim();
   let args;
   try { args = parseTaskArgs(document.getElementById('task-args').value); }
