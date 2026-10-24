@@ -19,8 +19,8 @@ class TasksTableSourceTests(unittest.TestCase):
         self.assertIn('class="pf-process-table pf-task-table"', TASK_PAGE)
         self.assertIn('id="task-rows"', TASK_PAGE)
         self.assertIn('id="task-search"', TASK_PAGE)
-        self.assertIn('href="/assets/tasks-table.css?v=tasks2"', TASK_PAGE)
-        self.assertIn('href="/assets/process-table.css?v=table2"', TASK_PAGE)
+        self.assertIn('href="/assets/tasks-table.css?v=tasks1"', TASK_PAGE)
+        self.assertIn('href="/assets/process-table.css?v=table1"', TASK_PAGE)
         self.assertNotIn("hidden md:grid grid-cols-[auto_1.5fr", TASK_PAGE)
         for key in ("name", "enabled", "schedule", "command",
                     "last_run", "last_exit_code", "actions"):

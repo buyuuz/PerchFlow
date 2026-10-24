@@ -47,7 +47,7 @@ with sync_playwright() as playwright:
               }
             }""",tbody)
             assert info["pageWidth"]<=width+3,(width,route,"page overflow",info["pageWidth"])
-            assert info["headerAlign"]=="right",(width,route,info["headerAlign"])
+            assert info["headerAlign"]=="left",(width,route,info["headerAlign"])
             if route=="/processes":
                 assert abs(info["frame"]["width"]-min(1500,width))<=1,(width,route,"frame",info["frame"])
                 for r in info["rows"]:
@@ -56,13 +56,19 @@ with sync_playwright() as playwright:
                     assert web["act"]=="web",(width,r)
                     if r["name"].startswith(("Daily_Check","Video Publisher")):
                         assert web["disabled"],(width,r)
+                if width>=1280:
+                    # Prior column percentages should remain; no forced 254px column.
+                    assert info["rows"][0]["cell"]["width"]>200,(width,info)
             else:
                 for r in info["rows"]:
                     assert r["buttonCount"] in (5,6),(width,r)
                 assert any(r["buttonCount"]==6 for r in info["rows"]),(width,info)
+            if route=="/tasks" and width==1600:
+                # The excess change had made this ~324px; original is ~209px.
+                assert 195<=info["rows"][0]["cell"]["width"]<=220,info
             for row in info["rows"]:
                 assert row["justify"]=="flex-end",row
-                assert row["gap"]=="4px",row
+                assert row["gap"]==("3px" if route=="/processes" else "4px"),row
                 assert row["group"]["left"]>=row["cell"]["left"]-1,(width,route,"left overflow",row)
                 for b in row["actions"]:
                     assert b["rect"]["right"]<=row["cell"]["right"]-14,(width,route,"last button clipped",row)
