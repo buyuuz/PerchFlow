@@ -1,34 +1,44 @@
-"""Keep fixed right-side actions consistent across the Processes and Tasks tables."""
+"""Regression checks: revert excess action-table widths while retaining the Web icon."""
 import unittest
 from pathlib import Path
 
-R=Path(__file__).resolve().parents[1]
-def content(relative):
-    return (R/relative).read_text(encoding="utf-8")
+ROOT=Path(__file__).resolve().parents[1]
+def content(path): return (ROOT/path).read_text(encoding="utf-8")
+
 class ActionLayoutTests(unittest.TestCase):
-    def test_process_frame_matches_docker(self):
+    def test_page_margin_stays_aligned(self):
         html=content("frontend/processes.html")
         css=content("frontend/assets/page-spacing.css")
         self.assertIn('class="pf-docker-aligned pf-process-main"',html)
         self.assertIn('page-spacing.css?v=2',html)
-        self.assertIn("max-width:1500px",css)
-        self.assertIn("padding-left:28px",css)
-        self.assertIn("padding-left:15px",css)
-    def test_sixth_web_button_is_always_rendered(self):
+        for token in ("max-width:1500px","padding-left:28px","padding-left:15px"):
+            self.assertIn(token,css)
+
+    def test_sixth_web_button_is_always_rendered_and_disabled_safely(self):
         js=content("frontend/assets/processes.js")
-        self.assertIn("!running || !webpage, 'pf-action--terminal'",js)
+        self.assertIn("tableText('web'), !running || !webpage, 'pf-action--terminal'",js)
         self.assertNotIn("webpage ? actionButton(p, 'web'",js)
+        self.assertNotIn("（未识别网页地址）",js)
         self.assertIn("else if (action === 'web')",js)
-    def test_action_columns_have_fixed_capacity_and_shared_gap(self):
-        process=content("frontend/processes.html")
+        css=content("frontend/assets/process-table.css")
+        self.assertIn(".pf-action--terminal:disabled",css)
+        self.assertIn(".pf-action:disabled",css)
+
+    def test_exact_original_column_widths_and_alignments(self):
+        html=content("frontend/processes.html")
         tasks=content("frontend/tasks.html")
         css=content("frontend/assets/process-table.css")
         task_css=content("frontend/assets/tasks-table.css")
-        for html in (process,tasks):
-            self.assertIn('<col style="width:254px">',html)
-            self.assertIn('process-table.css?v=table2',html)
-        self.assertIn('gap: 4px;',css)
-        self.assertIn('.pf-process-table th:last-child { text-align: right; }',css)
-        self.assertNotIn('.pf-task-table .pf-actions { gap:',task_css)
+        for part in ('<col style="width:17%">','<col style="width:8%">',
+                     '<col style="width:16.3%">','<col style="width:18.9%">'):
+            self.assertIn(part,html)
+        for part in ('<col style="width:18%">','<col style="width:14%">',
+                     '<col style="width:14.5%">'):
+            self.assertIn(part,tasks)
+        self.assertNotIn('<col style="width:254px">',html+tasks)
+        self.assertNotIn('.pf-process-table th:last-child { text-align: right; }',css)
+        self.assertIn('gap: 3px;',css)
+        self.assertIn('.pf-task-table .pf-actions { gap: 4px; }',task_css)
+        self.assertIn('.pf-task-table .pf-action { flex-basis: 32px; }',task_css)
 
 if __name__=="__main__": unittest.main()

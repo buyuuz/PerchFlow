@@ -70,7 +70,6 @@
 
 .pf-process-table th:last-child,
 .pf-process-table td:last-child { padding-right: 17px; }
-.pf-process-table th:last-child { text-align: right; }
 
 .pf-process-table th[aria-sort="ascending"] .pf-sort-icon,
 .pf-process-table th[aria-sort="descending"] .pf-sort-icon {
@@ -364,7 +363,7 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
 }
 .pf-action {
