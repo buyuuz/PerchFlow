@@ -1,6 +1,52 @@
 
-.pf-process-edit-dialog{max-height:min(90dvh,840px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
-.pf-process-field{width:100%;min-height:38px;background:#17232e;border:1px solid rgba(148,174,194,.28);border-radius:7px;padding:7px 10px;color:#dce8ef;font:12px/1.4 inherit}
+/* Modal must be above both desktop and mobile navigation (z-index:50). */
+.pf-process-modal { z-index:70; }
+.pf-process-edit-dialog {
+  box-sizing:border-box;
+  max-height:min(calc(100dvh - 32px), 840px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  /* A form must not show the underlying process table through its fields. */
+  background:#151b20;
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+  transform:none;
+}
+.pf-process-edit-dialog:hover { background:#151b20; transform:none; }
+.pf-process-field {
+  box-sizing:border-box;
+  width:100%;
+  min-height:38px;
+  background:rgba(0,0,0,.22);
+  border:1px solid rgba(255,255,255,.13);
+  border-radius:6px;
+  padding:8px 12px;
+  color:#dce8ef;
+  font-family:inherit;
+  font-size:13px;
+  line-height:1.4;
+}
+select.pf-process-field {
+  appearance:none;
+  -webkit-appearance:none;
+  color-scheme:dark;
+  cursor:pointer;
+  padding-right:36px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239eb6c6' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 12px center;
+  background-size:14px 14px;
+}
+select.pf-process-field option {
+  background-color:#172027;
+  color:#dce8ef;
+}
+.pf-process-field:focus-visible {
+  outline:2px solid rgba(65,207,238,.7);
+  outline-offset:1px;
+  border-color:#40bdd7;
+}
 .pf-process-field[hidden]{display:none!important}
 .pf-process-advanced{border:1px solid rgba(148,174,194,.22);border-radius:9px;padding:10px 12px}
 .pf-process-advanced summary{cursor:pointer;font-size:13px;font-weight:600;color:#b8d7e9;list-style:none}
