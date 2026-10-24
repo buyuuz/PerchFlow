@@ -164,7 +164,6 @@ pub fn default_demo_config() -> Config {
             cwd: None,
             env: std::collections::HashMap::new(),
             web_url: None,
-            web_url: None,
             autostart: true,
             restart: RestartConfig::default(),
         }],

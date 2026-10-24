@@ -338,7 +338,7 @@ async fn add_python_task(
     if config.task.iter().any(|task|task.name==internal_name) {
         use sha2::{Digest,Sha256};
         let digest=Sha256::digest(format!("{}\0{}\0{}",name,visible_name,chrono::Utc::now().timestamp_micros()).as_bytes());
-        let hash=format!("{digest:x}");
+        let hash=digest.iter().map(|byte|format!("{byte:02x}")).collect::<String>();
         internal_name=format!("pf_{}", &hash[..24]);
         let mut salt=0u32;
         while config.task.iter().any(|task|task.name==internal_name) {
@@ -366,7 +366,6 @@ async fn add_python_task(
     args.extend(body.args);
     let mut next = config.clone();
     next.task.push(TaskDef {
-        display_name: None,
         display_name, name: internal_name.clone(), cmd: body.python, args,
         cwd: Some(next.project[index].root.clone()), schedule: String::new(),
         timeout_secs: body.timeout_secs, enabled: false,
